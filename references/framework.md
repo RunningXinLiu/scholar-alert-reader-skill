@@ -15,11 +15,19 @@ Use this reference when changing the skill implementation rather than a user's p
 ## Extension Rules
 
 - Preserve existing commands: `foundation`, `daily`, `run`, `feedback`, and `auth-gmail`.
+- Preserve `init-project` generated script names because users may automate them.
 - New capabilities should usually be subcommands, not hidden flags on `daily`.
 - Keep `doctor` dependency-light and safe: it should report paths and counts, not secret token contents.
 - Keep raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, and generated knowledge-base files out of shared repos.
 - Enrich only selected retained papers by default. Do not call external APIs for every archived alert item.
 - Keep deterministic local outputs as the source of truth: `papers.json`, `library.json`, `feedback.json`, and Markdown pages.
+
+## Release Checks
+
+- Run `python -m py_compile scripts/scholar_reader.py scholar_alert_reader/*.py`.
+- Run `python -m unittest discover -s tests`.
+- Run a temporary `init-project` and `doctor`.
+- Scan for personal paths, tokens, raw OAuth secrets, and mailbox data before pushing.
 
 ## Feature Roadmap
 

@@ -11,16 +11,17 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 
 ## Workflow
 
-1. Choose a source:
+1. For a new local setup, run `init-project` to create profiles, outputs, knowledge-base directories, and helper scripts.
+2. Choose a source:
    - Gmail API: preferred for automation after OAuth setup.
    - Mail.app: works locally on macOS after Automation permission.
    - `.mbox`: works from exported Gmail/Apple Mail archives.
-2. Load or create a JSON research profile.
-3. First run: use `foundation` to build the seen-paper baseline.
-4. Later runs: use `daily` so only papers not already in the state file are reported.
-5. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
-6. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-7. Use `export` for BibTeX/RIS/Markdown handoff and `doctor` when diagnosing local setup problems.
+3. Load or create a JSON research profile.
+4. First run: use `foundation` to build the seen-paper baseline.
+5. Later runs: use `daily` so only papers not already in the state file are reported.
+6. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
+7. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
+8. Use `export` for BibTeX/RIS/Markdown handoff and `doctor` when diagnosing local setup problems.
 
 ## Outputs
 
@@ -40,6 +41,12 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 Archive-tier papers should not enter the knowledge base by default; they stay in the run outputs and seen-state file only.
 
 ## Commands
+
+Create a local project:
+
+```bash
+python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+```
 
 Install Gmail dependencies when using Gmail API:
 

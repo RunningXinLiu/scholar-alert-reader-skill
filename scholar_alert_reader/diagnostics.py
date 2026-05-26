@@ -52,7 +52,10 @@ def json_count(path: Path) -> tuple[int, str]:
 def dependency_check(module_name: str) -> Check:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        found = importlib.util.find_spec(module_name) is not None
+        try:
+            found = importlib.util.find_spec(module_name) is not None
+        except ModuleNotFoundError:
+            found = False
     return Check(f"python module {module_name}", found, "installed" if found else "not installed")
 
 

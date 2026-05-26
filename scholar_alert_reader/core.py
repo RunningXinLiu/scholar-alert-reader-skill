@@ -32,6 +32,8 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, unquote, urlparse
 
+from . import __version__
+
 
 SCHOLAR_SENDER = "scholaralerts-noreply@google.com"
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -1647,6 +1649,184 @@ def init_profile(profile_path: Path, force: bool) -> None:
     print(f"Profile written: {profile_path}")
 
 
+def shell_double_default(value: Path | str) -> str:
+    return str(value).replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$")
+
+
+def skill_wrapper_path() -> Path:
+    return SCRIPT_DIR.parent / "scripts" / "scholar_reader.py"
+
+
+def generated_script_header() -> str:
+    return "#!/usr/bin/env bash\nset -euo pipefail\n\n"
+
+
+def project_script_common(project_dir: Path, profile_path: Path, kb_dir: Path) -> str:
+    return "\n".join(
+        [
+            f"PROJECT_DIR=\"${{PROJECT_DIR:-{shell_double_default(project_dir)}}}\"",
+            f"PROFILE_PATH=\"${{PROFILE_PATH:-{shell_double_default(profile_path)}}}\"",
+            f"KB_DIR=\"${{KB_DIR:-{shell_double_default(kb_dir)}}}\"",
+            f"SKILL_SCRIPT=\"${{SKILL_SCRIPT:-{shell_double_default(skill_wrapper_path())}}}\"",
+            f"PYTHON_BIN=\"${{PYTHON_BIN:-python3}}\"",
+            "",
+        ]
+    )
+
+
+def write_executable(path: Path, content: str) -> None:
+    path.write_text(content, encoding="utf-8")
+    try:
+        os.chmod(path, 0o755)
+    except OSError:
+        pass
+
+
+def init_project(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    profile_path = project_dir / "profiles" / "research_profile.json"
+    kb_dir = project_dir / "knowledge_base"
+    out_dir = project_dir / "reader_out"
+    if project_dir.exists() and any(project_dir.iterdir()) and not args.force:
+        raise SystemExit(f"Project directory is not empty: {project_dir}. Use --force to add/update scaffold files.")
+
+    for directory in [
+        project_dir,
+        project_dir / "profiles",
+        kb_dir,
+        out_dir / "daily",
+        out_dir / "foundation",
+        out_dir / "manual",
+    ]:
+        directory.mkdir(parents=True, exist_ok=True)
+
+    if not profile_path.exists() or args.force:
+        shutil.copyfile(DEFAULT_PROFILE, profile_path)
+
+    common = project_script_common(project_dir, profile_path, kb_dir)
+    run_reader = generated_script_header() + common + """MODE="${MODE:-daily}"
+SOURCE="${SOURCE:-auto}"
+MBOX_PATH="${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}"
+GMAIL_CREDENTIALS="${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}"
+GMAIL_TOKEN="${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}"
+
+if [[ "$SOURCE" == "auto" ]]; then
+  if [[ -f "$GMAIL_TOKEN" ]]; then
+    SOURCE="gmail"
+  else
+    SOURCE="mbox"
+  fi
+fi
+
+if [[ -z "${OUT_DIR:-}" ]]; then
+  if [[ "$MODE" == "foundation" ]]; then
+    OUT_DIR="$PROJECT_DIR/reader_out/foundation"
+  elif [[ "$MODE" == "daily" ]]; then
+    OUT_DIR="$PROJECT_DIR/reader_out/daily"
+  else
+    OUT_DIR="$PROJECT_DIR/reader_out/manual"
+  fi
+fi
+
+cmd=("$PYTHON_BIN" "$SKILL_SCRIPT" "$MODE" --profile "$PROFILE_PATH" --out-dir "$OUT_DIR" --kb-dir "$KB_DIR")
+
+if [[ "$SOURCE" == "gmail" ]]; then
+  cmd+=(--source-gmail --gmail-credentials "$GMAIL_CREDENTIALS" --gmail-token "$GMAIL_TOKEN")
+elif [[ "$SOURCE" == "mail-app" ]]; then
+  cmd+=(--source-mail-app)
+else
+  cmd+=(--source-mbox "$MBOX_PATH")
+fi
+
+if [[ -n "${BOOST:-}" ]]; then cmd+=(--boost "$BOOST"); fi
+if [[ -n "${GMAIL_LIMIT:-}" ]]; then cmd+=(--gmail-limit "$GMAIL_LIMIT"); fi
+if [[ -n "${GMAIL_QUERY:-}" ]]; then cmd+=(--gmail-query "$GMAIL_QUERY"); fi
+if [[ "$MODE" != "foundation" && -n "${SINCE_DAYS:-}" ]]; then cmd+=(--since-days "$SINCE_DAYS"); fi
+if [[ "$MODE" == "run" && "${ONLY_NEW:-0}" == "1" ]]; then cmd+=(--only-new); fi
+if [[ "$MODE" == "run" && "${UPDATE_STATE:-0}" == "1" ]]; then cmd+=(--update-state); fi
+
+exec "${cmd[@]}"
+"""
+    write_executable(project_dir / "run_reader.sh", run_reader)
+
+    helper_specs = {
+        "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
+        "serve_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
+        "enrich_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" enrich --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --limit "${LIMIT:-20}" --providers "${PROVIDERS:-openalex,crossref}" --update-library "$@"\n',
+        "weekly_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" weekly --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --days "${DAYS:-7}" "$@"\n',
+        "export_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" export --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --format "${FORMAT:-bibtex}" --tiers "${TIERS:-Must read,Skim}" "$@"\n',
+        "doctor_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" doctor --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" --gmail-deps "$@"\n',
+    }
+    for filename, body in helper_specs.items():
+        write_executable(project_dir / filename, generated_script_header() + common + body)
+
+    gitignore = project_dir / ".gitignore"
+    if not gitignore.exists() or args.force:
+        gitignore.write_text(
+            "\n".join(
+                [
+                    ".DS_Store",
+                    "__pycache__/",
+                    "*.pyc",
+                    ".venv/",
+                    "venv/",
+                    "",
+                    "# Private mailbox/auth/local state",
+                    "*.mbox",
+                    "*.mbox/",
+                    "*.eml",
+                    "gmail_credentials.json",
+                    "gmail_token.json",
+                    "client_secret*.json",
+                    "seen_papers.json",
+                    "knowledge_base/feedback.json",
+                    "",
+                    "# Generated outputs",
+                    "reader_out/",
+                    "knowledge_base/",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    readme = project_dir / "README.md"
+    if not readme.exists() or args.force:
+        readme.write_text(
+            "\n".join(
+                [
+                    "# Scholar Alert Reader Project",
+                    "",
+                    "## First run",
+                    "",
+                    "```bash",
+                    "./run_reader.sh",
+                    "```",
+                    "",
+                    "## Feedback UI",
+                    "",
+                    "```bash",
+                    "./serve_reader.sh",
+                    "```",
+                    "",
+                    "## Useful commands",
+                    "",
+                    "```bash",
+                    "./doctor_reader.sh",
+                    "./weekly_reader.sh",
+                    "FORMAT=bibtex ./export_reader.sh",
+                    "```",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    print(f"Project initialized: {project_dir}")
+    print(f"Profile: {profile_path}")
+    print(f"Run: {project_dir / 'run_reader.sh'}")
+
+
 def title_keywords(title: str, limit: int = 8) -> list[str]:
     tokens = re.findall(r"[a-z][a-z0-9-]{3,}", title.lower())
     keywords: list[str] = []
@@ -2249,12 +2429,18 @@ def doctor_command(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     init = sub.add_parser("init-profile", help="Copy the default profile to a writable path")
     init.add_argument("--profile", type=Path, required=True)
     init.add_argument("--force", action="store_true")
     init.set_defaults(func=lambda args: init_profile(args.profile, args.force))
+
+    init_project_cmd = sub.add_parser("init-project", help="Create a runnable local Scholar Alert Reader project")
+    init_project_cmd.add_argument("--project-dir", type=Path, required=True)
+    init_project_cmd.add_argument("--force", action="store_true", help="Add/update scaffold files in a non-empty directory")
+    init_project_cmd.set_defaults(func=init_project)
 
     auth = sub.add_parser("auth-gmail", help="Run the one-time Gmail OAuth browser flow")
     auth.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)

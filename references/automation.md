@@ -2,6 +2,12 @@
 
 Use the local mbox path for the first reliable version. For a true daily pipeline, choose one source connector:
 
+For a new workspace, initialize the local project first:
+
+```bash
+python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+```
+
 ## Gmail API
 
 Best long-term option. Requires user OAuth setup once, then can read messages with label `Google Scholar Alerts` or sender `scholaralerts-noreply@google.com`.

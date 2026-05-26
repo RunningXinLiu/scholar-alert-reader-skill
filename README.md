@@ -2,6 +2,8 @@
 
 A Codex skill for turning Google Scholar Alert emails into personalized literature digests and a cumulative reading knowledge base.
 
+Version: `0.1.0`
+
 ## What It Does
 
 - Reads Google Scholar Alert emails from Gmail API, Mail.app, or exported `.mbox`.
@@ -58,31 +60,29 @@ python3 scripts/scholar_reader.py auth-gmail \
 
 ## Quick Start
 
-Create your profile from the example:
+Create a runnable local project:
 
 ```bash
-mkdir -p profiles
-cp examples/research_profile.example.json profiles/research_profile.json
+python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+cd ~/scholar_alerts
 ```
 
-Build the first baseline:
+Run daily triage:
 
 ```bash
-python3 scripts/scholar_reader.py foundation \
-  --source-gmail \
-  --profile profiles/research_profile.json \
-  --out-dir out/foundation \
-  --kb-dir knowledge_base
+./run_reader.sh
 ```
 
-Run daily new-paper triage:
+Open the feedback UI:
 
 ```bash
-python3 scripts/scholar_reader.py daily \
-  --source-gmail \
-  --profile profiles/research_profile.json \
-  --out-dir out/daily \
-  --kb-dir knowledge_base
+./serve_reader.sh
+```
+
+You can still run directly from this repository:
+
+```bash
+python3 scripts/scholar_reader.py daily --source-gmail --profile profiles/research_profile.json --out-dir out/daily --kb-dir knowledge_base
 ```
 
 ## Feedback Loop
@@ -171,6 +171,19 @@ python3 scripts/scholar_reader.py doctor \
   --out-dir out/daily \
   --gmail-deps
 ```
+
+## Testing
+
+```bash
+python -m py_compile scripts/scholar_reader.py scholar_alert_reader/*.py
+python -m unittest discover -s tests
+```
+
+GitHub Actions runs the same checks on Python 3.10, 3.11, and 3.12.
+
+## Privacy
+
+See [PRIVACY.md](PRIVACY.md). The short version: do not publish raw mailbox exports, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge bases unless you have reviewed and sanitized them.
 
 ## Do Not Commit
 
