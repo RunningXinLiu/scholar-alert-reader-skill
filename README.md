@@ -9,6 +9,7 @@ A Codex skill for turning Google Scholar Alert emails into personalized literatu
 - Deduplicates papers across alerts.
 - Scores papers against a JSON research profile.
 - Writes daily digests, HTML reports, CSV/JSON output, and a cumulative knowledge base.
+- Records explicit feedback so future runs learn from `interested`, `archive`, `more-like-this`, and `less-like-this` marks.
 
 ## Install As A Codex Skill
 
@@ -71,6 +72,32 @@ python3 scripts/scholar_reader.py daily \
   --kb-dir knowledge_base
 ```
 
+## Feedback Loop
+
+Each digest includes a short paper `ID`. Mark papers from the latest `papers.json`:
+
+```bash
+python3 scripts/scholar_reader.py feedback \
+  --profile profiles/research_profile.json \
+  --papers-json out/daily/papers.json \
+  --paper-id <ID> \
+  --mark interested \
+  --more-like-this
+```
+
+Suppress a paper and similar future papers:
+
+```bash
+python3 scripts/scholar_reader.py feedback \
+  --profile profiles/research_profile.json \
+  --papers-json out/daily/papers.json \
+  --paper-id <ID> \
+  --mark archive \
+  --less-like-this
+```
+
+The command writes `knowledge_base/feedback.json` by default and immediately refreshes `foundation.md` / `interested.md` when the selected paper should enter or leave the retained library. Later `daily`, `foundation`, and `run` commands load that file automatically when they use the same `--kb-dir`. Use `--no-feedback` on a run to ignore saved feedback temporarily.
+
 ## Do Not Commit
 
 Do not commit:
@@ -78,6 +105,6 @@ Do not commit:
 - Gmail OAuth credentials or token files
 - raw mailbox exports
 - `seen_papers.json`
+- `feedback.json`
 - generated `out/`
 - generated `knowledge_base/`
-

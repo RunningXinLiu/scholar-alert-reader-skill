@@ -18,7 +18,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 2. Load or create a JSON research profile.
 3. First run: use `foundation` to build the seen-paper baseline.
 4. Later runs: use `daily` so only papers not already in the state file are reported.
-5. Use feedback to update the research profile before rerunning.
+5. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
 
 ## Outputs
 
@@ -26,6 +26,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 - `papers.json` and `papers.csv`: structured run output.
 - `deep_read_queue.md`: top papers for actual reading.
 - `seen_papers.json`: dedupe state; can include every alert item.
+- `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
 - `knowledge_base/library.json`: cumulative retained papers, usually Must read + Skim.
 - `knowledge_base/foundation.md`: cumulative retained library grouped by direction.
 - `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read.
@@ -79,6 +80,26 @@ python3 scripts/scholar_reader.py run \
   --kb-dir knowledge_base
 ```
 
+Record feedback from a digest:
+
+```bash
+python3 scripts/scholar_reader.py feedback \
+  --profile profiles/research_profile.json \
+  --papers-json out/daily/papers.json \
+  --paper-id <ID> \
+  --mark interested \
+  --more-like-this
+```
+
+```bash
+python3 scripts/scholar_reader.py feedback \
+  --profile profiles/research_profile.json \
+  --papers-json out/daily/papers.json \
+  --paper-id <ID> \
+  --mark archive \
+  --less-like-this
+```
+
 ## Ranking Guidance
 
 Prioritize papers that match:
@@ -92,8 +113,8 @@ Down-rank:
 - Educational outreach, conference logistics, generic news, non-research items.
 - Papers outside the current question even if they are in the broad field.
 - Repeated citation alerts unless the cited paper itself is important.
+- Papers or terms the user marked with `archive` or `less-like-this`.
 
 ## Privacy
 
 Treat mailbox exports and Gmail tokens as private data. Do not upload raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, or generated knowledge-base outputs unless the user explicitly asks for that.
-

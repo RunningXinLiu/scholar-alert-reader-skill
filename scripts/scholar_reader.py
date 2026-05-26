@@ -17,6 +17,7 @@ import json
 import mailbox
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -39,6 +40,39 @@ DEFAULT_PRIVATE_DIR = Path.home() / ".codex" / "scholar-alert-reader"
 DEFAULT_GMAIL_CREDENTIALS = DEFAULT_PRIVATE_DIR / "gmail_credentials.json"
 DEFAULT_GMAIL_TOKEN = DEFAULT_PRIVATE_DIR / "gmail_token.json"
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+FEEDBACK_VERSION = 1
+
+TITLE_STOPWORDS = {
+    "about",
+    "after",
+    "analysis",
+    "based",
+    "between",
+    "case",
+    "data",
+    "during",
+    "earth",
+    "effects",
+    "evidence",
+    "from",
+    "global",
+    "high",
+    "implications",
+    "into",
+    "large",
+    "model",
+    "models",
+    "new",
+    "paper",
+    "regional",
+    "results",
+    "study",
+    "system",
+    "through",
+    "toward",
+    "using",
+    "with",
+}
 
 ENTRY_RE = re.compile(
     r'<h3\b[^>]*>\s*(?:<span\b.*?</span>\s*)?'
@@ -222,7 +256,105 @@ def text_fields(paper: Paper) -> dict[str, str]:
     }
 
 
-def score_paper(paper: Paper, profile: dict[str, Any], boost: str | None) -> None:
+def empty_feedback() -> dict[str, Any]:
+    return {
+        "version": FEEDBACK_VERSION,
+        "updated_at": "",
+        "papers": {},
+        "terms": [],
+    }
+
+
+def load_feedback(feedback_file: Path | None) -> dict[str, Any]:
+    if not feedback_file or not feedback_file.exists():
+        return empty_feedback()
+    try:
+        data = load_json(feedback_file)
+    except Exception:
+        return empty_feedback()
+    if not isinstance(data, dict):
+        return empty_feedback()
+    data.setdefault("version", FEEDBACK_VERSION)
+    data.setdefault("updated_at", "")
+    data.setdefault("papers", {})
+    data.setdefault("terms", [])
+    return data
+
+
+def save_feedback(feedback_file: Path, feedback: dict[str, Any]) -> None:
+    feedback["version"] = FEEDBACK_VERSION
+    feedback["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    save_json(feedback_file, feedback)
+
+
+def feedback_adjustment(
+    paper: Paper,
+    feedback: dict[str, Any] | None,
+) -> tuple[int, list[str], set[str], list[str], str | None]:
+    if not feedback:
+        return 0, [], set(), [], None
+
+    delta = 0
+    matched_terms: list[str] = []
+    tags: set[str] = set()
+    reasons: list[str] = []
+    forced_tier: str | None = None
+    fields = text_fields(paper)
+    haystack = "\n".join(fields.values())
+
+    paper_feedback = feedback.get("papers", {}).get(paper.id)
+    if isinstance(paper_feedback, dict):
+        status = paper_feedback.get("status")
+        if status == "interested":
+            delta += 12
+            forced_tier = "Must read"
+            tags.add("feedback")
+            reasons.append("用户反馈：这篇已标为 interested，强制进入重点阅读。")
+        elif status == "archive":
+            delta -= 100
+            forced_tier = "Archive"
+            tags.add("feedback")
+            reasons.append("用户反馈：这篇已标为 archive，强制归档。")
+
+        signals = paper_feedback.get("signals", {})
+        if isinstance(signals, dict) and signals.get("more_like_this"):
+            delta += 4
+            tags.add("feedback")
+            reasons.append("用户反馈：这篇曾被标记为 more-like-this。")
+        if isinstance(signals, dict) and signals.get("less_like_this"):
+            delta -= 8
+            tags.add("feedback")
+            reasons.append("用户反馈：这篇曾被标记为 less-like-this。")
+
+    for item in feedback.get("terms", []):
+        if not isinstance(item, dict):
+            continue
+        term = str(item.get("term", "")).strip()
+        if not term:
+            continue
+        if term.lower() not in haystack:
+            continue
+        weight = int(item.get("weight", 3))
+        direction = str(item.get("direction", "positive"))
+        tags.add("feedback")
+        if direction == "negative":
+            delta -= weight
+            matched_terms.append(f"user:-{term}")
+            reasons.append(f"用户反馈降权：命中 `{term}`。")
+        else:
+            delta += weight
+            matched_terms.append(f"user:{term}")
+            reasons.append(f"用户反馈加权：命中 `{term}`。")
+
+    return delta, sorted(set(matched_terms), key=lambda t: t.lower()), tags, reasons[:5], forced_tier
+
+
+def score_paper(
+    paper: Paper,
+    profile: dict[str, Any],
+    boost: str | None,
+    feedback: dict[str, Any] | None = None,
+) -> None:
     positive, negative = profile_terms(profile, boost)
     fields = text_fields(paper)
     score = 0
@@ -295,15 +427,24 @@ def score_paper(paper: Paper, profile: dict[str, Any], boost: str | None) -> Non
     if re.search(r"\b(review|survey|perspective|benchmark|dataset)\b", paper.title, re.I):
         score += 1
 
+    feedback_delta, feedback_terms, feedback_tags, feedback_reasons, forced_tier = feedback_adjustment(paper, feedback)
+    score += feedback_delta
+
     thresholds = profile.get("tier_thresholds", {})
     must = int(thresholds.get("must_read", 8))
     skim = int(thresholds.get("skim", 3))
 
     paper.score = score
     paper.tier = "Must read" if score >= must else "Skim" if score >= skim else "Archive"
-    paper.matched_terms = sorted({hit.term for hit in hits}, key=lambda t: t.lower())
-    paper.tags = sorted({tag for hit in hits for tag in hit.tags})
-    paper.reasons = build_reasons(hits, paper)
+    if forced_tier == "Must read":
+        paper.score = max(paper.score, must)
+        paper.tier = "Must read"
+    elif forced_tier == "Archive":
+        paper.score = min(paper.score, -20)
+        paper.tier = "Archive"
+    paper.matched_terms = sorted({hit.term for hit in hits} | set(feedback_terms), key=lambda t: t.lower())
+    paper.tags = sorted({tag for hit in hits for tag in hit.tags} | set(feedback_tags))
+    paper.reasons = feedback_reasons + build_reasons(hits, paper)
 
 
 def build_reasons(hits: list[TermHit], paper: Paper) -> list[str]:
@@ -662,9 +803,14 @@ def apply_state(papers: list[Paper], seen: set[str], only_new: bool) -> list[Pap
     return papers
 
 
-def rank_papers(papers: list[Paper], profile: dict[str, Any], boost: str | None) -> list[Paper]:
+def rank_papers(
+    papers: list[Paper],
+    profile: dict[str, Any],
+    boost: str | None,
+    feedback: dict[str, Any] | None = None,
+) -> list[Paper]:
     for paper in papers:
-        score_paper(paper, profile, boost)
+        score_paper(paper, profile, boost, feedback)
     tier_order = {"Must read": 0, "Skim": 1, "Archive": 2}
     return sorted(
         papers,
@@ -736,6 +882,16 @@ def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summa
         f"- Papers in digest: {len(papers)}",
         f"- Must read: {tier_counts.get('Must read', 0)}; Skim: {tier_counts.get('Skim', 0)}; Archive: {tier_counts.get('Archive', 0)}",
         f"- Source Scholar messages: {summary.get('source_counts', {}).get('scholar_messages', 0)}",
+        f"- Feedback file: {summary.get('feedback_file', '')}",
+        "",
+        "## 反馈入口",
+        "",
+        "Use the `ID` shown under each paper to tune future runs:",
+        "",
+        "```bash",
+        f"python3 scripts/scholar_reader.py feedback --profile {shlex.quote(str(summary.get('profile', '<profile.json>')))} --papers-json {shlex.quote(str(path.parent / 'papers.json'))} --paper-id <ID> --mark interested --more-like-this",
+        f"python3 scripts/scholar_reader.py feedback --profile {shlex.quote(str(summary.get('profile', '<profile.json>')))} --papers-json {shlex.quote(str(path.parent / 'papers.json'))} --paper-id <ID> --mark archive --less-like-this",
+        "```",
         "",
     ]
 
@@ -900,6 +1056,20 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
         .why { margin: 10px 0 0; padding-left: 18px; }
         .why li { margin: 3px 0; color: var(--muted); }
         .archive { columns: 2 320px; padding-left: 18px; }
+        .feedback-help {
+          margin: 18px 0 4px;
+          padding: 12px 14px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          background: #fbfdff;
+        }
+        code {
+          display: block;
+          overflow-x: auto;
+          padding: 8px 0 0;
+          font-size: 13px;
+          white-space: nowrap;
+        }
         @media (max-width: 640px) {
           header { padding: 24px 16px 16px; }
           main { padding: 16px; }
@@ -929,6 +1099,19 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
             parts.append(f'<div class="question">{html.escape(str(question))}</div>')
         parts.append("</section>")
 
+    profile_arg = shlex.quote(str(summary.get("profile", "<profile.json>")))
+    papers_arg = shlex.quote(str(path.parent / "papers.json"))
+    parts.extend(
+        [
+            '<section class="feedback-help">',
+            "<strong>反馈入口</strong>",
+            '<div class="meta">Use a paper ID from the badges below to tune future runs.</div>',
+            f"<code>python3 scripts/scholar_reader.py feedback --profile {html.escape(profile_arg)} --papers-json {html.escape(papers_arg)} --paper-id &lt;ID&gt; --mark interested --more-like-this</code>",
+            f"<code>python3 scripts/scholar_reader.py feedback --profile {html.escape(profile_arg)} --papers-json {html.escape(papers_arg)} --paper-id &lt;ID&gt; --mark archive --less-like-this</code>",
+            "</section>",
+        ]
+    )
+
     for tier_name, items, max_items in sections:
         parts.extend([f"<h2>{html.escape(tier_name)} ({len(items)})</h2>", '<section class="grid">'])
         if not items:
@@ -956,6 +1139,7 @@ def render_paper_html(index: int, paper: Paper) -> str:
     terms = paper.matched_terms[:10]
     badges = [
         f'<span class="badge {"must" if paper.tier == "Must read" else ""}">score {paper.score}</span>',
+        f'<span class="badge">id {html.escape(paper.id)}</span>',
     ]
     if paper.is_new:
         badges.append('<span class="badge new">new</span>')
@@ -991,6 +1175,7 @@ def render_paper(index: int, paper: Paper) -> list[str]:
         f"### {index}. {new_mark}{paper.title}",
         "",
         f"- Score: {paper.score}; terms: {terms}",
+        f"- ID: {paper.id}",
         f"- Source: {paper.authors_source}",
         f"- Alert: {alerts}",
         f"- Link: {paper.url}",
@@ -1136,10 +1321,12 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
         f"- Cumulative retained papers: {library_count}",
         f"- Must read: {tier_counts.get('Must read', 0)}; Skim: {tier_counts.get('Skim', 0)}; Archive: {tier_counts.get('Archive', 0)}",
         f"- Seen-state file: {summary.get('state_file', '')}",
+        f"- Feedback file: {summary.get('feedback_file', '')}",
         "",
         "## Layers",
         "",
         "- `seen_papers.json` is the dedupe baseline. It can contain every alert item, including papers you do not want to read.",
+        "- `feedback.json` stores explicit user paper marks and more-like-this / less-like-this ranking signals.",
         f"- `library.json` is the cumulative retained library for tiers: {', '.join(settings['foundation_tiers'])}.",
         "- `foundation.md` is rendered from cumulative `library.json`, grouped by direction.",
         f"- `interested.md` is rendered from cumulative `library.json` for tiers: {', '.join(settings['interested_tiers'])}.",
@@ -1151,6 +1338,7 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
         "- [foundation.md](foundation.md)",
         "- [interested.md](interested.md)",
         "- [library.json](library.json)",
+        "- [feedback.json](feedback.json)",
         "- [daily_additions.md](daily_additions.md)",
         "- [latest_run.md](latest_run.md)",
     ]
@@ -1331,6 +1519,229 @@ def init_profile(profile_path: Path, force: bool) -> None:
     print(f"Profile written: {profile_path}")
 
 
+def title_keywords(title: str, limit: int = 8) -> list[str]:
+    tokens = re.findall(r"[a-z][a-z0-9-]{3,}", title.lower())
+    keywords: list[str] = []
+    for token in tokens:
+        token = token.strip("-")
+        if not token or token in TITLE_STOPWORDS or token.isdigit():
+            continue
+        if token not in keywords:
+            keywords.append(token)
+        if len(keywords) >= limit:
+            break
+    return keywords
+
+
+def feedback_terms_from_paper(paper: Paper) -> list[tuple[str, int]]:
+    terms: list[tuple[str, int]] = []
+    for term in paper.matched_terms:
+        cleaned = re.sub(r"^user:", "", term).strip()
+        if not cleaned or cleaned.startswith("-"):
+            continue
+        terms.append((cleaned, 4))
+    terms.extend((keyword, 2) for keyword in title_keywords(paper.title))
+
+    deduped: dict[str, tuple[str, int]] = {}
+    for term, weight in terms:
+        key = term.lower()
+        current = deduped.get(key)
+        if current is None or weight > current[1]:
+            deduped[key] = (term, weight)
+    return list(deduped.values())
+
+
+def load_papers_json(path: Path | None) -> list[Paper]:
+    if not path:
+        return []
+    data = load_json(path)
+    if isinstance(data, dict):
+        data = data.get("papers", [])
+    if not isinstance(data, list):
+        raise SystemExit(f"Expected a list of papers in {path}")
+    papers: list[Paper] = []
+    for item in data:
+        if isinstance(item, dict):
+            papers.append(paper_from_dict(item))
+    return papers
+
+
+def select_feedback_papers(args: argparse.Namespace) -> list[Paper]:
+    papers = load_papers_json(args.papers_json)
+    requested_ids = set(split_csv(args.paper_id))
+    selected: list[Paper] = []
+
+    if requested_ids and papers:
+        selected.extend([paper for paper in papers if paper.id in requested_ids])
+    if args.title and papers:
+        needle = args.title.lower()
+        selected.extend([paper for paper in papers if needle in paper.title.lower()])
+
+    if requested_ids and not papers:
+        selected.extend(
+            Paper(
+                id=paper_id,
+                title=args.title or paper_id,
+                authors_source="",
+                snippet="",
+                url="",
+                scholar_url="",
+                first_seen="",
+                last_seen="",
+                alerts=[],
+                occurrences=1,
+            )
+            for paper_id in requested_ids
+        )
+
+    by_id = {paper.id: paper for paper in selected}
+    return list(by_id.values())
+
+
+def add_feedback_term(
+    feedback: dict[str, Any],
+    term: str,
+    direction: str,
+    weight: int,
+    source: str,
+    paper_id: str | None = None,
+) -> None:
+    term = " ".join(term.split())
+    if not term:
+        return
+    terms = feedback.setdefault("terms", [])
+    now = datetime.now().isoformat(timespec="seconds")
+    for item in terms:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("term", "")).lower() == term.lower() and item.get("direction", "positive") == direction:
+            item["weight"] = max(int(item.get("weight", 1)), weight)
+            item["updated_at"] = now
+            sources = item.setdefault("sources", [])
+            if source not in sources:
+                sources.append(source)
+            if paper_id:
+                source_ids = item.setdefault("source_paper_ids", [])
+                if paper_id not in source_ids:
+                    source_ids.append(paper_id)
+            return
+
+    record: dict[str, Any] = {
+        "term": term,
+        "direction": direction,
+        "weight": weight,
+        "sources": [source],
+        "updated_at": now,
+    }
+    if paper_id:
+        record["source_paper_ids"] = [paper_id]
+    terms.append(record)
+
+
+def update_paper_feedback(
+    feedback: dict[str, Any],
+    paper: Paper,
+    mark: str | None,
+    more_like_this: bool,
+    less_like_this: bool,
+    note: str | None,
+) -> None:
+    papers = feedback.setdefault("papers", {})
+    now = datetime.now().isoformat(timespec="seconds")
+    record = papers.setdefault(
+        paper.id,
+        {
+            "id": paper.id,
+            "title": paper.title,
+            "url": paper.url,
+            "status": "neutral",
+            "signals": {},
+            "note": "",
+            "created_at": now,
+        },
+    )
+    record["title"] = paper.title
+    record["url"] = paper.url
+    record["updated_at"] = now
+    if mark:
+        record["status"] = mark
+    signals = record.setdefault("signals", {})
+    if more_like_this:
+        signals["more_like_this"] = True
+        signals["less_like_this"] = False
+    if less_like_this:
+        signals["less_like_this"] = True
+        signals["more_like_this"] = False
+    if note is not None:
+        record["note"] = note
+
+
+def paper_feedback_status(feedback: dict[str, Any], paper_id: str) -> str:
+    record = feedback.get("papers", {}).get(paper_id, {})
+    if isinstance(record, dict):
+        return str(record.get("status", "neutral"))
+    return "neutral"
+
+
+def apply_feedback_to_knowledge_base(
+    kb_dir: Path,
+    target_papers: list[Paper],
+    profile: dict[str, Any],
+    feedback: dict[str, Any],
+    feedback_file: Path,
+    profile_path: Path,
+) -> int:
+    if not target_papers:
+        return 0
+
+    existing_library = load_paper_library(kb_dir)
+    archive_ids = {
+        paper.id
+        for paper in target_papers
+        if paper_feedback_status(feedback, paper.id) == "archive"
+    }
+    library = [paper for paper in existing_library if paper.id not in archive_ids]
+
+    reranked: list[Paper] = []
+    for paper in target_papers:
+        score_paper(paper, profile, None, feedback)
+        reranked.append(paper)
+
+    additions = [
+        paper
+        for paper in retained_for_foundation(reranked, profile)
+        if paper_feedback_status(feedback, paper.id) != "archive"
+    ]
+    library = merge_papers(library, additions)
+
+    summary = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "profile": str(profile_path),
+        "source": "feedback",
+        "source_counts": {},
+        "unique_papers_before_state_filter": len(target_papers),
+        "papers_in_digest": len(reranked),
+        "tier_counts": dict(counts_by_tier(reranked)),
+        "only_new": False,
+        "mode": "feedback",
+        "state_file": "",
+        "knowledge_base_dir": str(kb_dir),
+        "feedback_file": str(feedback_file),
+        "feedback_terms": len(feedback.get("terms", [])),
+        "feedback_papers": len(feedback.get("papers", {})),
+        "library_papers": len(library),
+        "library_additions": len(additions),
+    }
+
+    kb_dir.mkdir(parents=True, exist_ok=True)
+    save_paper_library(kb_dir, library)
+    write_kb_index(kb_dir, library, profile, summary)
+    write_kb_foundation(kb_dir, library, profile)
+    write_kb_interested(kb_dir, library, profile)
+    write_run_snapshot(kb_dir, reranked, summary)
+    return len(additions)
+
+
 def add_terms(profile: dict[str, Any], section: str, terms: list[str], weight: int) -> None:
     existing = profile.setdefault(section, [])
     by_lower = {
@@ -1348,17 +1759,84 @@ def add_terms(profile: dict[str, Any], section: str, terms: list[str], weight: i
 
 def update_profile_from_feedback(args: argparse.Namespace) -> None:
     profile = load_profile(args.profile)
-    add_terms(profile, "focus_terms", split_csv(args.more), args.more_weight)
-    add_terms(profile, "exclude_terms", split_csv(args.less), args.less_weight)
-    add_terms(profile, "watch_authors", split_csv(args.watch_author), args.author_weight)
-    add_terms(profile, "regions", split_csv(args.region), args.region_weight)
-    add_terms(profile, "methods", split_csv(args.method), args.method_weight)
-    if args.must_read_limit is not None:
-        profile.setdefault("limits", {})["must_read"] = args.must_read_limit
-    if args.deep_read_limit is not None:
-        profile.setdefault("limits", {})["deep_read"] = args.deep_read_limit
-    save_json(args.profile, profile)
-    print(f"Profile updated: {args.profile}")
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("scholar_alerts/out"))
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = load_feedback(feedback_file)
+
+    more_terms = split_csv(args.more)
+    less_terms = split_csv(args.less)
+    author_terms = split_csv(args.watch_author)
+    region_terms = split_csv(args.region)
+    method_terms = split_csv(args.method)
+
+    profile_changed = False
+    if not args.no_profile_update:
+        add_terms(profile, "focus_terms", more_terms, args.more_weight)
+        add_terms(profile, "exclude_terms", less_terms, args.less_weight)
+        add_terms(profile, "watch_authors", author_terms, args.author_weight)
+        add_terms(profile, "regions", region_terms, args.region_weight)
+        add_terms(profile, "methods", method_terms, args.method_weight)
+        profile_changed = bool(more_terms or less_terms or author_terms or region_terms or method_terms)
+        if args.must_read_limit is not None:
+            profile.setdefault("limits", {})["must_read"] = args.must_read_limit
+            profile_changed = True
+        if args.deep_read_limit is not None:
+            profile.setdefault("limits", {})["deep_read"] = args.deep_read_limit
+            profile_changed = True
+
+    feedback_changed = False
+    for terms, weight in [
+        (more_terms, args.more_weight),
+        (region_terms, args.region_weight),
+        (method_terms, args.method_weight),
+        (author_terms, args.author_weight),
+    ]:
+        for term in terms:
+            add_feedback_term(feedback, term, "positive", weight, "manual")
+            feedback_changed = True
+    for term in less_terms:
+        add_feedback_term(feedback, term, "negative", args.less_weight, "manual")
+        feedback_changed = True
+
+    target_papers = select_feedback_papers(args)
+    needs_target = bool(args.mark or args.more_like_this or args.less_like_this or args.note)
+    if (args.more_like_this or args.less_like_this) and not args.papers_json:
+        raise SystemExit("--more-like-this and --less-like-this require --papers-json so paper terms can be inferred.")
+    if needs_target and not target_papers:
+        raise SystemExit(
+            "No matching paper found. Pass --papers-json with --paper-id or --title, "
+            "or pass --paper-id without --papers-json to record an ID-only mark."
+        )
+
+    for paper in target_papers:
+        update_paper_feedback(feedback, paper, args.mark, args.more_like_this, args.less_like_this, args.note)
+        feedback_changed = True
+        if args.more_like_this:
+            for term, weight in feedback_terms_from_paper(paper):
+                add_feedback_term(feedback, term, "positive", weight, "paper", paper.id)
+        if args.less_like_this:
+            for term, weight in feedback_terms_from_paper(paper):
+                add_feedback_term(feedback, term, "negative", weight, "paper", paper.id)
+
+    if profile_changed:
+        save_json(args.profile, profile)
+        print(f"Profile updated: {args.profile}")
+    if feedback_changed:
+        save_feedback(feedback_file, feedback)
+        print(f"Feedback updated: {feedback_file}")
+        if target_papers:
+            added = apply_feedback_to_knowledge_base(
+                kb_dir,
+                target_papers,
+                profile,
+                feedback,
+                feedback_file,
+                args.profile,
+            )
+            print(f"Knowledge base updated: {kb_dir} ({added} retained additions from feedback)")
+            print("Papers: " + ", ".join(f"{paper.id} {paper.title}" for paper in target_papers))
+    if not profile_changed and not feedback_changed:
+        print("No feedback changes requested.")
 
 
 def default_state_file(profile_path: Path | None, out_dir: Path) -> Path:
@@ -1373,10 +1851,16 @@ def default_kb_dir(profile_path: Path | None, out_dir: Path) -> Path:
     return out_dir / "knowledge_base"
 
 
+def default_feedback_file(kb_dir: Path) -> Path:
+    return kb_dir / "feedback.json"
+
+
 def run(args: argparse.Namespace) -> None:
     profile = load_profile(args.profile)
     state_file = args.state_file or default_state_file(args.profile, args.out_dir)
     kb_dir = args.kb_dir or default_kb_dir(args.profile, args.out_dir)
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = empty_feedback() if args.no_feedback else load_feedback(feedback_file)
     seen = load_seen(state_file)
 
     if getattr(args, "source_mail_app", False):
@@ -1397,7 +1881,7 @@ def run(args: argparse.Namespace) -> None:
         source_label = str(args.source_mbox)
     total_unique = len(papers)
     papers = apply_state(papers, seen, args.only_new)
-    papers = rank_papers(papers, profile, args.boost)
+    papers = rank_papers(papers, profile, args.boost, feedback)
 
     tier_counts = counts_by_tier(papers)
     summary = {
@@ -1415,6 +1899,9 @@ def run(args: argparse.Namespace) -> None:
         "mode": getattr(args, "mode", "run"),
         "state_file": str(state_file),
         "knowledge_base_dir": str(kb_dir),
+        "feedback_file": "" if args.no_feedback else str(feedback_file),
+        "feedback_terms": len(feedback.get("terms", [])) if not args.no_feedback else 0,
+        "feedback_papers": len(feedback.get("papers", {})) if not args.no_feedback else 0,
         "boost": args.boost or "",
     }
     write_outputs(args.out_dir, kb_dir, papers, profile, summary)
@@ -1441,6 +1928,8 @@ def add_source_profile_args(cmd: argparse.ArgumentParser, default_out_dir: str) 
     cmd.add_argument("--boost", help="Comma-separated temporary priority terms, e.g. 'Taiwan,receiver function'")
     cmd.add_argument("--state-file", type=Path, help="Seen-paper state JSON. Defaults to profile directory/seen_papers.json")
     cmd.add_argument("--kb-dir", type=Path, help="Knowledge-base output directory. Defaults to profile parent/knowledge_base")
+    cmd.add_argument("--feedback-file", type=Path, help="User feedback JSON. Defaults to kb-dir/feedback.json")
+    cmd.add_argument("--no-feedback", action="store_true", help="Ignore saved user feedback for this run")
     cmd.add_argument("--mail-limit", type=int, default=0, help="Max Mail.app messages to export; 0 means no limit")
     cmd.add_argument("--gmail-limit", type=int, default=0, help="Max Gmail API messages to fetch; 0 means no limit")
     cmd.add_argument("--gmail-query", help="Additional Gmail search query terms")
@@ -1501,8 +1990,17 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd.set_defaults(mode="run")
     run_cmd.set_defaults(func=run)
 
-    feedback = sub.add_parser("feedback", help="Update a research profile from user feedback")
+    feedback = sub.add_parser("feedback", help="Record paper-level feedback and update ranking preferences")
     feedback.add_argument("--profile", type=Path, required=True)
+    feedback.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    feedback.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    feedback.add_argument("--papers-json", type=Path, help="papers.json from a previous run, used to resolve paper IDs/titles")
+    feedback.add_argument("--paper-id", help="Comma-separated paper IDs to mark")
+    feedback.add_argument("--title", help="Case-insensitive title substring to find in --papers-json")
+    feedback.add_argument("--mark", choices=["interested", "archive", "neutral"], help="Explicit paper status")
+    feedback.add_argument("--more-like-this", action="store_true", help="Use selected paper terms as positive ranking feedback")
+    feedback.add_argument("--less-like-this", action="store_true", help="Use selected paper terms as negative ranking feedback")
+    feedback.add_argument("--note", help="Free-form note for the selected paper feedback")
     feedback.add_argument("--more", help="Comma-separated terms to prioritize")
     feedback.add_argument("--less", help="Comma-separated terms to suppress")
     feedback.add_argument("--watch-author", help="Comma-separated authors/alert names to prioritize")
@@ -1515,6 +2013,7 @@ def build_parser() -> argparse.ArgumentParser:
     feedback.add_argument("--method-weight", type=int, default=5)
     feedback.add_argument("--must-read-limit", type=int)
     feedback.add_argument("--deep-read-limit", type=int)
+    feedback.add_argument("--no-profile-update", action="store_true", help="Record feedback.json only; do not edit the profile")
     feedback.set_defaults(func=update_profile_from_feedback)
 
     return parser

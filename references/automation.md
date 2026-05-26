@@ -16,6 +16,8 @@ Suggested flow:
 
 The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token exists; otherwise it falls back to Mail.app.
 
+If the workflow uses `--kb-dir knowledge_base`, saved paper feedback is read from `knowledge_base/feedback.json` automatically. Pass `--no-feedback` only for a diagnostic run that should ignore personal ranking signals.
+
 ## Apple Mail
 
 Possible but more brittle. AppleScript can ask Mail.app for messages from Scholar Alerts, but macOS may require Automation permission and Mail.app search behavior can vary.

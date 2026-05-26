@@ -55,7 +55,23 @@ Profile files are JSON so the bundled script works with macOS Python without ext
 
 ## Feedback Updates
 
-Translate user feedback into profile edits:
+Use the `feedback` command for paper-level feedback. It writes `knowledge_base/feedback.json` by default, refreshes the retained knowledge base immediately for selected papers, and later runs read that file automatically:
+
+```bash
+python3 scripts/scholar_reader.py feedback \
+  --profile profiles/research_profile.json \
+  --papers-json out/daily/papers.json \
+  --paper-id <ID> \
+  --mark interested \
+  --more-like-this
+```
+
+The feedback file has two layers:
+
+- `papers`: exact paper marks such as `interested`, `archive`, `more_like_this`, and `less_like_this`.
+- `terms`: reusable positive/negative terms inferred from manual feedback or selected papers.
+
+Broad preference changes can still edit the profile:
 
 - "多推这种": add or increase matching focus/method/region terms.
 - "少推这种": add to `exclude_terms` or lower related focus weights.
@@ -66,6 +82,7 @@ Translate user feedback into profile edits:
 ## Knowledge Base Semantics
 
 - `seen_papers.json`: dedupe state only; may include every alert item.
+- `feedback.json`: explicit user feedback and reusable ranking signals.
 - `library.json`: cumulative retained library for `knowledge_base.foundation_tiers`.
 - `foundation.md`: rendered from cumulative `library.json`.
 - `interested.md`: cumulative active reading queue for `knowledge_base.interested_tiers`.
