@@ -19,6 +19,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 3. First run: use `foundation` to build the seen-paper baseline.
 4. Later runs: use `daily` so only papers not already in the state file are reported.
 5. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
+6. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 
 ## Outputs
 
@@ -31,6 +32,9 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 - `knowledge_base/foundation.md`: cumulative retained library grouped by direction.
 - `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read.
 - `knowledge_base/daily_additions.md`: retained additions from the latest daily run.
+- `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
+- `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
+- `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
 
 Archive-tier papers should not enter the knowledge base by default; they stay in the run outputs and seen-state file only.
 
@@ -99,6 +103,36 @@ python3 scripts/scholar_reader.py feedback \
   --mark archive \
   --less-like-this
 ```
+
+Open the local feedback UI:
+
+```bash
+python3 scripts/scholar_reader.py serve \
+  --profile profiles/research_profile.json \
+  --papers-json out/daily/papers.json \
+  --kb-dir knowledge_base \
+  --open
+```
+
+Enrich retained papers and write a weekly review:
+
+```bash
+python3 scripts/scholar_reader.py enrich \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --limit 20 \
+  --providers openalex,crossref \
+  --update-library
+```
+
+```bash
+python3 scripts/scholar_reader.py weekly \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --days 7
+```
+
+For extension points and module boundaries, see `references/framework.md`.
 
 ## Ranking Guidance
 

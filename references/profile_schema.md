@@ -87,4 +87,7 @@ Broad preference changes can still edit the profile:
 - `foundation.md`: rendered from cumulative `library.json`.
 - `interested.md`: cumulative active reading queue for `knowledge_base.interested_tiers`.
 - `daily_additions.md`: latest daily new-paper-only retained additions.
+- `papers/<paper-id>.md`: per-paper note page generated for retained papers.
+- `directions/*.md`: topic/direction pages generated from paper tags.
+- `weekly_review.md`: weekly synthesis generated from retained papers.
 - Archive-tier papers are not added to the knowledge base unless `write_archive_index` is true.

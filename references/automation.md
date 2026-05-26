@@ -18,6 +18,20 @@ The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token
 
 If the workflow uses `--kb-dir knowledge_base`, saved paper feedback is read from `knowledge_base/feedback.json` automatically. Pass `--no-feedback` only for a diagnostic run that should ignore personal ranking signals.
 
+After a digest is generated, the user can run `serve` against the latest `papers.json` for browser-based feedback. Keep this as a manual/local action unless the user explicitly asks to expose a persistent server.
+
+Metadata enrichment should run after triage and only against retained papers, for example:
+
+```bash
+python3 scripts/scholar_reader.py enrich --profile profiles/research_profile.json --kb-dir knowledge_base --limit 20 --update-library
+```
+
+Weekly synthesis can be scheduled separately from daily triage:
+
+```bash
+python3 scripts/scholar_reader.py weekly --profile profiles/research_profile.json --kb-dir knowledge_base --days 7
+```
+
 ## Apple Mail
 
 Possible but more brittle. AppleScript can ask Mail.app for messages from Scholar Alerts, but macOS may require Automation permission and Mail.app search behavior can vary.

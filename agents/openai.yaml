@@ -1,5 +1,4 @@
 interface:
   display_name: "Scholar Alert Reader"
-  short_description: "Rank Scholar alerts into reading queues"
-  default_prompt: "Use $scholar-alert-reader to turn my latest Google Scholar Alert emails into a personalized paper digest."
-
+  short_description: "Rank Scholar alerts into digests and a literature KB"
+  default_prompt: "Use $scholar-alert-reader to turn my latest Google Scholar Alert emails into a personalized digest, feedback loop, and literature knowledge base."

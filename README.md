@@ -10,6 +10,19 @@ A Codex skill for turning Google Scholar Alert emails into personalized literatu
 - Scores papers against a JSON research profile.
 - Writes daily digests, HTML reports, CSV/JSON output, and a cumulative knowledge base.
 - Records explicit feedback so future runs learn from `interested`, `archive`, `more-like-this`, and `less-like-this` marks.
+- Offers a local feedback UI, metadata enrichment through public APIs, per-paper notes, direction pages, and weekly synthesis.
+
+## Framework Layout
+
+```text
+scholar_alert_reader/
+├── core.py       # CLI, parsing/ranking pipeline, knowledge-base writes
+├── enrich.py     # OpenAlex/Crossref enrichment
+├── server.py     # local browser feedback UI
+└── weekly.py     # weekly synthesis renderer
+```
+
+The original `scripts/scholar_reader.py` path is kept as a compatibility wrapper, so existing automations can continue to call it.
 
 ## Install As A Codex Skill
 
@@ -97,6 +110,44 @@ python3 scripts/scholar_reader.py feedback \
 ```
 
 The command writes `knowledge_base/feedback.json` by default and immediately refreshes `foundation.md` / `interested.md` when the selected paper should enter or leave the retained library. Later `daily`, `foundation`, and `run` commands load that file automatically when they use the same `--kb-dir`. Use `--no-feedback` on a run to ignore saved feedback temporarily.
+
+Start the local feedback UI:
+
+```bash
+python3 scripts/scholar_reader.py serve \
+  --profile profiles/research_profile.json \
+  --papers-json out/daily/papers.json \
+  --kb-dir knowledge_base \
+  --open
+```
+
+## Metadata And Weekly Review
+
+Enrich the retained library with public metadata:
+
+```bash
+python3 scripts/scholar_reader.py enrich \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --limit 20 \
+  --providers openalex,crossref \
+  --update-library
+```
+
+Generate or refresh the weekly synthesis:
+
+```bash
+python3 scripts/scholar_reader.py weekly \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --days 7
+```
+
+The richer knowledge base includes:
+
+- `papers/<paper-id>.md`: one note page per retained paper
+- `directions/*.md`: retained papers grouped by topic tags
+- `weekly_review.md`: recurring synthesis from the retained library
 
 ## Do Not Commit
 
