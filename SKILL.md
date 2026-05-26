@@ -1,0 +1,99 @@
+---
+name: scholar-alert-reader
+description: Build and run an automatic literature triage workflow from Google Scholar Alert emails, exported mbox files, Gmail API, Mail.app, and research-profile feedback. Use when the user wants daily or manual paper-reading digests, Scholar Alert analysis, literature monitoring, personalized paper ranking, or an automated research reading push system.
+---
+
+# Scholar Alert Reader
+
+Turn Google Scholar Alert emails into a small, personalized reading queue and cumulative literature knowledge base.
+
+Core rule: reduce noise before summarizing. Extract, dedupe, score against the user's current research profile, then deep-read only the highest-value papers.
+
+## Workflow
+
+1. Choose a source:
+   - Gmail API: preferred for automation after OAuth setup.
+   - Mail.app: works locally on macOS after Automation permission.
+   - `.mbox`: works from exported Gmail/Apple Mail archives.
+2. Load or create a JSON research profile.
+3. First run: use `foundation` to build the seen-paper baseline.
+4. Later runs: use `daily` so only papers not already in the state file are reported.
+5. Use feedback to update the research profile before rerunning.
+
+## Outputs
+
+- `digest.md` and `digest.html`: human-readable triage reports.
+- `papers.json` and `papers.csv`: structured run output.
+- `deep_read_queue.md`: top papers for actual reading.
+- `seen_papers.json`: dedupe state; can include every alert item.
+- `knowledge_base/library.json`: cumulative retained papers, usually Must read + Skim.
+- `knowledge_base/foundation.md`: cumulative retained library grouped by direction.
+- `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read.
+- `knowledge_base/daily_additions.md`: retained additions from the latest daily run.
+
+Archive-tier papers should not enter the knowledge base by default; they stay in the run outputs and seen-state file only.
+
+## Commands
+
+Install Gmail dependencies when using Gmail API:
+
+```bash
+python3 -m pip install -r requirements-gmail.txt
+```
+
+Authorize Gmail once:
+
+```bash
+python3 scripts/scholar_reader.py auth-gmail \
+  --gmail-credentials ~/.codex/scholar-alert-reader/gmail_credentials.json \
+  --gmail-token ~/.codex/scholar-alert-reader/gmail_token.json
+```
+
+Build a foundation from Gmail:
+
+```bash
+python3 scripts/scholar_reader.py foundation \
+  --source-gmail \
+  --profile profiles/research_profile.json \
+  --out-dir out/foundation \
+  --kb-dir knowledge_base
+```
+
+Run daily new-paper triage:
+
+```bash
+python3 scripts/scholar_reader.py daily \
+  --source-gmail \
+  --profile profiles/research_profile.json \
+  --out-dir out/daily \
+  --kb-dir knowledge_base
+```
+
+Run from an exported mbox:
+
+```bash
+python3 scripts/scholar_reader.py run \
+  --source-mbox ~/Downloads/INBOX.mbox \
+  --profile profiles/research_profile.json \
+  --out-dir out/manual \
+  --kb-dir knowledge_base
+```
+
+## Ranking Guidance
+
+Prioritize papers that match:
+
+- The user's current research questions.
+- High-weight focus terms, methods, regions, and authors in the profile.
+- Recent papers and papers appearing in multiple alerts.
+
+Down-rank:
+
+- Educational outreach, conference logistics, generic news, non-research items.
+- Papers outside the current question even if they are in the broad field.
+- Repeated citation alerts unless the cited paper itself is important.
+
+## Privacy
+
+Treat mailbox exports and Gmail tokens as private data. Do not upload raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, or generated knowledge-base outputs unless the user explicitly asks for that.
+

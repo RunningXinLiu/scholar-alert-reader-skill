@@ -1,0 +1,49 @@
+{
+  "name": "Example literature triage profile",
+  "language": "zh-CN",
+  "research_questions": [
+    "Which new papers are directly relevant to my current research questions?",
+    "Which methods or datasets should I read deeply this week?"
+  ],
+  "focus_terms": [
+    {"term": "seismic tomography", "weight": 5, "tags": ["method"]},
+    {"term": "receiver function", "weight": 5, "tags": ["method"]},
+    {"term": "anisotropy", "weight": 3, "tags": ["structure"]}
+  ],
+  "regions": [
+    {"term": "Taiwan", "weight": 5},
+    {"term": "Tibet", "weight": 4}
+  ],
+  "methods": [
+    {"term": "full waveform inversion", "weight": 5},
+    {"term": "ambient noise", "weight": 4}
+  ],
+  "watch_authors": [
+    {"term": "Greg Beroza", "weight": 3}
+  ],
+  "exclude_terms": [
+    {"term": "education", "weight": 4},
+    {"term": "conference program", "weight": 4}
+  ],
+  "tier_thresholds": {
+    "must_read": 20,
+    "skim": 6
+  },
+  "limits": {
+    "must_read": 8,
+    "skim": 15,
+    "deep_read": 5
+  },
+  "knowledge_base": {
+    "foundation_tiers": ["Must read", "Skim"],
+    "interested_tiers": ["Must read"],
+    "interested_limit": 50,
+    "foundation_limit_per_direction": 40,
+    "write_archive_index": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "default_time": "09:00",
+    "default_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "name": "Seismology and geophysics literature triage",
+  "language": "zh-CN",
+  "research_questions": [
+    "哪些新论文能改进地震成像、震源或地下结构解释？",
+    "哪些论文和俯冲带、地壳-上地幔结构、各向异性或接收函数有关？",
+    "哪些方法论文值得进一步精读并积累到文献综述？"
+  ],
+  "focus_terms": [
+    {"term": "seismic tomography", "weight": 5, "tags": ["method"]},
+    {"term": "tomography", "weight": 4, "tags": ["method"]},
+    {"term": "receiver function", "weight": 5, "tags": ["method"]},
+    {"term": "seismic anisotropy", "weight": 5, "tags": ["method", "structure"]},
+    {"term": "anisotropy", "weight": 3, "tags": ["structure"]},
+    {"term": "crust", "weight": 3, "tags": ["structure"]},
+    {"term": "upper mantle", "weight": 4, "tags": ["structure"]},
+    {"term": "mantle", "weight": 3, "tags": ["structure"]},
+    {"term": "subduction", "weight": 4, "tags": ["tectonics"]},
+    {"term": "earthquake", "weight": 2, "tags": ["seismology"]},
+    {"term": "fault", "weight": 2, "tags": ["tectonics"]},
+    {"term": "ambient noise", "weight": 4, "tags": ["method"]},
+    {"term": "full waveform inversion", "weight": 5, "tags": ["method"]},
+    {"term": "full-waveform inversion", "weight": 5, "tags": ["method"]},
+    {"term": "inversion", "weight": 2, "tags": ["method"]}
+  ],
+  "regions": [
+    {"term": "Taiwan", "weight": 5},
+    {"term": "Tibet", "weight": 4},
+    {"term": "East Asia", "weight": 3},
+    {"term": "Japan", "weight": 3},
+    {"term": "Sumatra", "weight": 3},
+    {"term": "Himalaya", "weight": 3}
+  ],
+  "methods": [
+    {"term": "H-k stacking", "weight": 4},
+    {"term": "joint inversion", "weight": 4},
+    {"term": "machine learning", "weight": 2},
+    {"term": "deep learning", "weight": 2},
+    {"term": "finite frequency", "weight": 3},
+    {"term": "body wave", "weight": 3},
+    {"term": "surface wave", "weight": 3}
+  ],
+  "watch_authors": [
+    {"term": "Greg Beroza", "weight": 3},
+    {"term": "Dapeng Zhao", "weight": 3},
+    {"term": "Yao Huajian", "weight": 3},
+    {"term": "Yangkang Chen", "weight": 2},
+    {"term": "Andreas Fichtner", "weight": 3},
+    {"term": "Robert D. van der Hilst", "weight": 3}
+  ],
+  "exclude_terms": [
+    {"term": "education", "weight": 4},
+    {"term": "school", "weight": 3},
+    {"term": "course", "weight": 3},
+    {"term": "conference program", "weight": 4},
+    {"term": "call for papers", "weight": 5},
+    {"term": "job opening", "weight": 5}
+  ],
+  "tier_thresholds": {
+    "must_read": 20,
+    "skim": 6
+  },
+  "limits": {
+    "must_read": 8,
+    "skim": 15,
+    "deep_read": 5
+  },
+  "knowledge_base": {
+    "foundation_tiers": ["Must read", "Skim"],
+    "interested_tiers": ["Must read"],
+    "interested_limit": 50,
+    "foundation_limit_per_direction": 40,
+    "write_archive_index": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "default_time": "09:00",
+    "default_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "notes": "Ask Codex to change the app automation, for example: every weekday at 09:00, or Monday/Wednesday/Friday at 09:00."
+  }
+}

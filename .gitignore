@@ -1,0 +1,21 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Private auth
+gmail_credentials.json
+gmail_token.json
+client_secret*.json
+token.json
+
+# Private local data
+*.mbox/
+*.mbox
+*.eml
+out/
+knowledge_base/
+profiles/
+seen_papers.json
+
