@@ -2190,6 +2190,63 @@ def write_weekly_command(args: argparse.Namespace) -> None:
     print(f"Weekly review: {output}")
 
 
+def filter_records_for_export(records: list[dict[str, Any]], tiers: list[str], limit: int) -> list[dict[str, Any]]:
+    tier_set = {tier.lower() for tier in tiers}
+    filtered = [
+        record
+        for record in records
+        if not tier_set or str(record.get("tier", "")).lower() in tier_set
+    ]
+    filtered = sorted(
+        filtered,
+        key=lambda record: (
+            {"Must read": 0, "Skim": 1, "Archive": 2}.get(str(record.get("tier", "")), 9),
+            -int(record.get("score", 0) or 0),
+            str(record.get("title", "")).lower(),
+        ),
+    )
+    return filtered[:limit] if limit > 0 else filtered
+
+
+def export_library(args: argparse.Namespace) -> None:
+    from .export import export_records
+
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    input_path = args.papers_json or (kb_dir / "library.json")
+    records = load_paper_records(input_path)
+    tiers = split_csv(args.tiers)
+    selected = filter_records_for_export(records, tiers, args.limit)
+    suffix = {"bibtex": "bib", "ris": "ris", "markdown": "md", "jsonl": "jsonl"}[args.format]
+    output = args.output or (kb_dir / f"export.{suffix}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(export_records(selected, args.format), encoding="utf-8")
+    print(f"Exported papers: {len(selected)}")
+    print(f"Output: {output}")
+
+
+def doctor_command(args: argparse.Namespace) -> None:
+    from .diagnostics import diagnose, render_checks
+
+    kb_dir = args.kb_dir
+    if kb_dir is None and args.profile:
+        kb_dir = default_kb_dir(args.profile, Path("out"))
+    checks, notes = diagnose(
+        profile=args.profile,
+        kb_dir=kb_dir,
+        gmail_credentials=args.gmail_credentials,
+        gmail_token=args.gmail_token,
+        out_dir=args.out_dir,
+        check_gmail_deps=args.gmail_deps,
+    )
+    report = render_checks(checks, notes)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(report, encoding="utf-8")
+        print(f"Doctor report: {args.output}")
+    else:
+        print(report.rstrip())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -2275,6 +2332,26 @@ def build_parser() -> argparse.ArgumentParser:
     weekly_cmd.add_argument("--limit", type=int, default=12)
     weekly_cmd.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/weekly_review.md")
     weekly_cmd.set_defaults(func=write_weekly_command)
+
+    export_cmd = sub.add_parser("export", help="Export retained papers to BibTeX, RIS, Markdown, or JSONL")
+    export_cmd.add_argument("--profile", type=Path, required=True)
+    export_cmd.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    export_cmd.add_argument("--papers-json", type=Path, help="Paper JSON to export. Defaults to kb-dir/library.json")
+    export_cmd.add_argument("--format", choices=["bibtex", "ris", "markdown", "jsonl"], default="bibtex")
+    export_cmd.add_argument("--tiers", default="Must read,Skim", help="Comma-separated tiers to export; empty means all")
+    export_cmd.add_argument("--limit", type=int, default=0, help="Max papers to export; 0 means no limit")
+    export_cmd.add_argument("--output", type=Path, help="Output path. Defaults to kb-dir/export.<ext>")
+    export_cmd.set_defaults(func=export_library)
+
+    doctor = sub.add_parser("doctor", help="Check local setup, credentials, outputs, and knowledge-base files")
+    doctor.add_argument("--profile", type=Path)
+    doctor.add_argument("--kb-dir", type=Path)
+    doctor.add_argument("--out-dir", type=Path)
+    doctor.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
+    doctor.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
+    doctor.add_argument("--gmail-deps", action="store_true", help="Also check Gmail API Python dependencies")
+    doctor.add_argument("--output", type=Path, help="Write markdown report to this path")
+    doctor.set_defaults(func=doctor_command)
 
     return parser
 

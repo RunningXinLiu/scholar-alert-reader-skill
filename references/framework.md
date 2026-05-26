@@ -9,11 +9,14 @@ Use this reference when changing the skill implementation rather than a user's p
 - `scholar_alert_reader/server.py`: local feedback UI. It may import `core`, but `core` should import it only lazily inside the `serve` command.
 - `scholar_alert_reader/enrich.py`: dependency-free public metadata API calls. It should operate on plain paper dictionaries to avoid coupling API code to the dataclass.
 - `scholar_alert_reader/weekly.py`: pure renderer for weekly synthesis from retained paper records.
+- `scholar_alert_reader/export.py`: pure export renderers for BibTeX/RIS/Markdown/JSONL.
+- `scholar_alert_reader/diagnostics.py`: local setup checks for profile, Gmail token/dependencies, outputs, and knowledge-base files.
 
 ## Extension Rules
 
 - Preserve existing commands: `foundation`, `daily`, `run`, `feedback`, and `auth-gmail`.
 - New capabilities should usually be subcommands, not hidden flags on `daily`.
+- Keep `doctor` dependency-light and safe: it should report paths and counts, not secret token contents.
 - Keep raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, and generated knowledge-base files out of shared repos.
 - Enrich only selected retained papers by default. Do not call external APIs for every archived alert item.
 - Keep deterministic local outputs as the source of truth: `papers.json`, `library.json`, `feedback.json`, and Markdown pages.

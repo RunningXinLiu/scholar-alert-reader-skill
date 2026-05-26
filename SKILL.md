@@ -20,6 +20,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 4. Later runs: use `daily` so only papers not already in the state file are reported.
 5. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
 6. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
+7. Use `export` for BibTeX/RIS/Markdown handoff and `doctor` when diagnosing local setup problems.
 
 ## Outputs
 
@@ -130,6 +131,23 @@ python3 scripts/scholar_reader.py weekly \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \
   --days 7
+```
+
+Export retained papers or diagnose setup:
+
+```bash
+python3 scripts/scholar_reader.py export \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --format bibtex
+```
+
+```bash
+python3 scripts/scholar_reader.py doctor \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --out-dir out/daily \
+  --gmail-deps
 ```
 
 For extension points and module boundaries, see `references/framework.md`.

@@ -32,6 +32,12 @@ Weekly synthesis can be scheduled separately from daily triage:
 python3 scripts/scholar_reader.py weekly --profile profiles/research_profile.json --kb-dir knowledge_base --days 7
 ```
 
+Use `doctor` as the first debugging command when an automation returns no papers or fails to read Gmail:
+
+```bash
+python3 scripts/scholar_reader.py doctor --profile profiles/research_profile.json --kb-dir knowledge_base --out-dir out/daily --gmail-deps
+```
+
 ## Apple Mail
 
 Possible but more brittle. AppleScript can ask Mail.app for messages from Scholar Alerts, but macOS may require Automation permission and Mail.app search behavior can vary.

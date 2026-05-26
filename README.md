@@ -149,6 +149,29 @@ The richer knowledge base includes:
 - `directions/*.md`: retained papers grouped by topic tags
 - `weekly_review.md`: recurring synthesis from the retained library
 
+## Export And Diagnostics
+
+Export retained papers:
+
+```bash
+python3 scripts/scholar_reader.py export \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --format bibtex
+```
+
+Supported export formats are `bibtex`, `ris`, `markdown`, and `jsonl`.
+
+Check a local setup:
+
+```bash
+python3 scripts/scholar_reader.py doctor \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --out-dir out/daily \
+  --gmail-deps
+```
+
 ## Do Not Commit
 
 Do not commit:
