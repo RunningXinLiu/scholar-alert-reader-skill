@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.76 - 2026-05-28
+
+- Write `QUICKSTART_REPORT.html` alongside `QUICKSTART_REPORT.md` by default for browser-first onboarding.
+- Add `quickstart --html-output` and `quickstart --no-html` for users who need a custom report path or markdown-only run.
+- Prefer the HTML quickstart report as the final fallback for `quickstart --open` when `START_HERE.html` and `DASHBOARD.html` are unavailable.
+
 ## v0.2.75 - 2026-05-28
 
 - Add `quickstart --open` so first-time users can create the project, run private-data-free checks, generate onboarding artifacts, and open `START_HERE.html` in one command.

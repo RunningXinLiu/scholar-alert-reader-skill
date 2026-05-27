@@ -665,7 +665,9 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("Quickstart report", result.stdout)
+            self.assertIn("Quickstart HTML", result.stdout)
             self.assertTrue((project / "QUICKSTART_REPORT.md").exists())
+            self.assertTrue((project / "QUICKSTART_REPORT.html").exists())
             self.assertTrue((project / "SOURCE_CHECK.md").exists())
             self.assertTrue((project / "DOCTOR.md").exists())
             self.assertTrue((project / "START_HERE.md").exists())
@@ -694,12 +696,15 @@ class CoreWorkflowTests(unittest.TestCase):
                         skip_demos=True,
                         strict=True,
                         output=None,
+                        html_output=None,
+                        no_html=False,
                         open=True,
                     )
                 )
             finally:
                 core.open_local_path = original_open
             self.assertTrue((project / "QUICKSTART_REPORT.md").exists())
+            self.assertTrue((project / "QUICKSTART_REPORT.html").exists())
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertTrue((project / "START_HERE.html").exists())
             self.assertEqual(opened, [(project.resolve(strict=False) / "START_HERE.html")])

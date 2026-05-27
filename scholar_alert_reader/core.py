@@ -10196,13 +10196,27 @@ def quickstart_command(args: argparse.Namespace) -> None:
     )
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(lines), encoding="utf-8")
+    html_report_path = args.html_output.expanduser() if args.html_output else report_path.with_suffix(".html")
+    if not args.no_html:
+        html_report_path.parent.mkdir(parents=True, exist_ok=True)
+        html_report_path.write_text(
+            markdown_to_basic_html(report_path.read_text(encoding="utf-8"), "Scholar Alert Reader Quickstart Report"),
+            encoding="utf-8",
+        )
     print(f"Quickstart report: {report_path}")
+    if not args.no_html:
+        print(f"Quickstart HTML: {html_report_path}")
     print(f"Project: {project_dir}")
     print(f"Result: {'PASS' if passed else 'WARN'}")
     if args.open:
         open_target = project_dir / "START_HERE.html"
         if not open_target.exists():
-            open_target = project_dir / "DASHBOARD.html" if (project_dir / "DASHBOARD.html").exists() else report_path
+            if (project_dir / "DASHBOARD.html").exists():
+                open_target = project_dir / "DASHBOARD.html"
+            elif not args.no_html and html_report_path.exists():
+                open_target = html_report_path
+            else:
+                open_target = report_path
         open_local_path(open_target)
     if args.strict and not passed:
         raise SystemExit(1)
@@ -10290,6 +10304,8 @@ def build_parser() -> argparse.ArgumentParser:
     quickstart.add_argument("--skip-demos", action="store_true", help="Skip generated demo_sources.sh")
     quickstart.add_argument("--strict", action="store_true", help="Exit non-zero if any quickstart check fails")
     quickstart.add_argument("--output", type=Path, help="Write quickstart report to this path. Defaults to project-dir/QUICKSTART_REPORT.md")
+    quickstart.add_argument("--html-output", type=Path, help="Write browser-friendly quickstart report HTML. Defaults to output with .html suffix")
+    quickstart.add_argument("--no-html", action="store_true", help="Do not write a browser-friendly quickstart report HTML copy")
     quickstart.add_argument("--open", action="store_true", help="Open START_HERE.html after quickstart finishes")
     quickstart.set_defaults(func=quickstart_command)
 
