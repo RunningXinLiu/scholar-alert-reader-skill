@@ -673,14 +673,24 @@ def pixel_workflow_gif(path: Path) -> None:
         colors = [PALETTE["blue"], PALETTE["green"], PALETTE["amber"]]
         for y, fill, color, label in zip(y_positions, fills, colors, left_labels):
             card(buf, width, 50, y, 210, 58, fill, label, color)
-            arrow(buf, width, 270, y + 29, 370, y + 29, PALETTE["line"])
-        card(buf, width, 380, 216, 270, 90, PALETTE["white"], right_label, PALETTE["ink"])
-        arrow(buf, width, 660, 261, 724, 261, PALETTE["line"])
-        rect(buf, width, 728, 222, 30, 78, PALETTE["blue"])
-        text(buf, width, 706, 324, "OUTPUT", PALETTE["muted"], 2)
+            arrow(buf, width, 274, y + 29, 332, y + 29, PALETTE["line"])
+        card(buf, width, 344, 196, 150, 118, PALETTE["white"], "TRIAGE", PALETTE["ink"])
+        arrow(buf, width, 506, 255, 558, 255, PALETTE["line"])
+        card(buf, width, 574, 196, 176, 118, PALETTE["blue2"], right_label, PALETTE["blue"])
+        text(buf, width, 604, 340, "OUTPUT", PALETTE["muted"], 2)
         text(buf, width, 642, 402, "BY XIN LIU", PALETTE["muted"], 2)
         frames.append(buf)
     write_gif(path, frames, width, height, delay_cs=120)
+
+
+def output_label_lines(label: str, locale: str) -> list[str]:
+    if locale == "zh" or len(label) <= 14:
+        return [label]
+    parts = label.split()
+    if len(parts) <= 1:
+        return [label]
+    split_at = max(1, len(parts) // 2)
+    return [" ".join(parts[:split_at]), " ".join(parts[split_at:])]
 
 
 def workflow_frame_svg(
@@ -696,16 +706,30 @@ def workflow_frame_svg(
     subtitle = escape(subtitle)
     right_label = escape(right_label)
     footer = escape(footer)
+    output_caption = "输出" if locale == "zh" else "Output"
+    engine_label = "分诊引擎" if locale == "zh" else "Triage engine"
+    engine_detail = "抽取 · 去重 · 排序 · 反馈" if locale == "zh" else "dedupe · rank · feedback"
+    output_lines = output_label_lines(right_label, locale)
+    if len(output_lines) == 1:
+        output_text = (
+            f'<text x="594" y="258" fill="#1e3a8a" font-size="{23 if locale == "zh" else 21}" '
+            f'font-weight="850">{escape(output_lines[0])}</text>'
+        )
+    else:
+        output_text = "\n  ".join(
+            f'<text x="594" y="{248 + index * 28}" fill="#1e3a8a" font-size="20" font-weight="850">{escape(line)}</text>'
+            for index, line in enumerate(output_lines)
+        )
     left_svg = []
     fills = [("#dbeafe", "#1d4ed8"), ("#dcfce7", "#047857"), ("#fef3c7", "#92400e")]
     for index, (label, (fill, color)) in enumerate(zip(left_labels, fills)):
         label = escape(label)
-        y = 164 + index * 76
+        y = 158 + index * 76
         left_svg.append(
             f'<rect x="58" y="{y}" width="224" height="56" rx="14" fill="{fill}" stroke="#cbd5e1"/>'
             f'<text x="82" y="{y + 35}" fill="{color}" font-size="19" font-weight="800">{label}</text>'
-            f'<path d="M302 {y + 28} H384" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>'
-            f'<path d="M382 {y + 18} L402 {y + 28} L382 {y + 38}" fill="#94a3b8"/>'
+            f'<path d="M302 {y + 28} H328" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>'
+            f'<path d="M328 {y + 18} L348 {y + 28} L328 {y + 38}" fill="#94a3b8"/>'
         )
     left_content = "\n  ".join(left_svg)
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
@@ -725,12 +749,14 @@ def workflow_frame_svg(
 <rect x="34" y="112" width="732" height="272" rx="28" fill="#ffffff" stroke="#d8e0ea" filter="url(#shadow)"/>
 <g font-family="{font}">
   {left_content}
-  <rect x="426" y="184" width="228" height="104" rx="20" fill="#f8fafc" stroke="#cbd5e1"/>
-  <text x="457" y="244" fill="#111827" font-size="{24 if locale == 'en' else 23}" font-weight="850">{right_label}</text>
-  <path d="M672 236 H728" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
-  <path d="M728 220 L756 236 L728 252" fill="#2563eb"/>
-  <rect x="694" y="276" width="44" height="66" rx="12" fill="#2563eb"/>
-  <text x="664" y="365" fill="#64748b" font-size="14" font-weight="800">OUTPUT</text>
+  <rect x="352" y="180" width="166" height="132" rx="20" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="385" y="230" fill="#111827" font-size="{21 if locale == 'en' else 23}" font-weight="850">{engine_label}</text>
+  <text x="376" y="265" fill="#64748b" font-size="{12 if locale == 'en' else 13}" font-weight="750">{engine_detail}</text>
+  <path d="M530 246 H558" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M558 236 L578 246 L558 256" fill="#94a3b8"/>
+  <rect x="582" y="180" width="164" height="132" rx="20" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="594" y="216" fill="#2563eb" font-size="{15 if locale == 'en' else 16}" font-weight="850">{output_caption}</text>
+  {output_text}
   <text x="38" y="420" fill="#64748b" font-size="16" font-weight="700">{footer}</text>
   <text x="650" y="420" fill="#64748b" font-size="14" font-weight="700">Xin Liu</text>
 </g>
