@@ -1796,7 +1796,9 @@ SCHEDULE_TIME=09:00
             (root / "feeds.txt").write_text("https://example.org/feed.atom\n", encoding="utf-8")
             (root / "reader.env").write_text(
                 "export ARXIV_QUERY='cat:physics.geo-ph'\n"
-                "export WEB_SOURCE='https://example.org/article'\n",
+                "export WEB_SOURCE='https://example.org/article'\n"
+                f"export GMAIL_CREDENTIALS='{root / 'missing_credentials.json'}'\n"
+                f"export GMAIL_TOKEN='{root / 'missing_token.json'}'\n",
                 encoding="utf-8",
             )
             guide = root / "START_HERE.md"
@@ -1820,6 +1822,10 @@ SCHEDULE_TIME=09:00
             self.assertIn("Optional Integrations", content)
             self.assertIn("Capability boundary", content)
             self.assertIn("ai-seismology", content)
+            self.assertIn("Recommended Next Actions", content)
+            self.assertIn("Ready source: BibTeX", content)
+            self.assertIn("Ready source: RSS / Atom", content)
+            self.assertIn("Ready source: arXiv query", content)
             self.assertIn("Source Setup Matrix", content)
             self.assertIn("Gmail API", content)
             self.assertIn("Apple Mail", content)
@@ -1828,6 +1834,7 @@ SCHEDULE_TIME=09:00
             self.assertIn("RSS / Atom", content)
             self.assertIn("arXiv query", content)
             self.assertIn("Current status", content)
+            self.assertIn("Recommended action", content)
             self.assertIn(f"ready file found: `{resolved_root / 'import.bib'}`", content)
             self.assertIn(f"ready file found: `{resolved_root / 'feeds.txt'}`", content)
             self.assertIn("configured URL in `reader.env`: `https://example.org/article`", content)
@@ -1838,6 +1845,37 @@ SCHEDULE_TIME=09:00
             self.assertTrue(guide_html.exists())
             self.assertIn("<!doctype html>", guide_html.read_text(encoding="utf-8"))
             self.assertIn("Scholar Alert Reader Start Here", guide_html.read_text(encoding="utf-8"))
+
+    def test_guide_recommends_setup_when_no_source_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            (root / "reader.env").write_text(
+                f"export GMAIL_CREDENTIALS='{root / 'missing_credentials.json'}'\n"
+                f"export GMAIL_TOKEN='{root / 'missing_token.json'}'\n",
+                encoding="utf-8",
+            )
+            guide = root / "START_HERE.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "guide",
+                    "--project-dir",
+                    str(root),
+                    "--output",
+                    str(guide),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = guide.read_text(encoding="utf-8")
+            self.assertIn("No real source looks locally ready yet", content)
+            self.assertIn("Try the product with bundled sample data first", content)
+            self.assertIn("export Scholar Alert mail to `INBOX.mbox`", content)
 
     def test_copilot_commands_write_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

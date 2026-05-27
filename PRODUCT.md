@@ -62,7 +62,7 @@ For users who want citation/PDF management.
 
 ## Product Requirements
 
-- A new user can run `init-project`, open `START_HERE.html` or read `START_HERE.md`, choose a real source from the source setup matrix, see current local readiness hints from files and `reader.env`, and complete a first run without knowing the internals.
+- A new user can run `init-project`, open `START_HERE.html` or read `START_HERE.md`, see recommended next actions, choose a real source from the source setup matrix, see current local readiness hints from files and `reader.env`, and complete a first run without knowing the internals.
 - A new user can run one `quickstart` command that creates the local project, runs private-data-free checks/demos, writes a next-step report, and points them to a clickable browser onboarding guide.
 - A new user can open `DASHBOARD.html` as the project home page for the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - A user who gets zero papers can tell whether the run found no source items, parsed source items but no paper records, or filtered all papers as already seen.

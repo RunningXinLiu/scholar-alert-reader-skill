@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.73 - 2026-05-28
+
+- Add a `Recommended Next Actions` section to `START_HERE.md/html` that ranks locally ready sources and tells users which live check and first-run command to execute next.
+- Add per-source recommended actions to the source setup matrix so readiness states lead directly to a command.
+- Add an explicit no-source-ready path that points new users to the bundled demo, mbox export, feed/arXiv setup, or Gmail OAuth setup.
+
 ## v0.2.72 - 2026-05-28
 
 - Add current readiness hints to the `START_HERE.md/html` source setup matrix.

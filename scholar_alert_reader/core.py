@@ -4520,6 +4520,10 @@ def source_path_status(path: Path) -> str:
     return f"missing `{path}`"
 
 
+def source_path_ready(path: Path) -> bool:
+    return path.exists()
+
+
 def source_input_status(project_dir: Path, env_values: dict[str, str], key: str, default: str | Path) -> str:
     raw_value = str(env_values.get(key, "") or "").strip()
     if raw_value.startswith(("http://", "https://")):
@@ -4530,29 +4534,55 @@ def source_input_status(project_dir: Path, env_values: dict[str, str], key: str,
     return source_path_status(path)
 
 
-def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> list[str]:
+def source_input_ready(project_dir: Path, env_values: dict[str, str], key: str, default: str | Path) -> bool:
+    raw_value = str(env_values.get(key, "") or "").strip()
+    if raw_value.startswith(("http://", "https://")):
+        return True
+    return source_path_ready(source_config_path(project_dir, env_values, key, default))
+
+
+def source_onboarding_sources(project_dir: Path, env_values: dict[str, str]) -> list[dict[str, str | bool | int]]:
     gmail_credentials = source_config_path(project_dir, env_values, "GMAIL_CREDENTIALS", DEFAULT_GMAIL_CREDENTIALS)
     gmail_token = source_config_path(project_dir, env_values, "GMAIL_TOKEN", DEFAULT_GMAIL_TOKEN)
-    if gmail_credentials.exists() and gmail_token.exists():
+    gmail_ready = gmail_credentials.exists() and gmail_token.exists()
+    if gmail_ready:
         gmail_status = "credentials and token present; run the live source check before scheduling."
+        gmail_action = "Run `./source_check.sh --source gmail --live`, then `SOURCE=gmail ./run_reader.sh`."
     elif gmail_credentials.exists():
         gmail_status = "credentials present; token missing. Run Gmail OAuth once, then live source-check."
+        gmail_action = f"Run `python3 -m scholar_alert_reader auth-gmail --gmail-credentials {gmail_credentials} --gmail-token {gmail_token}`."
     else:
         gmail_status = f"credentials missing at `{gmail_credentials}`."
+        gmail_action = "Create a Google Desktop OAuth client JSON, then run `auth-gmail` before using unattended Gmail automation."
 
     arxiv_query = str(env_values.get("ARXIV_QUERY", "") or "").strip()
+    arxiv_ready = bool(arxiv_query)
     arxiv_status = (
         f"configured in `reader.env`: `{arxiv_query}`"
-        if arxiv_query
+        if arxiv_ready
         else "not configured; set `ARXIV_QUERY` inline or in `reader.env`."
     )
+    arxiv_action = (
+        "./source_check.sh --source arxiv --live"
+        if arxiv_ready
+        else "Set `ARXIV_QUERY` in `reader.env`, then run `./source_check.sh --source arxiv --live`."
+    )
 
-    sources = [
+    mbox_path = source_config_path(project_dir, env_values, "MBOX_PATH", "INBOX.mbox")
+    bibtex_path = source_config_path(project_dir, env_values, "BIBTEX_PATH", "import.bib")
+    ris_path = source_config_path(project_dir, env_values, "RIS_PATH", "import.ris")
+    web_ready = source_input_ready(project_dir, env_values, "WEB_SOURCE", "web_sources.txt")
+    rss_ready = source_input_ready(project_dir, env_values, "RSS_SOURCE", "feeds.txt")
+
+    return [
         {
             "name": "Gmail API",
             "best": "Best for unattended daily Scholar Alert automation after one OAuth setup.",
             "prepare": "Create your own Google Desktop OAuth client, save it as `$HOME/.codex/scholar-alert-reader/gmail_credentials.json`, then run the OAuth flow once.",
             "status": gmail_status,
+            "ready": gmail_ready,
+            "priority": 100,
+            "action": gmail_action,
             "check": "./source_check.sh --source gmail --live",
             "run": "SOURCE=gmail ./run_reader.sh",
         },
@@ -4561,6 +4591,9 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
             "best": "Best for macOS users who already read Scholar Alerts in Mail.app.",
             "prepare": "Give Terminal/Codex Automation permission to control Mail.app and keep Scholar Alert messages in a searchable mailbox.",
             "status": "not auto-detected here; run the live check on macOS after granting Mail.app Automation permission.",
+            "ready": False,
+            "priority": 20,
+            "action": "Grant macOS Automation permission, then run `./source_check.sh --source mail-app --live`.",
             "check": "./source_check.sh --source mail-app --live",
             "run": "SOURCE=mail-app ./run_reader.sh",
         },
@@ -4568,7 +4601,10 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
             "name": "Exported mbox",
             "best": "Best for first foundation builds, offline review, or users who do not want live Gmail access.",
             "prepare": "Export Gmail or Apple Mail to `INBOX.mbox` in this project directory.",
-            "status": source_path_status(source_config_path(project_dir, env_values, "MBOX_PATH", "INBOX.mbox")),
+            "status": source_path_status(mbox_path),
+            "ready": source_path_ready(mbox_path),
+            "priority": 90,
+            "action": "Run `./source_check.sh --source mbox --live`, then `SOURCE=mbox MODE=foundation ./run_reader.sh`.",
             "check": "./source_check.sh --source mbox --live",
             "run": "SOURCE=mbox MODE=foundation ./run_reader.sh",
         },
@@ -4576,7 +4612,10 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
             "name": "BibTeX",
             "best": "Best for Zotero, Google Scholar library, publisher, or database exports.",
             "prepare": "Put a bibliography export at `import.bib`.",
-            "status": source_path_status(source_config_path(project_dir, env_values, "BIBTEX_PATH", "import.bib")),
+            "status": source_path_status(bibtex_path),
+            "ready": source_path_ready(bibtex_path),
+            "priority": 70,
+            "action": "Run `./source_check.sh --source bibtex --live`, then `./bibtex_import.sh`.",
             "check": "./source_check.sh --source bibtex --live",
             "run": "./bibtex_import.sh",
         },
@@ -4584,7 +4623,10 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
             "name": "RIS",
             "best": "Best for EndNote, Zotero, publisher, or database exports when RIS is easier than BibTeX.",
             "prepare": "Put a bibliography export at `import.ris`.",
-            "status": source_path_status(source_config_path(project_dir, env_values, "RIS_PATH", "import.ris")),
+            "status": source_path_status(ris_path),
+            "ready": source_path_ready(ris_path),
+            "priority": 65,
+            "action": "Run `./source_check.sh --source ris --live`, then `./ris_import.sh`.",
             "check": "./source_check.sh --source ris --live",
             "run": "./ris_import.sh",
         },
@@ -4593,6 +4635,9 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
             "best": "Best for article pages or saved HTML files that expose citation meta tags, JSON-LD, Dublin Core, or OpenGraph metadata.",
             "prepare": "Put article URLs or saved `.html` paths in `web_sources.txt`; avoid search-result pages when possible.",
             "status": source_input_status(project_dir, env_values, "WEB_SOURCE", "web_sources.txt"),
+            "ready": web_ready,
+            "priority": 50,
+            "action": "Run `./source_check.sh --source web --live`, then `./web_import.sh`.",
             "check": "./source_check.sh --source web --live",
             "run": "./web_import.sh",
         },
@@ -4601,6 +4646,9 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
             "best": "Best for journal alerts, publisher feeds, and saved-search feeds without scraping pages.",
             "prepare": "Put feed URLs or local feed files in `feeds.txt`.",
             "status": source_input_status(project_dir, env_values, "RSS_SOURCE", "feeds.txt"),
+            "ready": rss_ready,
+            "priority": 60,
+            "action": "Run `./source_check.sh --source rss --live`, then `./rss_import.sh`.",
             "check": "./source_check.sh --source rss --live",
             "run": "./rss_import.sh",
         },
@@ -4609,10 +4657,54 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
             "best": "Best for targeted arXiv monitoring such as `cat:physics.geo-ph AND all:tomography`.",
             "prepare": "Choose a query string and set `ARXIV_QUERY` for one-off runs or in `reader.env` for repeated runs.",
             "status": arxiv_status,
+            "ready": arxiv_ready,
+            "priority": 55,
+            "action": arxiv_action,
             "check": "ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./source_check.sh --source arxiv --live",
             "run": "ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh",
         },
     ]
+
+
+def source_recommendation_lines(project_dir: Path, env_values: dict[str, str]) -> list[str]:
+    ready_sources = [
+        source
+        for source in source_onboarding_sources(project_dir, env_values)
+        if bool(source.get("ready"))
+    ]
+    ready_sources.sort(key=lambda source: int(source.get("priority", 0)), reverse=True)
+    lines = [
+        "## Recommended Next Actions",
+        "",
+    ]
+    if ready_sources:
+        lines.append("These sources look locally configured. Run a live check first, then use the matching first-run command:")
+        lines.append("")
+        for source in ready_sources[:3]:
+            lines.append(f"- Ready source: {source['name']}. Next: {source['action']}")
+        lines.extend(
+            [
+                "- After the first real run, open `DASHBOARD.html` and use `./serve_reader.sh` to mark interested/archive papers.",
+                "",
+            ]
+        )
+        return lines
+    lines.extend(
+        [
+            "No real source looks locally ready yet. Use the shortest path that matches your workflow:",
+            "",
+            "- Try the product with bundled sample data first: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
+            "- For an offline foundation build, export Scholar Alert mail to `INBOX.mbox`, then run `./source_check.sh --source mbox --live`.",
+            "- For web monitoring without Gmail, put feed URLs in `feeds.txt` or set `ARXIV_QUERY` in `reader.env`.",
+            "- For daily Gmail automation, create a Desktop OAuth client and run `auth-gmail` once.",
+            "",
+        ]
+    )
+    return lines
+
+
+def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> list[str]:
+    sources = source_onboarding_sources(project_dir, env_values)
     lines = [
         "## Source Setup Matrix",
         "",
@@ -4627,6 +4719,7 @@ def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> li
                 f"- Best for: {source['best']}",
                 f"- Prepare: {source['prepare']}",
                 f"- Current status: {source['status']}",
+                f"- Recommended action: {source['action']}",
                 f"- Check: `{source['check']}`",
                 f"- First run: `{source['run']}`",
                 "",
@@ -4675,6 +4768,7 @@ def render_project_guide(
         "2. Codex + Obsidian: sync generated paper notes, maps, reading status, answers, comparisons, and deep reads into an Obsidian vault folder.",
         "3. Codex + Zotero + Obsidian: export BibTeX/RIS for Zotero while Obsidian stores human-written reading notes and synthesis.",
         "",
+        *source_recommendation_lines(project_dir, env_values),
         "## First Run",
         "",
         "Open `DASHBOARD.html` first after each run. It is the project home page for the latest digest, reading plan, review queue, retained library, and setup reports.",
