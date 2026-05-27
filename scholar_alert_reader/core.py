@@ -10150,6 +10150,7 @@ def quickstart_command(args: argparse.Namespace) -> None:
     )
     passed = all(ok for _, ok, _ in checks)
     report_path = (args.output.expanduser() if args.output else project_dir / "QUICKSTART_REPORT.md").resolve()
+    report_base_dir = report_path.parent
     lines = [
         "# Scholar Alert Reader Quickstart Report",
         "",
@@ -10169,18 +10170,18 @@ def quickstart_command(args: argparse.Namespace) -> None:
             "",
             "## Open These First",
             "",
-            f"- Dashboard: `{project_dir / 'DASHBOARD.html'}`",
-            f"- Browser start guide: `{project_dir / 'START_HERE.html'}`",
-            f"- Onboarding guide: `{project_dir / 'START_HERE.md'}`",
-            f"- Source check: `{project_dir / 'SOURCE_CHECK.md'}`",
-            f"- Doctor report: `{project_dir / 'DOCTOR.md'}`",
-            f"- Profile doctor: `{project_dir / 'profiles' / 'profile_doctor.md'}`",
-            f"- Privacy check: `{project_dir / 'PRIVACY_CHECK.md'}`",
-            f"- mbox demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'mbox' / 'digest.html'}`",
-            f"- BibTeX demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'bibtex' / 'digest.html'}`",
-            f"- RIS demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'ris' / 'digest.html'}`",
-            f"- Web metadata demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'web' / 'digest.html'}`",
-            f"- RSS demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'rss' / 'digest.html'}`",
+            f"- {dashboard_link('Dashboard', project_dir / 'DASHBOARD.html', report_base_dir)}",
+            f"- {dashboard_link('Browser start guide', project_dir / 'START_HERE.html', report_base_dir)}",
+            f"- {dashboard_link('Onboarding guide', project_dir / 'START_HERE.md', report_base_dir)}",
+            f"- {dashboard_link('Source check', project_dir / 'SOURCE_CHECK.md', report_base_dir)}",
+            f"- {dashboard_link('Doctor report', project_dir / 'DOCTOR.md', report_base_dir)}",
+            f"- {dashboard_link('Profile doctor', project_dir / 'profiles' / 'profile_doctor.md', report_base_dir)}",
+            f"- {dashboard_link('Privacy check', project_dir / 'PRIVACY_CHECK.md', report_base_dir)}",
+            f"- {dashboard_link('mbox demo digest', project_dir / 'reader_out' / 'demo_sources' / 'mbox' / 'digest.html', report_base_dir)}",
+            f"- {dashboard_link('BibTeX demo digest', project_dir / 'reader_out' / 'demo_sources' / 'bibtex' / 'digest.html', report_base_dir)}",
+            f"- {dashboard_link('RIS demo digest', project_dir / 'reader_out' / 'demo_sources' / 'ris' / 'digest.html', report_base_dir)}",
+            f"- {dashboard_link('Web metadata demo digest', project_dir / 'reader_out' / 'demo_sources' / 'web' / 'digest.html', report_base_dir)}",
+            f"- {dashboard_link('RSS demo digest', project_dir / 'reader_out' / 'demo_sources' / 'rss' / 'digest.html', report_base_dir)}",
             "",
             *source_recommendation_lines(project_dir, read_project_env(project_env_path(project_dir))),
             "## Copy-Paste Commands",

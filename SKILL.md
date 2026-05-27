@@ -11,7 +11,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 
 ## Workflow
 
-1. For a new local setup, prefer `quickstart --open` to create a project, run private-data-free checks/demos, write `QUICKSTART_REPORT.md/html` with source recommendations and copy-paste next commands, and open `START_HERE.html` as the first local onboarding screen. That guide includes recommended next actions plus a source setup matrix with current readiness hints for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv. Use `quickstart` without `--open` for terminal-only setup, or `init-project` when the user wants only the scaffold. The CLI can be invoked as `python3 -m scholar_alert_reader`, an installed `scholar-alert-reader` / `scholar-reader` command, or the compatibility wrapper `python3 scripts/scholar_reader.py`.
+1. For a new local setup, prefer `quickstart --open` to create a project, run private-data-free checks/demos, write `QUICKSTART_REPORT.md/html` with clickable local artifact links, source recommendations, and copy-paste next commands, and open `START_HERE.html` as the first local onboarding screen. That guide includes recommended next actions plus a source setup matrix with current readiness hints for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv. Use `quickstart` without `--open` for terminal-only setup, or `init-project` when the user wants only the scaffold. The CLI can be invoked as `python3 -m scholar_alert_reader`, an installed `scholar-alert-reader` / `scholar-reader` command, or the compatibility wrapper `python3 scripts/scholar_reader.py`.
 2. Run `self-test` or `./self_test.sh` first when the user wants to verify the install without connecting Gmail, Obsidian, Zotero, or private files.
 3. Run `./demo_reader.sh` when the user wants to inspect the sample mbox digest output. Run `./demo_sources.sh` when the user wants to verify all bundled non-private source paths.
 4. Run `./setup_wizard.sh` / `setup-wizard` for guided first-time configuration, source-specific setup explanations, and an immediate `SOURCE_CHECK.md`, or `./setup_reader.sh` / `setup` to persist local defaults non-interactively in `reader.env`.
@@ -48,7 +48,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `summary.json`: run metadata, source counts, seen-state filtering counts, and `empty_run_diagnosis` when no papers are written.
 - `deep_read_queue.md`: top papers for actual reading.
 - `seen_papers.json`: dedupe state; can include every alert item.
-- `QUICKSTART_REPORT.md` and `QUICKSTART_REPORT.html`: first-run setup/check report written by `quickstart`, including source recommendations and copy-paste next commands.
+- `QUICKSTART_REPORT.md` and `QUICKSTART_REPORT.html`: first-run setup/check report written by `quickstart`, including clickable links to generated local artifacts, source recommendations, and copy-paste next commands.
 - `START_HERE.md` and `START_HERE.html`: local onboarding guide with first-run workflow, recommended next actions, source setup matrix, current source readiness hints from local files and `reader.env`, optional integrations, and setup status.
 - `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, profile health, library files, setup reports, and next actions.
 - `PRIVACY_CHECK.md`: local report of files that should not be published, review-before-sharing files, and recommended `.gitignore` coverage.

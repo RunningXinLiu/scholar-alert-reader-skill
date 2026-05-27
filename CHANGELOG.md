@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.78 - 2026-05-28
+
+- Make `QUICKSTART_REPORT.md/html` artifact references clickable relative links for the dashboard, onboarding guide, setup checks, diagnostics, and demo digests.
+- Keep quickstart report links relative to the report location so local projects remain easier to inspect and share on disk.
+- Cover clickable quickstart report links in workflow tests.
+
 ## v0.2.77 - 2026-05-28
 
 - Add local source recommendations to `QUICKSTART_REPORT.md/html` so the first-run report points to the next source check or setup path.
