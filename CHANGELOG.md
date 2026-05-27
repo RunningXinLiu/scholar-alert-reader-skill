@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.2.18 - 2026-05-27
+
+- Move CI to `actions/checkout@v6` and `actions/setup-python@v6`, which use the Node 24 action runtime directly.
+
 ## v0.2.17 - 2026-05-27
 
 - Opt GitHub Actions into Node 24 execution for JavaScript actions to avoid the Node 20 deprecation warning before GitHub changes the default runner behavior.
