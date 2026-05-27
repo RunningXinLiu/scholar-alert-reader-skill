@@ -62,8 +62,8 @@ For users who want citation/PDF management.
 
 ## Product Requirements
 
-- A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
-- A new user can run one `quickstart` command that creates the local project, runs private-data-free checks/demos, and writes a next-step report.
+- A new user can run `init-project`, open `START_HERE.html` or read `START_HERE.md`, and complete a first run without knowing the internals.
+- A new user can run one `quickstart` command that creates the local project, runs private-data-free checks/demos, writes a next-step report, and points them to a clickable browser onboarding guide.
 - A new user can open `DASHBOARD.html` as the project home page for the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - A user who gets zero papers can tell whether the run found no source items, parsed source items but no paper records, or filtered all papers as already seen.
 - A terminal-only user can install the project with `pip`, run `scholar-alert-reader`, and use generated helper scripts without depending on Codex.

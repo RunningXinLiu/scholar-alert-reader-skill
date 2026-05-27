@@ -4171,7 +4171,17 @@ PRIVACY_REVIEW_RULES = [
     PrivacyRule(
         "REVIEW",
         "Generated run output",
-        ("reader_out/**", "out/**", "DASHBOARD.md", "DASHBOARD.html", "SCHEDULE.md", "LaunchAgents/**", "logs/**"),
+        (
+            "reader_out/**",
+            "out/**",
+            "DASHBOARD.md",
+            "DASHBOARD.html",
+            "START_HERE.md",
+            "START_HERE.html",
+            "SCHEDULE.md",
+            "LaunchAgents/**",
+            "logs/**",
+        ),
         "Generated reports may contain paper titles, source labels, local paths, and reading history.",
     ),
     PrivacyRule(
@@ -4205,6 +4215,7 @@ RECOMMENDED_GITIGNORE_PATTERNS = [
     "seen_papers.json",
     "reader_out/",
     "knowledge_base/",
+    "START_HERE.html",
     "PRIVACY_CHECK.md",
     "EMBEDDING_CHECK.md",
     "SUPPORT_BUNDLE.md",
@@ -4629,11 +4640,14 @@ def render_project_guide(
 
 def write_project_guide(project_dir: Path, profile_path: Path, kb_dir: Path, out_dir: Path, force: bool) -> None:
     start_here = project_dir / "START_HERE.md"
+    start_here_html = project_dir / "START_HERE.html"
     if not start_here.exists() or force:
-        start_here.write_text(
-            render_project_guide(project_dir, profile_path, kb_dir, out_dir),
-            encoding="utf-8",
-        )
+        report = render_project_guide(project_dir, profile_path, kb_dir, out_dir)
+        start_here.write_text(report, encoding="utf-8")
+    else:
+        report = start_here.read_text(encoding="utf-8", errors="replace")
+    if force or not start_here_html.exists():
+        start_here_html.write_text(markdown_to_basic_html(report, "Scholar Alert Reader Start Here"), encoding="utf-8")
 
 
 def dashboard_link(label: str, path: Path, base_dir: Path) -> str:
@@ -4812,6 +4826,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "",
             "## Setup And Diagnostics",
             "",
+            f"- {dashboard_link('Start Here HTML', project_dir / 'START_HERE.html', base_dir)}",
             f"- {dashboard_link('Start Here guide', project_dir / 'START_HERE.md', base_dir)}",
             f"- {dashboard_link('Source check', project_dir / 'SOURCE_CHECK.md', base_dir)}",
             f"- {dashboard_link('Doctor report', project_dir / 'DOCTOR.md', base_dir)}",
@@ -5116,6 +5131,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "knowledge_base/feedback.json",
                     "DASHBOARD.md",
                     "DASHBOARD.html",
+                    "START_HERE.html",
                     "EMBEDDING_CHECK.md",
                     "PRIVACY_CHECK.md",
                     "SUPPORT_BUNDLE.md",
@@ -5139,7 +5155,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                 [
                     "# Scholar Alert Reader Project",
                     "",
-                    "Start with [DASHBOARD.html](DASHBOARD.html), then [START_HERE.md](START_HERE.md). Refresh both with:",
+                    "Start with [START_HERE.html](START_HERE.html), then [DASHBOARD.html](DASHBOARD.html). Refresh both with:",
                     "",
                     "```bash",
                     "./dashboard_reader.sh",
@@ -9816,6 +9832,11 @@ def guide_command(args: argparse.Namespace) -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(report, encoding="utf-8")
         print(f"Guide written: {output}")
+        if not args.no_html:
+            html_output = (args.html_output.expanduser() if args.html_output else output.with_suffix(".html"))
+            html_output.parent.mkdir(parents=True, exist_ok=True)
+            html_output.write_text(markdown_to_basic_html(report, "Scholar Alert Reader Start Here"), encoding="utf-8")
+            print(f"Guide HTML: {html_output}")
     else:
         print(report.rstrip())
 
@@ -9915,6 +9936,7 @@ def quickstart_command(args: argparse.Namespace) -> None:
             "## Open These First",
             "",
             f"- Dashboard: `{project_dir / 'DASHBOARD.html'}`",
+            f"- Browser start guide: `{project_dir / 'START_HERE.html'}`",
             f"- Onboarding guide: `{project_dir / 'START_HERE.md'}`",
             f"- Source check: `{project_dir / 'SOURCE_CHECK.md'}`",
             f"- Doctor report: `{project_dir / 'DOCTOR.md'}`",
@@ -9928,12 +9950,13 @@ def quickstart_command(args: argparse.Namespace) -> None:
             "",
             "## Next Steps",
             "",
-            "1. Run `./profile_wizard.sh` or edit `profiles/research_profile.json` to match your research directions.",
-            "2. Run `./profile_doctor.sh` to check whether the profile is too broad, too sparse, or missing feedback signals.",
-            "3. Run `./setup_wizard.sh` for guided configuration, or `./setup_reader.sh --source auto --profile-template <template>` for non-interactive setup.",
-            "4. Configure one real source: Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS, or arXiv.",
-            "5. Run `./source_check.sh --source auto --live` before expecting daily digests.",
-            "6. See project `TROUBLESHOOTING.md` if a source returns no papers.",
+            "1. Open `START_HERE.html` or `DASHBOARD.html` in a browser for the clickable local guide.",
+            "2. Run `./profile_wizard.sh` or edit `profiles/research_profile.json` to match your research directions.",
+            "3. Run `./profile_doctor.sh` to check whether the profile is too broad, too sparse, or missing feedback signals.",
+            "4. Run `./setup_wizard.sh` for guided configuration, or `./setup_reader.sh --source auto --profile-template <template>` for non-interactive setup.",
+            "5. Configure one real source: Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS, or arXiv.",
+            "6. Run `./source_check.sh --source auto --live` before expecting daily digests.",
+            "7. See project `TROUBLESHOOTING.md` if a source returns no papers.",
             "",
         ]
     )
@@ -10116,6 +10139,8 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--obsidian-dir", type=Path, help="Optional Obsidian generated export directory")
     guide.add_argument("--zotero-dir", type=Path, help="Optional Zotero export directory. Defaults to kb-dir/zotero")
     guide.add_argument("--output", type=Path, help="Write guide markdown to this path instead of stdout")
+    guide.add_argument("--html-output", type=Path, help="Write guide HTML to this path when --output is set. Defaults to output with .html suffix")
+    guide.add_argument("--no-html", action="store_true", help="Do not write an HTML copy when --output is set")
     guide.set_defaults(func=guide_command)
 
     dashboard = sub.add_parser("dashboard", help="Write a local project dashboard linking current outputs and next actions")

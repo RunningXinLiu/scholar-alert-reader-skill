@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.70 - 2026-05-28
+
+- Generate `START_HERE.html` alongside `START_HERE.md` so new local projects have a browser-friendly onboarding screen.
+- Make `guide --output START_HERE.md` write a sibling HTML guide by default, with `--html-output` and `--no-html` controls.
+- Link `START_HERE.html` from quickstart reports, generated project README files, dashboards, and privacy/gitignore handling.
+
 ## v0.2.69 - 2026-05-28
 
 - Add per-paper evidence summaries with conservative levels: metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, and full-text-backed.

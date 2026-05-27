@@ -262,6 +262,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "reading_plan.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
+            self.assertTrue((project / "START_HERE.html").exists())
             self.assertTrue((project / "TROUBLESHOOTING.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
@@ -283,6 +284,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Bundled templates", start_here)
             self.assertIn("./profile_wizard.sh", start_here)
             self.assertIn("./profile_doctor.sh", start_here)
+            self.assertIn("START_HERE.html", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("./ranking_eval.sh", start_here)
             self.assertIn("./embedding_check.sh", start_here)
             self.assertIn("./semantic_rerank.sh", start_here)
@@ -666,10 +668,12 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "SOURCE_CHECK.md").exists())
             self.assertTrue((project / "DOCTOR.md").exists())
             self.assertTrue((project / "START_HERE.md").exists())
+            self.assertTrue((project / "START_HERE.html").exists())
             self.assertTrue((project / "TROUBLESHOOTING.md").exists())
             report = (project / "QUICKSTART_REPORT.md").read_text(encoding="utf-8")
             self.assertIn("Result: PASS", report)
             self.assertIn("multi-source demo", report)
+            self.assertIn("START_HERE.html", report)
             for source_name in ["mbox", "bibtex", "ris", "web", "rss"]:
                 self.assertTrue((project / "reader_out" / "demo_sources" / source_name / "digest.html").exists())
 
@@ -1808,6 +1812,10 @@ SCHEDULE_TIME=09:00
             self.assertIn("Optional Integrations", content)
             self.assertIn("Capability boundary", content)
             self.assertIn("ai-seismology", content)
+            guide_html = root / "START_HERE.html"
+            self.assertTrue(guide_html.exists())
+            self.assertIn("<!doctype html>", guide_html.read_text(encoding="utf-8"))
+            self.assertIn("Scholar Alert Reader Start Here", guide_html.read_text(encoding="utf-8"))
 
     def test_copilot_commands_write_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -2021,6 +2029,7 @@ SCHEDULE_TIME=09:00
             self.assertIn("Reading plan HTML", dashboard_content)
             self.assertIn("Retained library: 1 records", dashboard_content)
             self.assertIn("Profile Health", dashboard_content)
+            self.assertIn("Start Here HTML", dashboard_content)
             self.assertIn("Run `./profile_doctor.sh`", dashboard_content)
             self.assertTrue(dashboard_html.exists())
             self.assertIn("<!doctype html>", dashboard_html.read_text(encoding="utf-8"))
