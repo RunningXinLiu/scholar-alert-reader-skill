@@ -61,6 +61,7 @@ For users who want citation/PDF management.
 ## Product Requirements
 
 - A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
+- A new user can run one `quickstart` command that creates the local project, runs private-data-free checks/demos, and writes a next-step report.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
 - A new user can run a bundled-data `self-test` before connecting private email, Zotero, Obsidian, or external feeds.

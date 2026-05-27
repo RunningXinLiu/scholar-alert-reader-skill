@@ -3244,6 +3244,11 @@ def init_project(args: argparse.Namespace) -> None:
             sample_target = project_dir / "examples" / sample_name
             if not sample_target.exists() or args.force:
                 shutil.copyfile(sample_source, sample_target)
+    troubleshooting_source = SCRIPT_DIR.parent / "TROUBLESHOOTING.md"
+    if troubleshooting_source.exists():
+        troubleshooting_target = project_dir / "TROUBLESHOOTING.md"
+        if not troubleshooting_target.exists() or args.force:
+            shutil.copyfile(troubleshooting_source, troubleshooting_target)
 
     common = project_script_common(project_dir, profile_path, kb_dir)
     run_reader = generated_script_header() + common + """MODE="${MODE:-daily}"
@@ -3462,6 +3467,8 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "```",
                     "",
                     "The setup command writes `reader.env`, which is read automatically by the generated shell scripts.",
+                    "",
+                    "If a source returns no papers or setup fails, read [TROUBLESHOOTING.md](TROUBLESHOOTING.md).",
                     "",
                     "## Choose a profile template",
                     "",
@@ -5146,6 +5153,107 @@ def guide_command(args: argparse.Namespace) -> None:
         print(report.rstrip())
 
 
+def run_quickstart_step(name: str, cmd: list[str], cwd: Path) -> tuple[str, bool, str]:
+    result = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, check=False)
+    output = result.stdout.strip() or result.stderr.strip()
+    if result.returncode != 0 and result.stderr.strip():
+        output = result.stderr.strip()
+    detail = output.splitlines()[-1] if output else f"exit {result.returncode}"
+    return name, result.returncode == 0, detail
+
+
+def quickstart_command(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    needs_init = not (project_dir / "run_reader.sh").exists()
+    if needs_init or args.force:
+        init_project(
+            argparse.Namespace(
+                project_dir=project_dir,
+                profile_template=args.profile_template,
+                force=args.force,
+                quiet=True,
+            )
+        )
+    elif not project_dir.exists():
+        raise SystemExit(f"Project directory does not exist: {project_dir}")
+    elif not (project_dir / "profiles" / "research_profile.json").exists():
+        raise SystemExit(f"Existing project is missing profiles/research_profile.json: {project_dir}")
+
+    checks: list[tuple[str, bool, str]] = []
+    if not args.skip_self_test:
+        checks.append(run_quickstart_step("self-test", [str(project_dir / "self_test.sh"), "--strict"], project_dir))
+    if not args.skip_demos:
+        checks.append(run_quickstart_step("multi-source demo", [str(project_dir / "demo_sources.sh")], project_dir))
+    checks.append(
+        run_quickstart_step(
+            "source check",
+            [str(project_dir / "source_check.sh"), "--source", "auto", "--output", str(project_dir / "SOURCE_CHECK.md")],
+            project_dir,
+        )
+    )
+    checks.append(
+        run_quickstart_step(
+            "doctor",
+            [str(project_dir / "doctor_reader.sh"), "--output", str(project_dir / "DOCTOR.md")],
+            project_dir,
+        )
+    )
+    checks.append(
+        run_quickstart_step(
+            "guide",
+            [str(project_dir / "guide_reader.sh"), "--output", str(project_dir / "START_HERE.md")],
+            project_dir,
+        )
+    )
+    passed = all(ok for _, ok, _ in checks)
+    report_path = (args.output.expanduser() if args.output else project_dir / "QUICKSTART_REPORT.md").resolve()
+    lines = [
+        "# Scholar Alert Reader Quickstart Report",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Result: {'PASS' if passed else 'WARN'}",
+        f"- Project: `{project_dir}`",
+        f"- Version: `{__version__}`",
+        "",
+        "## Checks",
+        "",
+    ]
+    for name, ok, detail in checks:
+        marker = "OK" if ok else "WARN"
+        lines.append(f"- [{marker}] {name}: {detail}")
+    lines.extend(
+        [
+            "",
+            "## Open These First",
+            "",
+            f"- Onboarding guide: `{project_dir / 'START_HERE.md'}`",
+            f"- Source check: `{project_dir / 'SOURCE_CHECK.md'}`",
+            f"- Doctor report: `{project_dir / 'DOCTOR.md'}`",
+            f"- mbox demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'mbox' / 'digest.html'}`",
+            f"- BibTeX demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'bibtex' / 'digest.html'}`",
+            f"- RIS demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'ris' / 'digest.html'}`",
+            f"- Web metadata demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'web' / 'digest.html'}`",
+            f"- RSS demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'rss' / 'digest.html'}`",
+            "",
+            "## Next Steps",
+            "",
+            "1. Edit `profiles/research_profile.json` to match your research directions.",
+            "2. Run `./setup_reader.sh --source auto --profile-template <template>` to persist local defaults.",
+            "3. Configure one real source: Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS, or arXiv.",
+            "4. Run `./source_check.sh --source auto --live` before expecting daily digests.",
+            "5. See project `TROUBLESHOOTING.md` if a source returns no papers.",
+            "",
+        ]
+    )
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Quickstart report: {report_path}")
+    print(f"Project: {project_dir}")
+    print(f"Result: {'PASS' if passed else 'WARN'}")
+    if args.strict and not passed:
+        raise SystemExit(1)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -5173,6 +5281,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_project_cmd.add_argument("--force", action="store_true", help="Add/update scaffold files in a non-empty directory")
     init_project_cmd.set_defaults(func=init_project)
+
+    quickstart = sub.add_parser("quickstart", help="Create a local project and run private-data-free setup checks")
+    quickstart.add_argument("--project-dir", type=Path, default=Path("~/scholar_alerts"), help="Local project directory. Defaults to ~/scholar_alerts")
+    quickstart.add_argument(
+        "--profile-template",
+        default=DEFAULT_PROFILE_TEMPLATE,
+        help="Bundled template slug or JSON path used for profiles/research_profile.json",
+    )
+    quickstart.add_argument("--force", action="store_true", help="Add/update scaffold files in a non-empty directory")
+    quickstart.add_argument("--skip-self-test", action="store_true", help="Skip generated self_test.sh")
+    quickstart.add_argument("--skip-demos", action="store_true", help="Skip generated demo_sources.sh")
+    quickstart.add_argument("--strict", action="store_true", help="Exit non-zero if any quickstart check fails")
+    quickstart.add_argument("--output", type=Path, help="Write quickstart report to this path. Defaults to project-dir/QUICKSTART_REPORT.md")
+    quickstart.set_defaults(func=quickstart_command)
 
     setup = sub.add_parser("setup", help="Write persistent local project defaults to reader.env")
     setup.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")

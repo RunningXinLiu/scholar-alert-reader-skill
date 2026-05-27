@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.11`
+Version: `0.2.12`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -57,12 +57,10 @@ You can run the core tool from any terminal or from any coding agent that can ac
 ```bash
 git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
-python3 scripts/scholar_reader.py self-test --strict
-python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+python3 scripts/scholar_reader.py quickstart --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
 ./setup_reader.sh --source auto --profile-template ai-seismology
-./demo_reader.sh
-open reader_out/demo/digest.html
+open QUICKSTART_REPORT.md
 ```
 
 Agent compatibility:
@@ -204,6 +202,13 @@ Gmail OAuth distribution model:
 ## Quick Start
 
 Create a runnable local project:
+
+```bash
+python3 scripts/scholar_reader.py quickstart --project-dir ~/scholar_alerts
+cd ~/scholar_alerts
+```
+
+`quickstart` creates the project, runs private-data-free checks and demos, and writes `QUICKSTART_REPORT.md`. To do the steps manually instead:
 
 ```bash
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts

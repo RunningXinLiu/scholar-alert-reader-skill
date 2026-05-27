@@ -134,6 +134,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_paper.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
+            self.assertTrue((project / "TROUBLESHOOTING.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("web_sources.txt", (project / ".gitignore").read_text(encoding="utf-8"))
@@ -224,6 +225,37 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("RSS/Atom live read", rss_check.stdout)
+
+    def test_quickstart_command_creates_project_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "quickstart-reader"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "quickstart",
+                    "--project-dir",
+                    str(project),
+                    "--profile-template",
+                    "ai-seismology",
+                    "--skip-self-test",
+                    "--strict",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Quickstart report", result.stdout)
+            self.assertTrue((project / "QUICKSTART_REPORT.md").exists())
+            self.assertTrue((project / "SOURCE_CHECK.md").exists())
+            self.assertTrue((project / "DOCTOR.md").exists())
+            self.assertTrue((project / "START_HERE.md").exists())
+            self.assertTrue((project / "TROUBLESHOOTING.md").exists())
+            report = (project / "QUICKSTART_REPORT.md").read_text(encoding="utf-8")
+            self.assertIn("Result: PASS", report)
+            self.assertIn("multi-source demo", report)
+            for source_name in ["mbox", "bibtex", "ris", "web", "rss"]:
+                self.assertTrue((project / "reader_out" / "demo_sources" / source_name / "digest.html").exists())
 
     def test_init_project_accepts_profile_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

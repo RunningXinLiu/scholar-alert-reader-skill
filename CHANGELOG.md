@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.12 - 2026-05-27
+
+- Add `quickstart` to create a local project, run private-data-free checks and multi-source demos, refresh onboarding docs, and write `QUICKSTART_REPORT.md`.
+- Document the one-command terminal setup path in README and SKILL guidance.
+- Copy `TROUBLESHOOTING.md` into initialized projects so users can debug sources from the project folder.
+
 ## v0.2.11 - 2026-05-27
 
 - Add `TROUBLESHOOTING.md` with concrete checks for zero-paper runs, Gmail OAuth, Gmail dependency environments, Mail.app permissions, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, Obsidian, Zotero, and privacy pitfalls.
