@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 import subprocess
 import sys
 import tempfile
@@ -133,6 +134,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "copy_profile_template.sh").exists())
             self.assertTrue((project / "setup_reader.sh").exists())
             self.assertTrue((project / "setup_wizard.sh").exists())
+            self.assertTrue((project / "schedule_reader.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "self_test.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
@@ -193,6 +195,51 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("export SOURCE=rss", env_content)
             self.assertIn("export SCHEDULE_TIME=10:30", env_content)
             self.assertIn("OBSIDIAN_EXPORT_DIR", env_content)
+            schedule_plist = project / "test_schedule.plist"
+            subprocess.run(
+                [
+                    str(project / "schedule_reader.sh"),
+                    "--action",
+                    "write",
+                    "--output",
+                    str(schedule_plist),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertTrue(schedule_plist.exists())
+            schedule_data = plistlib.loads(schedule_plist.read_bytes())
+            resolved_project = project.resolve()
+            self.assertEqual(schedule_data["ProgramArguments"], [str(resolved_project / "run_reader.sh")])
+            self.assertEqual(schedule_data["WorkingDirectory"], str(resolved_project))
+            self.assertEqual(schedule_data["StartCalendarInterval"][0]["Hour"], 10)
+            self.assertEqual(schedule_data["StartCalendarInterval"][0]["Minute"], 30)
+            self.assertTrue((project / "SCHEDULE.md").exists())
+            schedule_report = (project / "SCHEDULE.md").read_text(encoding="utf-8")
+            self.assertIn("Scholar Alert Reader Schedule", schedule_report)
+            self.assertIn("weekdays", schedule_report)
+            dry_run_plist = project / "dry_run_schedule.plist"
+            dry_run_report = project / "DRY_RUN_SCHEDULE.md"
+            subprocess.run(
+                [
+                    str(project / "schedule_reader.sh"),
+                    "--action",
+                    "install",
+                    "--dry-run",
+                    "--output",
+                    str(dry_run_plist),
+                    "--report",
+                    str(dry_run_report),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertFalse(dry_run_plist.exists())
+            self.assertIn("dry-run install", dry_run_report.read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Persistent Configuration", start_here)
             self.assertIn("SOURCE: `rss`", start_here)

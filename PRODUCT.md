@@ -68,6 +68,7 @@ For users who want citation/PDF management.
 - A terminal-only user can install the project with `pip`, run `scholar-alert-reader`, and use generated helper scripts without depending on Codex.
 - A new user can run `capabilities` / `capabilities.sh` to understand the product boundary before connecting private data or expecting full-paper review.
 - A new user can run a guided `setup-wizard` / `setup_wizard.sh` to choose source, profile template, schedule, and optional Obsidian/Zotero paths without memorizing setup flags, then get a `SOURCE_CHECK.md` readiness report with source-specific setup guidance and next steps.
+- A user can turn saved schedule settings into a concrete `SCHEDULE.md` and macOS LaunchAgent plist, then install/status/uninstall it with generated helper scripts.
 - CI must verify both source-checkout execution and installed-wheel execution, including packaged resources used by `quickstart` and `setup-wizard`.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
@@ -85,6 +86,7 @@ For users who want citation/PDF management.
 - Zero-paper explanations should appear in terminal output, `summary.json`, `digest.md/html`, and the Dashboard, not only in logs.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
+- LaunchAgent install/uninstall must be explicit; default schedule generation should be a safe write/preview step.
 - Obsidian and Zotero must remain optional.
 - Raw mailbox contents, OAuth secrets, Gmail tokens, personal bibliography/feed lists, feedback, and generated personal knowledge bases must not be committed.
 - Public issue and PR templates must actively steer users away from uploading raw mail, credentials, private bibliography/feed lists, or generated knowledge bases.

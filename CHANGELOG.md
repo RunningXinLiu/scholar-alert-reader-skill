@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.35 - 2026-05-28
+
+- Add `schedule` / generated `schedule_reader.sh` to render, install, inspect, and uninstall macOS LaunchAgent schedules from `reader.env`.
+- Write `SCHEDULE.md` plus project-local LaunchAgent plist previews before any explicit install.
+- Add regression coverage for generated schedule helpers and LaunchAgent plist contents.
+
 ## v0.2.34 - 2026-05-28
 
 - Add structured zero-paper diagnostics to `summary.json`, terminal output, `digest.md/html`, and `DASHBOARD.md/html`.

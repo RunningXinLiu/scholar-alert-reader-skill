@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.34`
+Version: `0.2.35`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -123,7 +123,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
-- Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
+- Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
 - Adds a literature-copilot layer: selected-paper metadata briefs, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
 - Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
 
@@ -334,6 +334,16 @@ Or configure non-interactively:
 Both setup paths write `reader.env`, which is automatically read by generated helper scripts. Explicit one-off command variables still win, so `SOURCE=mbox ./run_reader.sh`, `WEB_SOURCE=... ./web_import.sh`, or `RSS_SOURCE=... ./rss_import.sh` can override the saved defaults.
 
 The wizard also writes `SOURCE_CHECK.md` after configuration. Add `--live-check` when you want it to attempt a real Gmail, mbox, bibliography, web, RSS, or arXiv read immediately. The report includes source-specific next steps for OAuth, Mail.app permissions, mbox placement, BibTeX/RIS exports, web source lists, RSS feed lists, and arXiv queries.
+
+Render or install the local schedule:
+
+```bash
+./schedule_reader.sh --action write
+./schedule_reader.sh --action install
+./schedule_reader.sh --action status
+```
+
+`schedule_reader.sh --action write` creates `SCHEDULE.md` plus a LaunchAgent plist under `LaunchAgents/` without touching macOS scheduling. On macOS, `--action install` writes the plist to `~/Library/LaunchAgents/` and loads it with `launchctl`; `--action uninstall` removes it. Other platforms can use the generated report and `run_reader.sh` with cron, systemd timers, or Task Scheduler.
 
 Choose a starting research profile:
 

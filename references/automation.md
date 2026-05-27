@@ -20,6 +20,22 @@ Then persist local defaults so scheduled runs do not depend on a long command li
 
 `reader.env` is read by generated shell scripts only for variables that are not already set by the caller. This keeps daily automation simple while still allowing one-off overrides such as `SOURCE=web WEB_SOURCE=... ./run_reader.sh` or `SOURCE=rss RSS_SOURCE=... ./run_reader.sh`.
 
+Render the schedule before installing it:
+
+```bash
+./schedule_reader.sh --action write
+```
+
+This writes `SCHEDULE.md` and a project-local `LaunchAgents/*.plist` preview. On macOS, install it only after source checks pass:
+
+```bash
+./source_check.sh --source auto --live
+./schedule_reader.sh --action install
+./schedule_reader.sh --action status
+```
+
+`./schedule_reader.sh --action uninstall` removes the installed LaunchAgent. Non-macOS users should use `run_reader.sh` with cron, systemd timers, Task Scheduler, or their agent scheduler.
+
 ## Gmail API
 
 Best long-term option. Requires user OAuth setup once, then can read messages with label `Google Scholar Alerts` or sender `scholaralerts-noreply@google.com`.

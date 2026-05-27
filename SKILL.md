@@ -30,9 +30,10 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, knowledge base, and diagnostics.
-13. Use `reading-plan`, `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
-14. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-15. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
+13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
+14. Use `reading-plan`, `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
+16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -48,6 +49,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `deep_read_queue.md`: top papers for actual reading.
 - `seen_papers.json`: dedupe state; can include every alert item.
 - `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, library files, setup reports, and next actions.
+- `SCHEDULE.md` and `LaunchAgents/*.plist`: local schedule report and macOS LaunchAgent plist generated from `reader.env`.
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
 - `knowledge_base/profile_tuning.md`: suggested profile updates from interested/archive feedback patterns.
 - `knowledge_base/library.json`: cumulative retained papers, usually Must read + Skim.
@@ -149,6 +151,16 @@ python3 scripts/scholar_reader.py dashboard \
 ```
 
 Initialized projects provide `./dashboard_reader.sh --open`. Successful `./run_reader.sh` runs refresh `DASHBOARD.md` and `DASHBOARD.html` automatically unless `REFRESH_DASHBOARD=0` is set.
+
+Render or install the local schedule:
+
+```bash
+python3 scripts/scholar_reader.py schedule \
+  --project-dir ~/scholar_alerts \
+  --action write
+```
+
+Initialized projects provide `./schedule_reader.sh --action write`, `./schedule_reader.sh --action install`, `./schedule_reader.sh --action status`, and `./schedule_reader.sh --action uninstall`. LaunchAgent install/uninstall is macOS-only; other platforms should use the same `run_reader.sh` with their native scheduler.
 
 Persist local source/integration/schedule defaults:
 

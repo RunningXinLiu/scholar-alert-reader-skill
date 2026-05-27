@@ -17,6 +17,7 @@ import importlib.util
 import json
 import mailbox
 import os
+import plistlib
 import re
 import shlex
 import shutil
@@ -3803,6 +3804,7 @@ def render_project_guide(
         "## Daily Loop",
         "",
         "- `./run_reader.sh`: fetch and rank new alert papers.",
+        "- `./schedule_reader.sh --action write`: render a macOS LaunchAgent plist from `reader.env` schedule settings.",
         "- `./dashboard_reader.sh --open`: open the project dashboard with links to current outputs.",
         "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, or optional Mail.app source readiness.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
@@ -3832,6 +3834,7 @@ def render_project_guide(
         f"- RSS/Atom feed list: {status_marker(project_dir / 'feeds.txt')}",
         f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
         f"- Project dashboard HTML: {status_marker(project_dir / 'DASHBOARD.html')}",
+        f"- Schedule report: {status_marker(project_dir / 'SCHEDULE.md')}",
         f"- Daily papers JSON: {count_marker(daily_dir / 'papers.json')}",
         f"- Foundation digest HTML: {status_marker(foundation_dir / 'digest.html')}",
         f"- Recent review JSON: {status_marker(recent_dir / 'papers.json')}",
@@ -4012,6 +4015,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- {dashboard_link('Start Here guide', project_dir / 'START_HERE.md', base_dir)}",
             f"- {dashboard_link('Source check', project_dir / 'SOURCE_CHECK.md', base_dir)}",
             f"- {dashboard_link('Doctor report', project_dir / 'DOCTOR.md', base_dir)}",
+            f"- {dashboard_link('Schedule report', project_dir / 'SCHEDULE.md', base_dir)}",
             f"- {dashboard_link('Capabilities report', project_dir / 'CAPABILITIES.md', base_dir)}",
             f"- {dashboard_link('Troubleshooting guide', project_dir / 'TROUBLESHOOTING.md', base_dir)}",
             "",
@@ -4228,6 +4232,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "self_test.sh": 'exec "${SKILL_CMD[@]}" self-test --project-dir "${SELF_TEST_PROJECT_DIR:-$PROJECT_DIR/.self_test}" --force "$@"\n',
         "setup_reader.sh": 'exec "${SKILL_CMD[@]}" setup --project-dir "$PROJECT_DIR" "$@"\n',
         "setup_wizard.sh": 'exec "${SKILL_CMD[@]}" setup-wizard --project-dir "$PROJECT_DIR" "$@"\n',
+        "schedule_reader.sh": 'exec "${SKILL_CMD[@]}" schedule --project-dir "$PROJECT_DIR" "$@"\n',
         "copy_profile_template.sh": 'exec "${SKILL_CMD[@]}" init-profile --profile "$PROFILE_PATH" "$@"\n',
         "feedback_reader.sh": 'exec "${SKILL_CMD[@]}" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
@@ -4290,6 +4295,9 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "knowledge_base/feedback.json",
                     "DASHBOARD.md",
                     "DASHBOARD.html",
+                    "SCHEDULE.md",
+                    "LaunchAgents/",
+                    "logs/",
                     "",
                     "# Generated outputs",
                     "reader_out/",
@@ -4322,6 +4330,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./demo_sources.sh",
                     "./setup_wizard.sh",
                     "./setup_reader.sh --source auto --profile-template ai-seismology",
+                    "./schedule_reader.sh --action write",
                     "./source_check.sh --source auto",
                     "./run_reader.sh",
                     "./dashboard_reader.sh --open",
@@ -4735,6 +4744,270 @@ def setup_project(args: argparse.Namespace) -> None:
         print(f"Previous profile backup: {profile_backup}")
     print("Next: ./source_check.sh --source auto")
     print("Run: ./run_reader.sh")
+
+
+WEEKDAY_ALIASES = {
+    "sun": 0,
+    "sunday": 0,
+    "mon": 1,
+    "monday": 1,
+    "tue": 2,
+    "tues": 2,
+    "tuesday": 2,
+    "wed": 3,
+    "wednesday": 3,
+    "thu": 4,
+    "thur": 4,
+    "thurs": 4,
+    "thursday": 4,
+    "fri": 5,
+    "friday": 5,
+    "sat": 6,
+    "saturday": 6,
+}
+
+
+def parse_schedule_time(value: str) -> tuple[int, int]:
+    text = (value or "09:00").strip()
+    match = re.match(r"^(\d{1,2}):(\d{2})$", text)
+    if not match:
+        raise SystemExit(f"Schedule time must be HH:MM, got: {value}")
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        raise SystemExit(f"Schedule time out of range: {value}")
+    return hour, minute
+
+
+def parse_schedule_days(value: str) -> list[int] | None:
+    text = (value or "weekdays").strip()
+    normalized = re.sub(r"\s+", "", text.lower())
+    if normalized in {"daily", "everyday", "every-day", "all", "*"}:
+        return None
+    if normalized in {"weekday", "weekdays", "workdays"}:
+        return [1, 2, 3, 4, 5]
+    if normalized in {"weekend", "weekends"}:
+        return [0, 6]
+
+    days: list[int] = []
+    for part in re.split(r"[,/;]+", text):
+        token = part.strip().lower()
+        if not token:
+            continue
+        if token.isdigit():
+            day = int(token)
+            if day == 7:
+                day = 0
+            if not 0 <= day <= 6:
+                raise SystemExit(f"Schedule weekday must be 0-7 or a day name, got: {part}")
+        else:
+            day = WEEKDAY_ALIASES.get(token)
+            if day is None:
+                raise SystemExit(f"Unknown schedule day: {part}")
+        if day not in days:
+            days.append(day)
+    if not days:
+        raise SystemExit(f"No schedule days parsed from: {value}")
+    return days
+
+
+def calendar_intervals(schedule_time: str, schedule_days: str) -> dict[str, int] | list[dict[str, int]]:
+    hour, minute = parse_schedule_time(schedule_time)
+    days = parse_schedule_days(schedule_days)
+    base = {"Hour": hour, "Minute": minute}
+    if days is None:
+        return base
+    return [{**base, "Weekday": day} for day in days]
+
+
+def launch_agent_label(project_dir: Path, requested: str | None = None) -> str:
+    if requested:
+        return requested
+    slug = slugify(project_dir.name)[:36] or "scholar-alert-reader"
+    digest = hashlib.sha1(str(project_dir).encode("utf-8")).hexdigest()[:8]
+    return f"com.scholar-alert-reader.{slug}.{digest}"
+
+
+def default_launch_agent_path(label: str) -> Path:
+    return Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
+
+
+def project_launch_agent_path(project_dir: Path, label: str) -> Path:
+    return project_dir / "LaunchAgents" / f"{label}.plist"
+
+
+def render_launch_agent_plist(
+    project_dir: Path,
+    label: str,
+    schedule_time: str,
+    schedule_days: str,
+    run_at_load: bool = False,
+) -> dict[str, Any]:
+    logs_dir = project_dir / "logs"
+    plist: dict[str, Any] = {
+        "Label": label,
+        "ProgramArguments": [str(project_dir / "run_reader.sh")],
+        "WorkingDirectory": str(project_dir),
+        "StartCalendarInterval": calendar_intervals(schedule_time, schedule_days),
+        "StandardOutPath": str(logs_dir / "scholar-alert-reader.out.log"),
+        "StandardErrorPath": str(logs_dir / "scholar-alert-reader.err.log"),
+    }
+    if run_at_load:
+        plist["RunAtLoad"] = True
+    return plist
+
+
+def launchctl_target() -> str:
+    return f"gui/{os.getuid()}"
+
+
+def schedule_status(label: str, plist_path: Path) -> tuple[bool, str]:
+    if sys.platform != "darwin" or not shutil.which("launchctl"):
+        return plist_path.exists(), "launchctl status unavailable on this platform"
+    result = subprocess.run(
+        ["launchctl", "print", f"{launchctl_target()}/{label}"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return True, "loaded"
+    return plist_path.exists(), "plist exists but job is not loaded" if plist_path.exists() else "not installed"
+
+
+def render_schedule_report(
+    action: str,
+    project_dir: Path,
+    label: str,
+    plist_path: Path,
+    schedule_time: str,
+    schedule_days: str,
+    timezone_name: str,
+    run_at_load: bool,
+    dry_run: bool,
+    status_text: str,
+) -> str:
+    logs_dir = project_dir / "logs"
+    lines = [
+        "# Scholar Alert Reader Schedule",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Action: `{action}`",
+        f"- Project: `{project_dir}`",
+        f"- Label: `{label}`",
+        f"- Plist: `{plist_path}`",
+        f"- Run script: `{project_dir / 'run_reader.sh'}`",
+        f"- Schedule: `{schedule_time}` on `{schedule_days}`",
+        f"- Configured timezone note: `{timezone_name}`",
+        f"- LaunchAgent timezone: macOS launchd uses the Mac's current system timezone.",
+        f"- Run at load: `{run_at_load}`",
+        f"- Dry run: `{dry_run}`",
+        f"- Status: {status_text}",
+        f"- stdout log: `{logs_dir / 'scholar-alert-reader.out.log'}`",
+        f"- stderr log: `{logs_dir / 'scholar-alert-reader.err.log'}`",
+        "",
+        "## Commands",
+        "",
+        "```bash",
+        "./schedule_reader.sh --action write",
+        "./schedule_reader.sh --action install",
+        "./schedule_reader.sh --action status",
+        "./schedule_reader.sh --action uninstall",
+        "```",
+        "",
+        "## Notes",
+        "",
+        "- Run `./source_check.sh --source auto --live` before installing a daily schedule.",
+        "- `run_reader.sh` reads `reader.env`, so schedule changes made with `./setup_reader.sh --schedule-time ... --schedule-days ...` should be followed by `./schedule_reader.sh --action install`.",
+        "- Keep Gmail OAuth tokens, mailbox exports, private feed lists, and generated knowledge-base files out of Git.",
+        "",
+    ]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_schedule_report(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def schedule_command(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    if not (project_dir / "run_reader.sh").exists():
+        raise SystemExit(f"Project is not initialized or missing run_reader.sh: {project_dir}")
+    env_values = read_project_env(project_env_path(project_dir))
+    schedule_time = args.time or env_values.get("SCHEDULE_TIME", "09:00")
+    schedule_days = args.days or env_values.get("SCHEDULE_DAYS", "weekdays")
+    timezone_name = args.timezone or env_values.get("SCHEDULE_TIMEZONE", "system")
+    label = launch_agent_label(project_dir, args.label)
+    plist_path = (args.output.expanduser() if args.output else None) or (
+        default_launch_agent_path(label) if args.action in {"install", "uninstall", "status"} else project_launch_agent_path(project_dir, label)
+    )
+    report_path = (args.report.expanduser() if args.report else project_dir / "SCHEDULE.md")
+    run_at_load = bool(args.run_at_load)
+    dry_run = bool(args.dry_run)
+    status_text = ""
+
+    parse_schedule_time(schedule_time)
+    parse_schedule_days(schedule_days)
+
+    if args.action in {"install", "uninstall"} and sys.platform != "darwin" and not dry_run:
+        raise SystemExit("LaunchAgent install/uninstall is macOS-only. Use --action write to generate the plist, then schedule run_reader.sh with your OS scheduler.")
+
+    if args.action in {"write", "install"}:
+        plist = render_launch_agent_plist(project_dir, label, schedule_time, schedule_days, run_at_load=run_at_load)
+        if not dry_run:
+            plist_path.parent.mkdir(parents=True, exist_ok=True)
+            (project_dir / "logs").mkdir(parents=True, exist_ok=True)
+            plist_path.write_bytes(plistlib.dumps(plist, sort_keys=True))
+        status_text = "plist rendered" if dry_run else f"plist written to {plist_path}"
+        if args.action == "install":
+            if not dry_run and not shutil.which("launchctl"):
+                raise SystemExit("launchctl not found; cannot install LaunchAgent.")
+            if not dry_run:
+                subprocess.run(["launchctl", "bootout", launchctl_target(), str(plist_path)], text=True, capture_output=True, check=False)
+                result = subprocess.run(
+                    ["launchctl", "bootstrap", launchctl_target(), str(plist_path)],
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    raise SystemExit(result.stderr.strip() or "launchctl bootstrap failed")
+                status_text = "installed with launchctl"
+            else:
+                status_text = "dry-run install; plist not written and launchctl not called"
+    elif args.action == "uninstall":
+        if not dry_run and shutil.which("launchctl"):
+            subprocess.run(["launchctl", "bootout", launchctl_target(), str(plist_path)], text=True, capture_output=True, check=False)
+        if not dry_run and plist_path.exists():
+            plist_path.unlink()
+            status_text = "uninstalled and plist removed"
+        else:
+            status_text = "dry-run uninstall; no changes" if dry_run else "not installed"
+    elif args.action == "status":
+        _, status_text = schedule_status(label, plist_path)
+    else:
+        raise SystemExit(f"Unknown schedule action: {args.action}")
+
+    write_schedule_report(
+        report_path,
+        render_schedule_report(
+            args.action,
+            project_dir,
+            label,
+            plist_path,
+            schedule_time,
+            schedule_days,
+            timezone_name,
+            run_at_load,
+            dry_run,
+            status_text,
+        ),
+    )
+    print(f"Schedule report: {report_path}")
+    print(f"Label: {label}")
+    print(f"Plist: {plist_path}")
+    print(f"Status: {status_text}")
 
 
 def title_keywords(title: str, limit: int = 8) -> list[str]:
@@ -6895,6 +7168,19 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--output", type=Path, help="Config output path. Defaults to project-dir/reader.env")
     setup.add_argument("--no-guide", action="store_true", help="Do not refresh START_HERE.md after writing config")
     setup.set_defaults(func=setup_project)
+
+    schedule = sub.add_parser("schedule", help="Render, install, inspect, or uninstall a local macOS LaunchAgent schedule")
+    schedule.add_argument("--project-dir", type=Path, required=True, help="Local Scholar Alert Reader project directory")
+    schedule.add_argument("--action", choices=["write", "install", "status", "uninstall"], default="write")
+    schedule.add_argument("--time", help="Wall-clock run time, e.g. 09:00. Defaults to reader.env SCHEDULE_TIME")
+    schedule.add_argument("--days", help="Run days: weekdays, daily, weekends, or comma-separated day names. Defaults to reader.env SCHEDULE_DAYS")
+    schedule.add_argument("--timezone", help="Timezone note for the report. launchd uses the Mac system timezone.")
+    schedule.add_argument("--label", help="LaunchAgent label. Defaults to a stable project-specific label")
+    schedule.add_argument("--output", type=Path, help="Plist path. Defaults to project LaunchAgents/ for write and ~/Library/LaunchAgents/ for install/status/uninstall")
+    schedule.add_argument("--report", type=Path, help="Schedule report path. Defaults to project-dir/SCHEDULE.md")
+    schedule.add_argument("--run-at-load", action="store_true", help="Ask launchd to run once when the job is loaded")
+    schedule.add_argument("--dry-run", action="store_true", help="Validate and report without writing/removing plist files or calling launchctl")
+    schedule.set_defaults(func=schedule_command)
 
     wizard = sub.add_parser("setup-wizard", aliases=["wizard"], help="Interactively configure a local project and write reader.env")
     wizard.add_argument("--project-dir", type=Path, default=Path("~/scholar_alerts"), help="Local Scholar Alert Reader project directory")
