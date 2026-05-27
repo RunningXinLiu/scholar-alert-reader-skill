@@ -39,7 +39,7 @@ Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
-Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local sparse semantic reranking, and retained-library context. `semantic-rerank` is dependency-free sparse TF-IDF, not a neural embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
+Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local semantic reranking, and retained-library context. `semantic-rerank` defaults to dependency-free sparse TF-IDF; `--backend sentence-transformers` uses an optional user-installed local embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
 
 ## Outputs
 
@@ -71,7 +71,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/analysis/review_queue.md` and `knowledge_base/analysis/review_queue.html`: batch reading panel with selected review packs, full-text extraction status, section coverage, visual/data/code signals, and next actions.
 - `knowledge_base/analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers.
 - `knowledge_base/analysis/ranking_evaluation.md`: ranking quality benchmark against explicit interested/archive feedback labels.
-- `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json`: local sparse semantic rerank report and reranked records.
+- `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json`: local semantic rerank report and reranked records, including the backend used.
 - `knowledge_base/answers/*.md`: local-library answers to user research questions.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
 - `knowledge_base/reading_status.md`: reading tracker grouped by status.
@@ -454,7 +454,7 @@ python3 scripts/scholar_reader.py ranking-eval \
 
 It reports precision/recall at K, average precision, tier calibration, high-ranked archive false positives, low-ranked interested missed positives, and next tuning moves. Unlabeled papers are ignored for metrics.
 
-Rerank saved papers with a local sparse semantic layer:
+Rerank saved papers with a local semantic layer:
 
 ```bash
 python3 scripts/scholar_reader.py semantic-rerank \
@@ -463,7 +463,19 @@ python3 scripts/scholar_reader.py semantic-rerank \
   --papers-json reader_out/daily/papers.json
 ```
 
-It writes `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json` by default. Use it to inspect potential weak-keyword rescues and archive-like downranks before changing broad profile terms. This is local sparse TF-IDF, not a neural embedding model or hosted service.
+It writes `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json` by default. Use it to inspect potential weak-keyword rescues and archive-like downranks before changing broad profile terms. The default backend is local sparse TF-IDF. Advanced users can install optional embedding dependencies and run:
+
+```bash
+python3 -m pip install '.[embedding]'
+python3 scripts/scholar_reader.py semantic-rerank \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json reader_out/daily/papers.json \
+  --backend sentence-transformers \
+  --embedding-model sentence-transformers/all-MiniLM-L6-v2
+```
+
+The embedding backend still runs locally and does not upload papers. It may download the chosen model unless the user provides a local model path or pre-cached model.
 
 Ask the retained literature base a question:
 

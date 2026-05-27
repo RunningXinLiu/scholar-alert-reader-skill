@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.48 - 2026-05-28
+
+- Add an optional `semantic-rerank --backend sentence-transformers` path for local embedding-based reranking while keeping `--backend sparse` as the zero-dependency default.
+- Add the `embedding` optional dependency group for users who want to install `sentence-transformers` explicitly.
+- Record the active semantic backend in reports and reranked JSON so users can distinguish sparse TF-IDF runs from local embedding runs.
+
 ## v0.2.47 - 2026-05-28
 
 - Add `semantic-rerank` / `rerank-semantic` plus generated `semantic_rerank.sh` to produce a dependency-free local sparse semantic reranking report.

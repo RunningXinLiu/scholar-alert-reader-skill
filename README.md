@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.47`
+Version: `0.2.48`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -129,7 +129,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, adaptive feedback similarity, and temporary boost terms.
 - Explains why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning suggestions.
 - Evaluates ranking quality against your interested/archive feedback, including precision/recall, average precision, false positives, and missed positives.
-- Reranks saved papers with a local sparse semantic layer so weak-keyword papers close to your profile or interested seeds can be inspected before you tune broad terms.
+- Reranks saved papers with a local semantic layer so weak-keyword papers close to your profile or interested seeds can be inspected before you tune broad terms; the default backend is sparse and zero-dependency, and an optional local `sentence-transformers` backend is available for users who install it.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
@@ -151,7 +151,7 @@ python3 -m scholar_alert_reader capabilities
 ./capabilities.sh
 ```
 
-The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional sparse semantic reranking. It is not a hosted embedding service or autonomous reviewer.
+The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional semantic reranking. `semantic-rerank` defaults to sparse TF-IDF with no extra dependencies; `--backend sentence-transformers` uses a user-installed local embedding model. It is not a hosted embedding service or autonomous reviewer.
 
 `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, and the retained library. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
@@ -225,6 +225,12 @@ If you plan to use Gmail API from an installed CLI, install the optional Gmail d
 
 ```bash
 python3 -m pip install "scholar-alert-reader-skill[gmail] @ git+https://github.com/RunningXinLiu/scholar-alert-reader-skill.git"
+```
+
+If you plan to use the optional local embedding reranker, install the embedding extra from a checkout or install `sentence-transformers` in the same environment:
+
+```bash
+python3 -m pip install '.[embedding]'
 ```
 
 Initialized project scripts remember the Python used at setup time, prefer `PROJECT_DIR/.venv/bin/python` when it exists, and fall back to `python3 -m scholar_alert_reader` when the repository wrapper is not available.
@@ -643,7 +649,7 @@ python3 scripts/scholar_reader.py ranking-eval \
 
 `ranking-eval` writes `knowledge_base/analysis/ranking_evaluation.md` by default. It uses explicit `interested`, `archive`, `more-like-this`, `less-like-this`, and reading-status feedback labels to report precision/recall at K, average precision, tier calibration, high-ranked archive false positives, low-ranked interested missed positives, and concrete tuning recommendations. Run it after several labels; unlabeled papers are ignored for metrics.
 
-Rerank saved papers with a local sparse semantic layer:
+Rerank saved papers with a local semantic layer:
 
 ```bash
 python3 scripts/scholar_reader.py semantic-rerank \
@@ -652,7 +658,21 @@ python3 scripts/scholar_reader.py semantic-rerank \
   --papers-json reader_out/daily/papers.json
 ```
 
-`semantic-rerank` writes `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json` by default. It uses local sparse TF-IDF over titles, snippets, source text, matched terms, tags, profile questions/terms, interested/more-like-this seeds, archive/less-like-this seeds, and optional Must-read tier seeds. Use it to inspect potential semantic rescues before changing broad profile terms. It is dependency-free and local; it is not a neural embedding model.
+`semantic-rerank` writes `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json` by default. With the default backend, it uses local sparse TF-IDF over titles, snippets, source text, matched terms, tags, profile questions/terms, interested/more-like-this seeds, archive/less-like-this seeds, and optional Must-read tier seeds. Use it to inspect potential semantic rescues before changing broad profile terms.
+
+For optional local embedding reranking, install the extra dependency and choose a sentence-transformers model:
+
+```bash
+python3 -m pip install '.[embedding]'
+python3 scripts/scholar_reader.py semantic-rerank \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json reader_out/daily/papers.json \
+  --backend sentence-transformers \
+  --embedding-model sentence-transformers/all-MiniLM-L6-v2
+```
+
+The embedding backend still runs locally and does not upload papers. It may download the chosen model the first time unless you provide a local model path or pre-cache it. Use `--backend sparse` for deterministic zero-dependency reranking.
 
 Open the project dashboard:
 
@@ -807,7 +827,7 @@ The richer knowledge base includes:
 - `reading_plan.md` / `reading_plan.html`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers
-- `analysis/semantic_rerank.md` / `analysis/semantic_reranked_papers.json`: local sparse semantic rerank report and reranked records
+- `analysis/semantic_rerank.md` / `analysis/semantic_reranked_papers.json`: local semantic rerank report and reranked records, including the backend used
 - `pdfs/<paper-id>.pdf`: optional PDF fetched from an explicit/open PDF URL
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_workflow.md`: one-paper workflow report linking extraction status, workup, and review pack

@@ -11,7 +11,7 @@ Use this reference when changing the skill implementation rather than a user's p
 - `scholar_alert_reader/weekly.py`: pure renderer for weekly synthesis from retained paper records.
 - `scholar_alert_reader/export.py`: pure export renderers for BibTeX/RIS/Markdown/JSONL.
 - `scholar_alert_reader/fulltext.py`: local PDF/text extraction and full-text brief rendering. It should gracefully degrade when optional PDF tooling is missing.
-- `scholar_alert_reader/semantic.py`: dependency-free sparse semantic reranking helpers. Keep this transparent and local; do not present it as neural embedding.
+- `scholar_alert_reader/semantic.py`: local semantic reranking helpers. Keep sparse TF-IDF dependency-free by default; optional embedding backends must remain explicit, local, and gracefully unavailable when dependencies/models are missing.
 - `scholar_alert_reader/copilot.py`: deterministic literature-copilot renderers, including deep-read, Q&A, comparison, map, Obsidian pages, and LLM-ready review context packs.
 - `scholar_alert_reader/tuning.py`: deterministic profile-tuning suggestions from retained papers and explicit feedback. It should not mutate profiles directly; keep writes in `core.py` command handlers.
 - `scholar_alert_reader/diagnostics.py`: local setup checks for profile, Gmail token/dependencies, outputs, and knowledge-base files.

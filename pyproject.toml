@@ -40,6 +40,9 @@ gmail = [
   "google-auth-oauthlib",
   "google-auth-httplib2"
 ]
+embedding = [
+  "sentence-transformers"
+]
 
 [project.urls]
 Homepage = "https://github.com/RunningXinLiu/scholar-alert-reader-skill"

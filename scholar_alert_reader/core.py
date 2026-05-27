@@ -8509,6 +8509,7 @@ def render_semantic_rerank_report(
     profile: dict[str, Any],
     profile_path: Path,
     feedback_file: Path,
+    backend_description: str,
     profile_seed_count: int,
     explicit_positive_count: int,
     explicit_negative_count: int,
@@ -8533,14 +8534,14 @@ def render_semantic_rerank_report(
         f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"- Profile: `{profile_path}`",
         f"- Feedback: `{feedback_file}`",
-        f"- Backend: local sparse TF-IDF over title/snippet/source/terms/tags",
+        f"- Backend: {backend_description}",
         f"- Records considered: {len(rows)}",
         f"- Profile intent seeds: {profile_seed_count}",
         f"- Explicit positive feedback seeds: {explicit_positive_count}",
         f"- Explicit negative feedback seeds: {explicit_negative_count}",
         f"- Tier seeds included: {include_tier_seeds} ({', '.join(seed_tiers) if seed_tiers else 'none'})",
         "",
-        "This is a local reranking report, not a neural embedding model or hosted semantic service. It helps surface papers whose wording is close to your profile or interested papers even when exact keyword scoring is weak.",
+        "This is a local reranking report. The default sparse backend is dependency-free and explainable; the optional sentence-transformers backend uses a user-installed local embedding model. Neither backend uploads papers or replaces expert reading.",
         "",
         "## Top Semantic Ranking",
         "",
@@ -8617,14 +8618,19 @@ def semantic_reranked_records(rows: list[Any]) -> list[dict[str, Any]]:
             "profile_overlap": row.profile_overlap,
             "positive_overlap": row.positive_overlap,
             "negative_overlap": row.negative_overlap,
-            "backend": "local-sparse-tfidf",
+            "backend": row.backend,
         }
         output.append(record)
     return output
 
 
 def semantic_rerank_command(args: argparse.Namespace) -> None:
-    from .semantic import semantic_rerank_records
+    from .semantic import (
+        DEFAULT_EMBEDDING_MODEL,
+        EmbeddingBackendUnavailable,
+        semantic_backend_description,
+        semantic_rerank_records,
+    )
 
     profile = load_profile(args.profile)
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
@@ -8641,21 +8647,29 @@ def semantic_rerank_command(args: argparse.Namespace) -> None:
         seed_tiers,
         not args.no_tier_seeds,
     )
-    rows = semantic_rerank_records(
-        records,
-        profile_texts,
-        positive_texts,
-        negative_texts,
-        profile_weight=args.profile_weight,
-        positive_weight=args.positive_weight,
-        negative_weight=args.negative_weight,
-    )
+    embedding_model = args.embedding_model or DEFAULT_EMBEDDING_MODEL
+    try:
+        rows = semantic_rerank_records(
+            records,
+            profile_texts,
+            positive_texts,
+            negative_texts,
+            profile_weight=args.profile_weight,
+            positive_weight=args.positive_weight,
+            negative_weight=args.negative_weight,
+            backend=args.backend,
+            embedding_model=embedding_model,
+            embedding_batch_size=args.embedding_batch_size,
+        )
+    except EmbeddingBackendUnavailable as exc:
+        raise SystemExit(str(exc)) from exc
     output = args.output or (kb_dir / "analysis" / "semantic_rerank.md")
     report = render_semantic_rerank_report(
         rows,
         profile,
         args.profile,
         feedback_file,
+        semantic_backend_description(args.backend, embedding_model),
         len(profile_texts),
         explicit_positive_count,
         explicit_negative_count,
@@ -8669,6 +8683,7 @@ def semantic_rerank_command(args: argparse.Namespace) -> None:
     if not args.no_json:
         save_json(json_output, semantic_reranked_records(rows))
     print(f"Semantic rerank: {output}")
+    print(f"Backend: {semantic_backend_description(args.backend, embedding_model)}")
     if not args.no_json:
         print(f"Reranked JSON: {json_output}")
     print(f"Records considered: {len(rows)}")
@@ -8964,7 +8979,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
         "- Evaluating saved ranking quality against interested/archive labels with precision, recall, average precision, false positives, and missed positives.",
-        "- Reranking saved records with local sparse semantic similarity to profile terms, interested seeds, and archived seeds.",
+        "- Reranking saved records with local semantic similarity to profile terms, interested seeds, and archived seeds, using sparse TF-IDF by default and optional user-installed sentence-transformers embeddings when requested.",
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
@@ -8974,7 +8989,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "## Capability Boundary",
         "",
         "- `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, and feedback signals.",
-        "- `semantic_queries`, adaptive ranking, and `semantic-rerank` are lightweight local matching features, not a hosted embedding service or a neural reranker.",
+        "- `semantic_queries` and adaptive ranking are lightweight local matching features. `semantic-rerank` defaults to sparse TF-IDF and can optionally use a user-installed local sentence-transformers model; it is not a hosted embedding service.",
         "- `full-text` works when a local PDF/text path is provided directly or synced from Zotero; it does not automatically bypass publisher access or download paywalled PDFs.",
         "- `fetch-pdf` only uses explicit/open PDF URLs from user input, arXiv, webpage metadata, or OpenAlex metadata. It does not crawl publisher pages or bypass access controls.",
         "- `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant. It does not upload data or claim autonomous expert peer review.",
@@ -9653,7 +9668,7 @@ def build_parser() -> argparse.ArgumentParser:
     ranking_eval.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/ranking_evaluation.md")
     ranking_eval.set_defaults(func=ranking_eval_command)
 
-    semantic_rerank = sub.add_parser("semantic-rerank", aliases=["rerank-semantic"], help="Rerank saved papers with local sparse semantic similarity")
+    semantic_rerank = sub.add_parser("semantic-rerank", aliases=["rerank-semantic"], help="Rerank saved papers with local semantic similarity")
     semantic_rerank.add_argument("--profile", type=Path, required=True)
     semantic_rerank.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
     semantic_rerank.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
@@ -9663,6 +9678,9 @@ def build_parser() -> argparse.ArgumentParser:
     semantic_rerank.add_argument("--profile-weight", type=int, default=16, help="Weight for similarity to profile questions/terms")
     semantic_rerank.add_argument("--positive-weight", type=int, default=14, help="Weight for similarity to interested/more-like-this seeds")
     semantic_rerank.add_argument("--negative-weight", type=int, default=18, help="Penalty weight for similarity to archive/less-like-this seeds")
+    semantic_rerank.add_argument("--backend", choices=["sparse", "sentence-transformers"], default="sparse", help="Semantic backend. sparse is zero-dependency; sentence-transformers requires optional local embedding dependencies")
+    semantic_rerank.add_argument("--embedding-model", help="sentence-transformers model name/path for --backend sentence-transformers")
+    semantic_rerank.add_argument("--embedding-batch-size", type=int, default=32, help="Batch size for --backend sentence-transformers")
     semantic_rerank.add_argument("--min-delta", type=int, default=2, help="Minimum semantic delta for rescue/downrank sections")
     semantic_rerank.add_argument("--limit", type=int, default=20, help="Maximum rows in report sections")
     semantic_rerank.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/semantic_rerank.md")

@@ -20,7 +20,7 @@ Turn scattered paper alerts, bibliography exports, structured scholarly webpages
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, ranking explanation, ranking evaluation, local sparse semantic reranking, alert-level deep-read briefs, selected-paper workups, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and section-aware brief with figure, table, data, and code signals when the user provides a local file path, Zotero supplies a local path, or `fetch-pdf` saves an explicit/open PDF URL locally. `review-workflow` gives users a simpler one-paper path from optional local full-text extraction to `workup` and `review-pack`. `workup` turns one selected paper into a human-readable reading/citation/manuscript decision brief, and `review-pack` turns the selected paper, user profile, foundation, interested papers, optional full-text brief, and optional full-text cache into an LLM-ready markdown context pack. Public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
+Current releases are strongest as a triage and research-memory layer. Ranking, ranking explanation, ranking evaluation, local semantic reranking, alert-level deep-read briefs, selected-paper workups, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. The default semantic reranker is sparse and zero-dependency; advanced users can opt into a user-installed local `sentence-transformers` embedding model. Local PDF/text extraction can create a full-text cache and section-aware brief with figure, table, data, and code signals when the user provides a local file path, Zotero supplies a local path, or `fetch-pdf` saves an explicit/open PDF URL locally. `review-workflow` gives users a simpler one-paper path from optional local full-text extraction to `workup` and `review-pack`. `workup` turns one selected paper into a human-readable reading/citation/manuscript decision brief, and `review-pack` turns the selected paper, user profile, foundation, interested papers, optional full-text brief, and optional full-text cache into an LLM-ready markdown context pack. Public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
 
 ## User Tiers
 
@@ -83,7 +83,7 @@ For users who want citation/PDF management.
 - A user can generate a browser-friendly next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability; normal knowledge-base-updating runs refresh it automatically.
 - A user can generate a ranking explanation report for one paper or a tier-filtered batch, including thresholds, matched terms, feedback status, stored reasons, and tuning moves.
 - A user can evaluate ranking quality after several feedback labels, with precision/recall at K, average precision, tier calibration, high-ranked archive false positives, and low-ranked interested missed positives.
-- A user can run local sparse semantic reranking to inspect weak-keyword rescues and archive-like downranks, with a markdown report and reranked JSON that do not require hosted services or neural embedding dependencies.
+- A user can run local semantic reranking to inspect weak-keyword rescues and archive-like downranks, with a markdown report and reranked JSON. The default sparse backend requires no extra dependencies; an optional local `sentence-transformers` backend supports embedding reranking when the user installs it explicitly.
 - A user can fetch explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata into `knowledge_base/pdfs/` without crawling paywalled publisher pages.
 - A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
@@ -106,6 +106,6 @@ For users who want citation/PDF management.
 ## Roadmap
 
 - Optional LLM review over extracted local full-text caches.
-- Optional neural embedding rerank backend after the local sparse rerank path is stable.
+- Model-cache controls and stronger defaults for optional embedding rerank backends.
 - More demo scenarios with sanitized sample alerts, feedback, retained-library files, capability reports, and support-bundle outputs.
 - Optional PyPI release packaging after the GitHub install path is stable.

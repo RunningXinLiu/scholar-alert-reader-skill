@@ -21,6 +21,7 @@ from scholar_alert_reader import __version__
 from scholar_alert_reader import core
 from scholar_alert_reader.enrich import title_similarity
 from scholar_alert_reader.export import export_records
+from scholar_alert_reader.semantic import semantic_rerank_records
 from scholar_alert_reader.weekly import render_weekly_review
 
 
@@ -1130,6 +1131,62 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("semantic_rerank", by_id["rescue"])
             self.assertGreater(by_id["rescue"]["semantic_delta"], 0)
             self.assertLess(by_id["rescue"]["semantic_rerank"]["rank"], by_id["rescue"]["semantic_rerank"]["base_rank"])
+
+    def test_semantic_rerank_embedding_backend_with_injected_encoder(self) -> None:
+        seed = {
+            **sample_paper(),
+            "id": "seed",
+            "title": "Self-supervised seismic waveform representation learning",
+            "snippet": "A foundation model for continuous earthquake monitoring with waveform embeddings.",
+            "score": 25,
+            "tier": "Must read",
+        }
+        rescue = {
+            **sample_paper(),
+            "id": "rescue",
+            "title": "Contrastive waveform representations for event monitoring",
+            "snippet": "Learns reusable earthquake signal representations from continuous seismic waveforms.",
+            "score": 1,
+            "tier": "Archive",
+        }
+        noise = {
+            **sample_paper(),
+            "id": "noise",
+            "title": "Medical ultrasound image segmentation benchmark",
+            "snippet": "A clinical imaging dataset unrelated to earthquake monitoring.",
+            "score": 8,
+            "tier": "Skim",
+        }
+
+        def fake_encoder(texts: list[str], model_name: str, batch_size: int) -> list[list[float]]:
+            self.assertEqual(model_name, "fake-model")
+            self.assertEqual(batch_size, 4)
+            vectors: list[list[float]] = []
+            for value in texts:
+                lowered = value.lower()
+                if "medical" in lowered or "clinical" in lowered:
+                    vectors.append([0.0, 1.0])
+                elif "waveform" in lowered or "earthquake" in lowered or "seismic" in lowered:
+                    vectors.append([1.0, 0.0])
+                else:
+                    vectors.append([0.5, 0.5])
+            return vectors
+
+        rows = semantic_rerank_records(
+            [noise, seed, rescue],
+            ["waveform representation learning for earthquake monitoring"],
+            ["self-supervised seismic waveform foundation model"],
+            ["medical clinical imaging benchmark"],
+            backend="sentence-transformers",
+            embedding_model="fake-model",
+            embedding_batch_size=4,
+            embedding_encoder=fake_encoder,
+        )
+        by_id = {row.record["id"]: row for row in rows}
+        self.assertEqual(by_id["rescue"].backend, "sentence-transformers:fake-model")
+        self.assertGreater(by_id["rescue"].delta, 0)
+        self.assertLess(by_id["rescue"].rank, by_id["rescue"].base_rank)
+        self.assertLess(by_id["noise"].delta, 0)
 
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
