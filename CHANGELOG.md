@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.2.11 - 2026-05-27
+
+- Add `TROUBLESHOOTING.md` with concrete checks for zero-paper runs, Gmail OAuth, Gmail dependency environments, Mail.app permissions, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, Obsidian, Zotero, and privacy pitfalls.
+- Link the troubleshooting guide from README, SKILL guidance, Claude notes, and product requirements.
+
 ## v0.2.10 - 2026-05-27
 
 - Add generated `demo_sources.sh` to run sanitized examples for mbox, BibTeX, RIS, webpage metadata, and RSS without reading private data or updating the retained knowledge base.

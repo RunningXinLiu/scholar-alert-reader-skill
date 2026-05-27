@@ -7,7 +7,7 @@ This repository can be used from Claude Code without Codex. Treat it as a local 
 - Core implementation: `scholar_alert_reader/`
 - CLI wrapper: `scripts/scholar_reader.py`
 - Tests: `tests/`
-- Public documentation: `README.md`, `PRODUCT.md`, `PRIVACY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `references/`
+- Public documentation: `README.md`, `PRODUCT.md`, `PRIVACY.md`, `TROUBLESHOOTING.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `references/`
 - Codex-specific guidance: `SKILL.md`
 - Claude-specific guidance: this file
 

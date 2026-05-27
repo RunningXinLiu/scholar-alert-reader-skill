@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.10`
+Version: `0.2.11`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -594,6 +594,8 @@ python3 scripts/scholar_reader.py guide \
 ```
 
 Pass `--obsidian-dir` and `--zotero-dir` only when those integrations are enabled.
+
+If a source returns no papers, Gmail OAuth is blocked, or generated outputs are missing, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Testing
 
