@@ -90,25 +90,31 @@ FONT = {
 
 def svg_assets() -> None:
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
-    logo = """<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+    logo_mark = """
+<rect width="512" height="512" rx="108" fill="#101827"/>
+<circle cx="394" cy="128" r="72" fill="#0ea5a4" opacity=".18"/>
+<path d="M148 112h188c28 0 50 22 50 50v206c0 28-22 50-50 50H148c-28 0-50-22-50-50V162c0-28 22-50 50-50z" fill="#f8fafc"/>
+<path d="M336 112v74c0 18 15 33 33 33h17" fill="none" stroke="#cbd5e1" stroke-width="20" stroke-linecap="round"/>
+<path d="M150 174h126M150 220h152M150 266h104" stroke="#2563eb" stroke-width="22" stroke-linecap="round"/>
+<path d="M122 352c44-32 86-32 126 0 40-32 82-32 126 0v42c-44-30-86-30-126 0-40-30-82-30-126 0v-42z" fill="#dbeafe"/>
+<circle cx="356" cy="154" r="28" fill="#10b981"/>
+<path d="M356 92v-26M356 242v-26M294 154h-26M444 154h-26" stroke="#10b981" stroke-width="17" stroke-linecap="round"/>
+<path d="M306 104a78 78 0 0 1 100 0M306 204a78 78 0 0 0 100 0" fill="none" stroke="#10b981" stroke-width="13" stroke-linecap="round" opacity=".88"/>
+<path d="M146 333c42-20 75-16 102 10 27-26 60-30 102-10" fill="none" stroke="#93c5fd" stroke-width="16" stroke-linecap="round"/>
+"""
+    logo = f"""<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader logo</title>
 <desc id="desc">A paper, alert signal, and reading foundation mark for Scholar Alert Reader.</desc>
-<rect width="512" height="512" rx="112" fill="#0f172a"/>
-<path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/>
-<path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/>
-<path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/>
-<circle cx="364" cy="150" r="42" fill="#10b981"/>
-<path d="M364 100v-30M364 230v-30M314 150h-30M444 150h-30" stroke="#10b981" stroke-width="18" stroke-linecap="round"/>
-<text x="374" y="388" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" opacity=".62">XL</text>
+{logo_mark}
 </svg>
 """
-    architecture = """<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+    architecture = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader architecture</title>
 <desc id="desc">Google Scholar Alerts enter the local Codex skill, which writes digests, a knowledge base, and optional Obsidian and Zotero exports.</desc>
 <rect width="1200" height="675" fill="#f8fafc"/>
-<g transform="translate(70 42) scale(.16)"><rect width="512" height="512" rx="112" fill="#0f172a"/><path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/><path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/><path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/><circle cx="364" cy="150" r="42" fill="#10b981"/></g>
-<text x="70" y="84" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="800">Scholar Alert Reader</text>
-<text x="72" y="124" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="21">Local literature triage from noisy Google Scholar Alert emails</text>
+<g transform="translate(70 42) scale(.14)">{logo_mark}</g>
+<text x="160" y="84" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="800">Scholar Alert Reader</text>
+<text x="162" y="124" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="21">Local literature triage from noisy Google Scholar Alert emails</text>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
   <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0f172a" flood-opacity=".12"/></filter>
@@ -133,13 +139,13 @@ def svg_assets() -> None:
 <text x="1015" y="606" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="16">by Xin Liu</text>
 </svg>
 """
-    social = """<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+    social = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader social card</title>
 <desc id="desc">A social sharing card for Scholar Alert Reader.</desc>
 <rect width="1200" height="630" fill="#0f172a"/>
 <circle cx="1010" cy="90" r="180" fill="#1d4ed8" opacity=".28"/><circle cx="170" cy="530" r="220" fill="#10b981" opacity=".20"/>
 <rect x="80" y="78" width="1040" height="474" rx="34" fill="#f8fafc"/>
-<g transform="translate(132 124) scale(.15)"><rect width="512" height="512" rx="112" fill="#0f172a"/><path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/><path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/><path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/><circle cx="364" cy="150" r="42" fill="#10b981"/></g>
+<g transform="translate(132 124) scale(.15)">{logo_mark}</g>
 <text x="230" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
 <text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="27">Turn Google Scholar Alerts into a personal literature copilot.</text>
 <g font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24">
