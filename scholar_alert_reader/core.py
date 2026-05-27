@@ -13,6 +13,7 @@ import base64
 import csv
 import hashlib
 import html
+import importlib.util
 import json
 import mailbox
 import os
@@ -20,6 +21,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -584,10 +586,11 @@ def apple_script_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def fetch_mail_app_scholar_alerts(out_dir: Path, since_days: int | None, limit: int) -> int:
+def fetch_mail_app_scholar_alerts(out_dir: Path, since_days: int | None, limit: int, timeout_seconds: int = 600) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     since_value = int(since_days or 0)
     limit_value = int(limit or 0)
+    timeout_value = max(1, int(timeout_seconds or 600))
     script = f"""
 on writeTextToFile(theText, thePath)
   set f to open for access POSIX file thePath with write permission
@@ -604,7 +607,7 @@ if sinceDays > 0 then
   set cutoffDate to (current date) - (sinceDays * days)
 end if
 
-with timeout of 600 seconds
+with timeout of {timeout_value} seconds
   tell application "Mail"
     set scholarMessages to messages of inbox whose sender contains "{SCHOLAR_SENDER}"
     repeat with m in scholarMessages
@@ -642,10 +645,11 @@ return writtenCount
 def parse_mail_app_source(
     since_days: int | None,
     mail_limit: int,
+    timeout_seconds: int = 600,
 ) -> tuple[list[Paper], dict[str, int]]:
     with tempfile.TemporaryDirectory(prefix="scholar-mail-app-") as tmp:
         eml_dir = Path(tmp)
-        exported = fetch_mail_app_scholar_alerts(eml_dir, since_days, mail_limit)
+        exported = fetch_mail_app_scholar_alerts(eml_dir, since_days, mail_limit, timeout_seconds=timeout_seconds)
         papers, counts = parse_eml_dir(eml_dir, since_days=None)
     counts["mail_app_exported"] = exported
     return papers, counts
@@ -663,6 +667,28 @@ def import_gmail_dependencies():
             "Install: google-api-python-client google-auth-httplib2 google-auth-oauthlib"
         ) from exc
     return Request, Credentials, InstalledAppFlow, build
+
+
+def python_module_available(module_name: str) -> bool:
+    try:
+        return importlib.util.find_spec(module_name) is not None
+    except ModuleNotFoundError:
+        return False
+
+
+def gmail_dependencies_available() -> bool:
+    return all(
+        python_module_available(module_name)
+        for module_name in [
+            "googleapiclient",
+            "google.oauth2.credentials",
+            "google_auth_oauthlib.flow",
+        ]
+    )
+
+
+def mail_app_available() -> bool:
+    return sys.platform == "darwin" and shutil.which("osascript") is not None
 
 
 def gmail_service(credentials_file: Path, token_file: Path, allow_auth: bool):
@@ -876,9 +902,45 @@ def papers_for_tier(papers: list[Paper], tier: str) -> list[Paper]:
     return [paper for paper in papers if paper.tier == tier]
 
 
+def project_dir_from_output(path: Path) -> Path | None:
+    out_dir = path.parent.resolve()
+    if out_dir.parent.name == "reader_out":
+        return out_dir.parent.parent
+    return None
+
+
+def feedback_commands(path: Path, summary: dict[str, Any]) -> list[str]:
+    papers_json = path.parent.resolve() / "papers.json"
+    project_dir = project_dir_from_output(path)
+    if project_dir and (project_dir / "serve_reader.sh").exists() and (project_dir / "feedback_reader.sh").exists():
+        serve_prefix = f"PAPERS_JSON={shlex.quote(str(papers_json))} {shlex.quote(str(project_dir / 'serve_reader.sh'))}"
+        feedback_prefix = f"PAPERS_JSON={shlex.quote(str(papers_json))} {shlex.quote(str(project_dir / 'feedback_reader.sh'))}"
+    else:
+        profile_arg = shlex.quote(str(summary.get("profile", "<profile.json>")))
+        kb_arg = shlex.quote(str(summary.get("knowledge_base_dir", "knowledge_base")))
+        script_arg = shlex.quote(str(skill_wrapper_path()))
+        papers_arg = shlex.quote(str(papers_json))
+        serve_prefix = f"python3 {script_arg} serve --profile {profile_arg} --papers-json {papers_arg} --kb-dir {kb_arg} --open"
+        feedback_prefix = f"python3 {script_arg} feedback --profile {profile_arg} --papers-json {papers_arg}"
+
+    return [
+        serve_prefix,
+        f"{feedback_prefix} --paper-id <ID> --mark interested --more-like-this",
+        f"{feedback_prefix} --paper-id <ID> --mark archive --less-like-this",
+    ]
+
+
+def recent_review_command(path: Path) -> str | None:
+    project_dir = project_dir_from_output(path)
+    if project_dir and (project_dir / "review_recent.sh").exists():
+        return shlex.quote(str(project_dir / "review_recent.sh"))
+    return None
+
+
 def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summary: dict[str, Any]) -> None:
     lim = limits(profile)
     tier_counts = counts_by_tier(papers)
+    commands = feedback_commands(path, summary)
     lines: list[str] = [
         "# Scholar Alert 文献分诊",
         "",
@@ -894,12 +956,23 @@ def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summa
         "Use the `ID` shown under each paper to tune future runs:",
         "",
         "```bash",
-        f"python3 scripts/scholar_reader.py serve --profile {shlex.quote(str(summary.get('profile', '<profile.json>')))} --papers-json {shlex.quote(str(path.parent / 'papers.json'))} --kb-dir {shlex.quote(str(summary.get('knowledge_base_dir', 'knowledge_base')))} --open",
-        f"python3 scripts/scholar_reader.py feedback --profile {shlex.quote(str(summary.get('profile', '<profile.json>')))} --papers-json {shlex.quote(str(path.parent / 'papers.json'))} --paper-id <ID> --mark interested --more-like-this",
-        f"python3 scripts/scholar_reader.py feedback --profile {shlex.quote(str(summary.get('profile', '<profile.json>')))} --papers-json {shlex.quote(str(path.parent / 'papers.json'))} --paper-id <ID> --mark archive --less-like-this",
+        *commands,
         "```",
         "",
     ]
+
+    recent_cmd = recent_review_command(path)
+    if not papers and summary.get("only_new"):
+        lines.extend(
+            [
+                "## No new papers",
+                "",
+                f"Found {summary.get('unique_papers_before_state_filter', 0)} unique papers before the seen-state filter, but all of them are already in the foundation.",
+            ]
+        )
+        if recent_cmd:
+            lines.extend(["", "To review recent alerts again for testing:", "", "```bash", recent_cmd, "```"])
+        lines.append("")
 
     questions = profile.get("research_questions", [])
     if questions:
@@ -1105,20 +1178,29 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
             parts.append(f'<div class="question">{html.escape(str(question))}</div>')
         parts.append("</section>")
 
-    profile_arg = shlex.quote(str(summary.get("profile", "<profile.json>")))
-    papers_arg = shlex.quote(str(path.parent / "papers.json"))
-    kb_arg = shlex.quote(str(summary.get("knowledge_base_dir", "knowledge_base")))
+    commands = feedback_commands(path, summary)
     parts.extend(
         [
             '<section class="feedback-help">',
             "<strong>反馈入口</strong>",
             '<div class="meta">Use a paper ID from the badges below to tune future runs.</div>',
-            f"<code>python3 scripts/scholar_reader.py serve --profile {html.escape(profile_arg)} --papers-json {html.escape(papers_arg)} --kb-dir {html.escape(kb_arg)} --open</code>",
-            f"<code>python3 scripts/scholar_reader.py feedback --profile {html.escape(profile_arg)} --papers-json {html.escape(papers_arg)} --paper-id &lt;ID&gt; --mark interested --more-like-this</code>",
-            f"<code>python3 scripts/scholar_reader.py feedback --profile {html.escape(profile_arg)} --papers-json {html.escape(papers_arg)} --paper-id &lt;ID&gt; --mark archive --less-like-this</code>",
+            *(f"<code>{html.escape(command)}</code>" for command in commands),
             "</section>",
         ]
     )
+
+    recent_cmd = recent_review_command(path)
+    if not papers and summary.get("only_new"):
+        parts.extend(
+            [
+                '<section class="feedback-help">',
+                "<strong>No new papers</strong>",
+                f'<div class="meta">Found {html.escape(str(summary.get("unique_papers_before_state_filter", 0)))} unique papers before the seen-state filter, but all of them are already in the foundation.</div>',
+            ]
+        )
+        if recent_cmd:
+            parts.append(f"<code>{html.escape(recent_cmd)}</code>")
+        parts.append("</section>")
 
     for tier_name, items, max_items in sections:
         parts.extend([f"<h2>{html.escape(tier_name)} ({len(items)})</h2>", '<section class="grid">'])
@@ -1630,14 +1712,27 @@ def write_knowledge_base(kb_dir: Path, papers: list[Paper], profile: dict[str, A
     write_run_snapshot(kb_dir, papers, summary)
 
 
-def write_outputs(out_dir: Path, kb_dir: Path, papers: list[Paper], profile: dict[str, Any], summary: dict[str, Any]) -> None:
+def write_outputs(
+    out_dir: Path,
+    kb_dir: Path,
+    papers: list[Paper],
+    profile: dict[str, Any],
+    summary: dict[str, Any],
+    update_knowledge_base: bool = True,
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     save_json(out_dir / "papers.json", [asdict(paper) for paper in papers])
     write_csv(out_dir / "papers.csv", papers)
     write_digest(out_dir / "digest.md", papers, profile, summary)
     write_html_digest(out_dir / "digest.html", papers, profile, summary)
     write_deep_read_queue(out_dir / "deep_read_queue.md", papers, profile)
-    write_knowledge_base(kb_dir, papers, profile, summary)
+    if update_knowledge_base:
+        summary["knowledge_base_updated"] = True
+        write_knowledge_base(kb_dir, papers, profile, summary)
+    else:
+        summary["knowledge_base_updated"] = False
+        summary["library_papers"] = len(load_paper_library(kb_dir))
+        summary["library_additions"] = 0
     save_json(out_dir / "summary.json", summary)
 
 
@@ -1668,7 +1763,13 @@ def project_script_common(project_dir: Path, profile_path: Path, kb_dir: Path) -
             f"PROFILE_PATH=\"${{PROFILE_PATH:-{shell_double_default(profile_path)}}}\"",
             f"KB_DIR=\"${{KB_DIR:-{shell_double_default(kb_dir)}}}\"",
             f"SKILL_SCRIPT=\"${{SKILL_SCRIPT:-{shell_double_default(skill_wrapper_path())}}}\"",
-            f"PYTHON_BIN=\"${{PYTHON_BIN:-python3}}\"",
+            'if [[ -z "${PYTHON_BIN:-}" ]]; then',
+            '  if [[ -x "$PROJECT_DIR/.venv/bin/python" ]]; then',
+            '    PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"',
+            "  else",
+            '    PYTHON_BIN="python3"',
+            "  fi",
+            "fi",
             "",
         ]
     )
@@ -1682,6 +1783,131 @@ def write_executable(path: Path, content: str) -> None:
         pass
 
 
+def count_json_items(path: Path) -> tuple[int, str]:
+    if not path.exists():
+        return 0, "missing"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return 0, f"invalid JSON: {exc}"
+    if isinstance(data, list):
+        return len(data), "records"
+    if isinstance(data, dict):
+        if isinstance(data.get("seen_ids"), list):
+            return len(data["seen_ids"]), "seen IDs"
+        if isinstance(data.get("papers"), dict):
+            return len(data["papers"]), "paper feedback records"
+        return len(data), "object keys"
+    return 0, type(data).__name__
+
+
+def status_marker(path: Path, required: bool = False) -> str:
+    if path.exists():
+        return f"OK: `{path}`"
+    if required:
+        return f"Missing: `{path}`"
+    return f"Optional missing: `{path}`"
+
+
+def count_marker(path: Path) -> str:
+    count, kind = count_json_items(path)
+    if kind == "missing":
+        return f"Optional missing: `{path}`"
+    if kind.startswith("invalid JSON"):
+        return f"WARN: {kind} at `{path}`"
+    return f"{count} {kind}"
+
+
+def render_project_guide(
+    project_dir: Path,
+    profile_path: Path,
+    kb_dir: Path,
+    out_dir: Path,
+    obsidian_dir: Path | None = None,
+    zotero_dir: Path | None = None,
+) -> str:
+    daily_dir = out_dir / "daily"
+    recent_dir = out_dir / "recent"
+    foundation_dir = out_dir / "foundation"
+    zotero_dir = zotero_dir or (kb_dir / "zotero")
+    lines = [
+        "# Scholar Alert Reader Start Here",
+        "",
+        "This project can run as a standalone Codex skill. Obsidian and Zotero are optional integrations, not required dependencies.",
+        "",
+        "## Product Modes",
+        "",
+        "1. Codex-only: read Scholar Alert emails, rank papers, write HTML/Markdown digests, maintain `knowledge_base/`, and use the local copilot commands.",
+        "2. Codex + Obsidian: sync generated paper notes, maps, reading status, answers, comparisons, and deep reads into an Obsidian vault folder.",
+        "3. Codex + Zotero + Obsidian: export BibTeX/RIS for Zotero while Obsidian stores human-written reading notes and synthesis.",
+        "",
+        "## First Run",
+        "",
+        "0. Try the demo without Gmail or Obsidian: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
+        "1. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
+        "2. Choose an input source:",
+        "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
+        "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
+        "3. Build the baseline with `MODE=foundation ./run_reader.sh`.",
+        "4. Run daily triage with `./run_reader.sh`.",
+        "5. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
+        "",
+        "## Daily Loop",
+        "",
+        "- `./run_reader.sh`: fetch and rank new alert papers.",
+        "- `./source_check.sh --source auto`: check Gmail, mbox, or optional Mail.app source readiness.",
+        "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
+        "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
+        "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
+        "- `./advice_reader.sh`: generate reading strategy and gap advice.",
+        "",
+        "## Optional Integrations",
+        "",
+        "- `./zotero_export.sh`: writes BibTeX/RIS to `knowledge_base/zotero/` for Zotero import.",
+        "- `./sync_obsidian_vault.sh`: writes generated Markdown into an Obsidian literature folder.",
+        "- Keep user-authored Obsidian notes outside the generated export folder so reruns never overwrite your writing.",
+        "",
+        "## Current Setup Status",
+        "",
+        f"- Project directory: `{project_dir}`",
+        f"- Profile: {status_marker(profile_path, required=True)}",
+        f"- Gmail credentials: {status_marker(DEFAULT_GMAIL_CREDENTIALS)}",
+        f"- Gmail token: {status_marker(DEFAULT_GMAIL_TOKEN)}",
+        f"- Local mbox: {status_marker(project_dir / 'INBOX.mbox')}",
+        f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
+        f"- Daily papers JSON: {count_marker(daily_dir / 'papers.json')}",
+        f"- Foundation digest HTML: {status_marker(foundation_dir / 'digest.html')}",
+        f"- Recent review JSON: {status_marker(recent_dir / 'papers.json')}",
+        f"- Retained library: {count_marker(kb_dir / 'library.json')}",
+        f"- Feedback: {count_marker(kb_dir / 'feedback.json')}",
+        f"- Zotero export directory: {status_marker(zotero_dir)}",
+    ]
+    if obsidian_dir:
+        lines.append(f"- Obsidian export directory: {status_marker(obsidian_dir)}")
+    else:
+        lines.append("- Obsidian export directory: not configured; Codex-only mode is still complete.")
+    lines.extend(
+        [
+            "",
+            "## Safety Contract",
+            "",
+            "- Do not commit raw mailbox exports, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge bases unless they are intentionally sanitized.",
+            "- The generated Obsidian folder may be overwritten. Personal reading notes, topic notes, and writing drafts should live in sibling folders.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_project_guide(project_dir: Path, profile_path: Path, kb_dir: Path, out_dir: Path, force: bool) -> None:
+    start_here = project_dir / "START_HERE.md"
+    if not start_here.exists() or force:
+        start_here.write_text(
+            render_project_guide(project_dir, profile_path, kb_dir, out_dir),
+            encoding="utf-8",
+        )
+
+
 def init_project(args: argparse.Namespace) -> None:
     project_dir = args.project_dir.expanduser().resolve()
     profile_path = project_dir / "profiles" / "research_profile.json"
@@ -1693,6 +1919,7 @@ def init_project(args: argparse.Namespace) -> None:
     for directory in [
         project_dir,
         project_dir / "profiles",
+        project_dir / "examples",
         kb_dir,
         out_dir / "daily",
         out_dir / "foundation",
@@ -1702,6 +1929,11 @@ def init_project(args: argparse.Namespace) -> None:
 
     if not profile_path.exists() or args.force:
         shutil.copyfile(DEFAULT_PROFILE, profile_path)
+    sample_mbox = SCRIPT_DIR.parent / "examples" / "sample_scholar_alerts.mbox.sample"
+    if sample_mbox.exists():
+        sample_target = project_dir / "examples" / "sample_scholar_alerts.mbox"
+        if not sample_target.exists() or args.force:
+            shutil.copyfile(sample_mbox, sample_target)
 
     common = project_script_common(project_dir, profile_path, kb_dir)
     run_reader = generated_script_header() + common + """MODE="${MODE:-daily}"
@@ -1713,8 +1945,14 @@ GMAIL_TOKEN="${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}"
 if [[ "$SOURCE" == "auto" ]]; then
   if [[ -f "$GMAIL_TOKEN" ]]; then
     SOURCE="gmail"
-  else
+  elif [[ -f "$MBOX_PATH" || -d "$MBOX_PATH" ]]; then
     SOURCE="mbox"
+  elif [[ "${AUTO_ALLOW_MAIL_APP:-0}" == "1" && "$(uname -s)" == "Darwin" && -x "/usr/bin/osascript" ]]; then
+    SOURCE="mail-app"
+  else
+    echo "No Scholar Alert source is ready." >&2
+    echo "Set up Gmail OAuth, place an INBOX.mbox at $MBOX_PATH, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2
+    exit 2
   fi
 fi
 
@@ -1734,6 +1972,7 @@ if [[ "$SOURCE" == "gmail" ]]; then
   cmd+=(--source-gmail --gmail-credentials "$GMAIL_CREDENTIALS" --gmail-token "$GMAIL_TOKEN")
 elif [[ "$SOURCE" == "mail-app" ]]; then
   cmd+=(--source-mail-app)
+  if [[ -n "${MAIL_TIMEOUT:-}" ]]; then cmd+=(--mail-timeout "$MAIL_TIMEOUT"); fi
 else
   cmd+=(--source-mbox "$MBOX_PATH")
 fi
@@ -1744,14 +1983,29 @@ if [[ -n "${GMAIL_QUERY:-}" ]]; then cmd+=(--gmail-query "$GMAIL_QUERY"); fi
 if [[ "$MODE" != "foundation" && -n "${SINCE_DAYS:-}" ]]; then cmd+=(--since-days "$SINCE_DAYS"); fi
 if [[ "$MODE" == "run" && "${ONLY_NEW:-0}" == "1" ]]; then cmd+=(--only-new); fi
 if [[ "$MODE" == "run" && "${UPDATE_STATE:-0}" == "1" ]]; then cmd+=(--update-state); fi
+if [[ "$MODE" == "run" && "${NO_KB_UPDATE:-0}" == "1" ]]; then cmd+=(--no-kb-update); fi
 
 exec "${cmd[@]}"
 """
     write_executable(project_dir / "run_reader.sh", run_reader)
 
     helper_specs = {
+        "demo_reader.sh": 'SOURCE=mbox MBOX_PATH="$PROJECT_DIR/examples/sample_scholar_alerts.mbox" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"\n',
+        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
         "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
+        "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
+        "serve_recent.sh": 'PAPERS_JSON="${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" exec "$PROJECT_DIR/serve_reader.sh" "$@"\n',
+        "deep_read_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "ask_library.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "advice_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "guide_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
+        "status_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" status --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "compare_papers.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" compare --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "map_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" map --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "zotero_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "obsidian_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" obsidian --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "sync_obsidian_vault.sh": 'OBSIDIAN_LITERATURE_DIR="${OBSIDIAN_LITERATURE_DIR:-$HOME/Documents/Obsidian Vault/01_Literatures}"\nOBSIDIAN_EXPORT_DIR="${OBSIDIAN_EXPORT_DIR:-$OBSIDIAN_LITERATURE_DIR/10_Scholar_Alert_Reader}"\nexec "$PROJECT_DIR/obsidian_export.sh" --vault-dir "$OBSIDIAN_EXPORT_DIR" "$@"\n',
         "enrich_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" enrich --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --limit "${LIMIT:-20}" --providers "${PROVIDERS:-openalex,crossref}" --update-library "$@"\n',
         "weekly_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" weekly --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --days "${DAYS:-7}" "$@"\n',
         "export_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" export --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --format "${FORMAT:-bibtex}" --tiers "${TIERS:-Must read,Skim}" "$@"\n',
@@ -1797,10 +2051,25 @@ exec "${cmd[@]}"
                 [
                     "# Scholar Alert Reader Project",
                     "",
+                    "Start with [START_HERE.md](START_HERE.md). Refresh that guide with:",
+                    "",
+                    "```bash",
+                    "./guide_reader.sh --output START_HERE.md",
+                    "```",
+                    "",
                     "## First run",
                     "",
                     "```bash",
+                    "./demo_reader.sh",
+                    "./source_check.sh --source auto",
                     "./run_reader.sh",
+                    "```",
+                    "",
+                    "## Review recent alerts",
+                    "",
+                    "```bash",
+                    "./review_recent.sh",
+                    "./serve_recent.sh",
                     "```",
                     "",
                     "## Feedback UI",
@@ -1809,10 +2078,29 @@ exec "${cmd[@]}"
                     "./serve_reader.sh",
                     "```",
                     "",
+                    "## Literature Copilot",
+                    "",
+                    "```bash",
+                    "./deep_read_paper.sh --paper-id <ID>",
+                    "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
+                    "./advice_reader.sh",
+                    "```",
+                    "",
+                    "## Reading System And Integrations",
+                    "",
+                    "```bash",
+                    "./status_reader.sh --paper-id <ID> --status reading --label must-cite",
+                    "./compare_papers.sh --paper-id <ID1>,<ID2>",
+                    "./map_reader.sh",
+                    "./zotero_export.sh",
+                    "./sync_obsidian_vault.sh",
+                    "```",
+                    "",
                     "## Useful commands",
                     "",
                     "```bash",
                     "./doctor_reader.sh",
+                    "./guide_reader.sh",
                     "./weekly_reader.sh",
                     "FORMAT=bibtex ./export_reader.sh",
                     "```",
@@ -1821,6 +2109,8 @@ exec "${cmd[@]}"
             ),
             encoding="utf-8",
         )
+
+    write_project_guide(project_dir, profile_path, kb_dir, out_dir, args.force)
 
     print(f"Project initialized: {project_dir}")
     print(f"Profile: {profile_path}")
@@ -2166,6 +2456,114 @@ def default_feedback_file(kb_dir: Path) -> Path:
     return kb_dir / "feedback.json"
 
 
+def choose_auto_source(project_dir: Path, mbox_path: Path, gmail_token: Path, allow_mail_app: bool) -> tuple[str, str]:
+    if gmail_token.exists() and gmail_dependencies_available():
+        return "gmail", f"Gmail token found at {gmail_token}"
+    if mbox_path.exists():
+        return "mbox", f"mbox file found at {mbox_path}"
+    if allow_mail_app and mail_app_available():
+        return "mail-app", "Mail.app fallback allowed and osascript is available"
+    if gmail_token.exists() and not gmail_dependencies_available():
+        return "gmail", "Gmail token exists but Python Gmail dependencies are missing"
+    return "none", (
+        "No automatic source is ready. Configure Gmail OAuth, place an INBOX.mbox in the project, "
+        "or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 on macOS after granting Mail Automation permission."
+    )
+
+
+def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
+    project_dir = args.project_dir.expanduser().resolve()
+    source = args.source
+    mbox_path = (args.mbox_path or (project_dir / "INBOX.mbox")).expanduser()
+    gmail_credentials = args.gmail_credentials.expanduser()
+    gmail_token = args.gmail_token.expanduser()
+    checks: list[tuple[str, bool, str]] = []
+    notes: list[str] = []
+
+    def exc_detail(exc: BaseException) -> str:
+        return str(exc) or exc.__class__.__name__
+
+    if source == "auto":
+        source, reason = choose_auto_source(project_dir, mbox_path, gmail_token, args.allow_mail_app)
+        notes.append(f"Auto selected `{source}`: {reason}")
+
+    if source == "gmail":
+        checks.append(("Gmail Python dependencies", gmail_dependencies_available(), "google-api-python-client / oauth libraries"))
+        checks.append(("Gmail OAuth credentials", gmail_credentials.exists(), str(gmail_credentials)))
+        checks.append(("Gmail token", gmail_token.exists(), str(gmail_token)))
+        if args.live and gmail_dependencies_available() and gmail_token.exists():
+            try:
+                papers, counts = parse_gmail_source(
+                    gmail_credentials,
+                    gmail_token,
+                    args.since_days,
+                    args.limit,
+                    args.gmail_query,
+                    allow_auth=False,
+                )
+                checks.append(("Gmail live read", True, f"{len(papers)} papers from {counts.get('gmail_raw_messages', 0)} raw messages"))
+                notes.append(f"Gmail query: `{counts.get('gmail_query', '')}`")
+            except (SystemExit, Exception) as exc:
+                checks.append(("Gmail live read", False, exc_detail(exc)))
+        elif args.live:
+            checks.append(("Gmail live read", False, "Skipped because dependencies or token are missing."))
+    elif source == "mail-app":
+        checks.append(("Platform is macOS", sys.platform == "darwin", sys.platform))
+        checks.append(("osascript available", shutil.which("osascript") is not None, shutil.which("osascript") or "not found"))
+        if args.live and mail_app_available():
+            try:
+                papers, counts = parse_mail_app_source(args.since_days, args.limit, timeout_seconds=args.timeout)
+                checks.append(("Mail.app live read", True, f"{len(papers)} papers from {counts.get('mail_app_exported', 0)} exported messages"))
+            except (SystemExit, Exception) as exc:
+                checks.append(("Mail.app live read", False, exc_detail(exc)))
+        elif args.live:
+            checks.append(("Mail.app live read", False, "Skipped because this is not macOS or osascript is unavailable."))
+        notes.append("Mail.app source is macOS-only and requires Automation permission for the process running Codex or the shell.")
+    elif source == "mbox":
+        checks.append(("mbox path", mbox_path.exists(), str(mbox_path)))
+        if args.live and mbox_path.exists():
+            try:
+                papers, counts = parse_mbox(mbox_path, args.since_days)
+                checks.append(("mbox parse", True, f"{len(papers)} papers from {counts.get('scholar_messages', 0)} Scholar messages"))
+            except (SystemExit, Exception) as exc:
+                checks.append(("mbox parse", False, exc_detail(exc)))
+    else:
+        checks.append(("source selection", False, "No source could be selected automatically."))
+
+    ok = all(check_ok for _, check_ok, _ in checks)
+    lines = [
+        "# Scholar Alert Reader Source Check",
+        "",
+        f"- Project: `{project_dir}`",
+        f"- Requested source: `{args.source}`",
+        f"- Effective source: `{source}`",
+        f"- Platform: `{sys.platform}`",
+        f"- Live check: `{bool(args.live)}`",
+        "",
+        "## Checks",
+        "",
+    ]
+    for name, check_ok, detail in checks:
+        marker = "OK" if check_ok else "WARN"
+        lines.append(f"- [{marker}] {name}: {detail}")
+    if notes:
+        lines.extend(["", "## Notes", ""])
+        lines.extend(f"- {note}" for note in notes)
+    return "\n".join(lines).rstrip() + "\n", ok
+
+
+def source_check_command(args: argparse.Namespace) -> None:
+    report, ok = render_source_check(args)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(report, encoding="utf-8")
+        print(f"Source check report: {args.output}")
+    else:
+        print(report.rstrip())
+    if args.strict and not ok:
+        raise SystemExit(1)
+
+
 def run(args: argparse.Namespace) -> None:
     profile = load_profile(args.profile)
     state_file = args.state_file or default_state_file(args.profile, args.out_dir)
@@ -2175,7 +2573,7 @@ def run(args: argparse.Namespace) -> None:
     seen = load_seen(state_file)
 
     if getattr(args, "source_mail_app", False):
-        papers, source_counts = parse_mail_app_source(args.since_days, args.mail_limit)
+        papers, source_counts = parse_mail_app_source(args.since_days, args.mail_limit, timeout_seconds=args.mail_timeout)
         source_label = "Mail.app Inbox"
     elif getattr(args, "source_gmail", False):
         papers, source_counts = parse_gmail_source(
@@ -2215,7 +2613,7 @@ def run(args: argparse.Namespace) -> None:
         "feedback_papers": len(feedback.get("papers", {})) if not args.no_feedback else 0,
         "boost": args.boost or "",
     }
-    write_outputs(args.out_dir, kb_dir, papers, profile, summary)
+    write_outputs(args.out_dir, kb_dir, papers, profile, summary, update_knowledge_base=not getattr(args, "no_kb_update", False))
     if args.update_state:
         update_seen(state_file, papers)
 
@@ -2242,6 +2640,7 @@ def add_source_profile_args(cmd: argparse.ArgumentParser, default_out_dir: str) 
     cmd.add_argument("--feedback-file", type=Path, help="User feedback JSON. Defaults to kb-dir/feedback.json")
     cmd.add_argument("--no-feedback", action="store_true", help="Ignore saved user feedback for this run")
     cmd.add_argument("--mail-limit", type=int, default=0, help="Max Mail.app messages to export; 0 means no limit")
+    cmd.add_argument("--mail-timeout", type=int, default=600, help="Mail.app AppleScript timeout in seconds")
     cmd.add_argument("--gmail-limit", type=int, default=0, help="Max Gmail API messages to fetch; 0 means no limit")
     cmd.add_argument("--gmail-query", help="Additional Gmail search query terms")
     cmd.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
@@ -2404,6 +2803,291 @@ def export_library(args: argparse.Namespace) -> None:
     print(f"Output: {output}")
 
 
+def paper_records_from_library(kb_dir: Path) -> list[dict[str, Any]]:
+    return [asdict(paper) for paper in load_paper_library(kb_dir)]
+
+
+def merged_paper_records(kb_dir: Path, papers_json: Path | None = None) -> list[dict[str, Any]]:
+    records_by_id: dict[str, dict[str, Any]] = {}
+    for record in paper_records_from_library(kb_dir):
+        paper_id = str(record.get("id", ""))
+        if paper_id:
+            records_by_id[paper_id] = record
+    if papers_json:
+        for record in load_paper_records(papers_json):
+            paper_id = str(record.get("id", ""))
+            if paper_id:
+                records_by_id[paper_id] = {**records_by_id.get(paper_id, {}), **record}
+    return sorted(
+        records_by_id.values(),
+        key=lambda record: (
+            {"Must read": 0, "Skim": 1, "Archive": 2}.get(str(record.get("tier", "")), 9),
+            -int(record.get("score", 0) or 0),
+            str(record.get("title", "")).lower(),
+        ),
+    )
+
+
+def select_paper_record(records: list[dict[str, Any]], paper_id: str | None, title: str | None) -> dict[str, Any]:
+    requested_ids = set(split_csv(paper_id))
+    if requested_ids:
+        matches = [record for record in records if str(record.get("id", "")) in requested_ids]
+        if matches:
+            return matches[0]
+    if title:
+        needle = title.lower()
+        matches = [record for record in records if needle in str(record.get("title", "")).lower()]
+        if matches:
+            return matches[0]
+    raise SystemExit("No matching paper found. Pass --paper-id or --title, and use --papers-json if the paper is from a recent digest.")
+
+
+def select_paper_records(records: list[dict[str, Any]], paper_id: str | None, title: str | None) -> list[dict[str, Any]]:
+    requested_ids = set(split_csv(paper_id))
+    selected: list[dict[str, Any]] = []
+    if requested_ids:
+        selected.extend(record for record in records if str(record.get("id", "")) in requested_ids)
+    for title_part in split_csv(title):
+        needle = title_part.lower()
+        selected.extend(record for record in records if needle in str(record.get("title", "")).lower())
+    by_id = {str(record.get("id", "")): record for record in selected if str(record.get("id", ""))}
+    if not by_id:
+        raise SystemExit("No matching papers found. Pass --paper-id A,B,C or --title substrings.")
+    return list(by_id.values())
+
+
+def write_report(output: Path, content: str) -> Path:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(content, encoding="utf-8")
+    return output
+
+
+def write_deep_read_report(
+    profile_path: Path,
+    kb_dir: Path,
+    paper_id: str | None = None,
+    title: str | None = None,
+    papers_json: Path | None = None,
+    output: Path | None = None,
+    limit: int = 12,
+) -> Path:
+    from .copilot import render_deep_read
+
+    profile = load_profile(profile_path)
+    library_records = paper_records_from_library(kb_dir)
+    records = merged_paper_records(kb_dir, papers_json)
+    target = select_paper_record(records, paper_id, title)
+    if not library_records:
+        library_records = records
+    output_path = output or (kb_dir / "analysis" / f"{target.get('id', 'paper')}_deep_read.md")
+    return write_report(output_path, render_deep_read(target, library_records, profile, limit=limit))
+
+
+def deep_read_command(args: argparse.Namespace) -> None:
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    output = write_deep_read_report(
+        profile_path=args.profile,
+        kb_dir=kb_dir,
+        paper_id=args.paper_id,
+        title=args.title,
+        papers_json=args.papers_json,
+        output=args.output,
+        limit=args.limit,
+    )
+    print(f"Deep-read report: {output}")
+
+
+def ask_library_command(args: argparse.Namespace) -> None:
+    from .copilot import render_literature_answer
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
+    stem = slugify(args.question)[:70] or "question"
+    output = args.output or (kb_dir / "answers" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
+    write_report(output, render_literature_answer(args.question, records, profile, limit=args.limit))
+    print(f"Literature answer: {output}")
+
+
+def research_advice_command(args: argparse.Namespace) -> None:
+    from .copilot import render_research_advice
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = load_feedback(feedback_file)
+    records = paper_records_from_library(kb_dir)
+    output = args.output or (kb_dir / "research_advice.md")
+    write_report(output, render_research_advice(records, profile, feedback=feedback, limit=args.limit))
+    print(f"Research advice: {output}")
+
+
+READING_STATUSES = {
+    "unread",
+    "reading",
+    "read",
+    "must-cite",
+    "method-reference",
+    "background-only",
+    "not-relevant",
+}
+
+
+def write_reading_status_report(kb_dir: Path, records: list[dict[str, Any]], feedback: dict[str, Any]) -> Path:
+    from .copilot import render_reading_status
+
+    output = kb_dir / "reading_status.md"
+    return write_report(output, render_reading_status(records, feedback=feedback))
+
+
+def update_reading_status_command(args: argparse.Namespace) -> None:
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    records = merged_paper_records(kb_dir, args.papers_json)
+    selected = select_paper_records(records, args.paper_id, args.title)
+    feedback = load_feedback(feedback_file)
+    now = datetime.now().isoformat(timespec="seconds")
+    labels_to_add = split_csv(args.label)
+    labels_to_remove = {label.lower() for label in split_csv(args.remove_label)}
+    for record in selected:
+        paper_id = str(record.get("id", ""))
+        item = feedback.setdefault("papers", {}).setdefault(
+            paper_id,
+            {
+                "id": paper_id,
+                "title": record.get("title", ""),
+                "url": record.get("url", ""),
+                "status": "neutral",
+                "signals": {},
+                "note": "",
+                "created_at": now,
+            },
+        )
+        item["title"] = record.get("title", "")
+        item["url"] = record.get("url", "")
+        item["updated_at"] = now
+        if args.status:
+            item["reading_status"] = args.status
+            if args.status == "not-relevant":
+                item["status"] = "archive"
+            elif args.status in {"must-cite", "method-reference", "reading", "read"} and item.get("status") != "archive":
+                item["status"] = "interested"
+        labels = [str(label) for label in item.get("labels", []) if str(label).strip()]
+        for label in labels_to_add:
+            if label not in labels:
+                labels.append(label)
+        labels = [label for label in labels if label.lower() not in labels_to_remove]
+        item["labels"] = labels
+        if args.note:
+            previous = str(item.get("note", "") or "")
+            item["note"] = (previous + "\n" + args.note).strip() if previous else args.note
+    save_feedback(feedback_file, feedback)
+    report = write_reading_status_report(kb_dir, paper_records_from_library(kb_dir), feedback)
+    print(f"Feedback updated: {feedback_file}")
+    print(f"Reading status: {report}")
+    print("Papers: " + ", ".join(str(record.get("id", "")) for record in selected))
+
+
+def compare_papers_command(args: argparse.Namespace) -> None:
+    from .copilot import render_compare
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    selected = select_paper_records(records, args.paper_id, args.title)
+    stem = "-".join(str(record.get("id", "")) for record in selected[:5]) or "papers"
+    output = args.output or (kb_dir / "comparisons" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
+    write_report(output, render_compare(selected, profile, feedback=feedback))
+    print(f"Paper comparison: {output}")
+
+
+def research_map_command(args: argparse.Namespace) -> None:
+    from .copilot import render_research_map
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
+    records = paper_records_from_library(kb_dir)
+    output = args.output or (kb_dir / "research_map.md")
+    write_report(output, render_research_map(records, profile, feedback=feedback, limit=args.limit))
+    print(f"Research map: {output}")
+
+
+def zotero_export_command(args: argparse.Namespace) -> None:
+    from .export import export_records
+
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    records = load_paper_records(args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
+    selected = filter_records_for_export(records, split_csv(args.tiers), args.limit)
+    out_dir = args.output_dir or (kb_dir / "zotero")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bib = out_dir / "scholar_alert_reader.bib"
+    ris = out_dir / "scholar_alert_reader.ris"
+    bib.write_text(export_records(selected, "bibtex"), encoding="utf-8")
+    ris.write_text(export_records(selected, "ris"), encoding="utf-8")
+    print(f"Zotero BibTeX: {bib}")
+    print(f"Zotero RIS: {ris}")
+    print(f"Exported papers: {len(selected)}")
+
+
+def obsidian_export_command(args: argparse.Namespace) -> None:
+    from .copilot import (
+        obsidian_note_name,
+        render_obsidian_index,
+        render_obsidian_paper,
+        render_reading_status,
+        render_research_map,
+    )
+    from .export import cite_key
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
+    records = paper_records_from_library(kb_dir)
+    records = filter_records_for_export(records, split_csv(args.tiers), args.limit)
+    vault_dir = args.vault_dir or (kb_dir / "obsidian")
+    dashboard_dir = vault_dir / "00_Dashboard"
+    papers_dir = vault_dir / "01_Papers"
+    maps_dir = vault_dir / "02_Maps"
+    reading_dir = vault_dir / "03_Reading"
+    answers_dir = vault_dir / "04_Answers"
+    comparisons_dir = vault_dir / "05_Comparisons"
+    deep_reads_dir = vault_dir / "06_Deep_Reads"
+    for directory in [dashboard_dir, papers_dir, maps_dir, reading_dir, answers_dir, comparisons_dir, deep_reads_dir]:
+        directory.mkdir(parents=True, exist_ok=True)
+    (dashboard_dir / "Scholar Alert Dashboard.md").write_text(
+        render_obsidian_index(records, feedback=feedback), encoding="utf-8"
+    )
+    (maps_dir / "Research Map.md").write_text(render_research_map(records, profile, feedback=feedback), encoding="utf-8")
+    (reading_dir / "Reading Status.md").write_text(render_reading_status(records, feedback=feedback), encoding="utf-8")
+    existing_citation_keys: set[str] = set()
+    for record in records:
+        citation_key = cite_key(record, existing_citation_keys)
+        (papers_dir / f"{obsidian_note_name(record)}.md").write_text(
+            render_obsidian_paper(record, feedback=feedback, citation_key=citation_key),
+            encoding="utf-8",
+        )
+    copied_answers = copy_markdown_outputs(kb_dir / "answers", answers_dir)
+    copied_comparisons = copy_markdown_outputs(kb_dir / "comparisons", comparisons_dir)
+    copied_deep_reads = copy_markdown_outputs(kb_dir / "analysis", deep_reads_dir)
+    print(f"Obsidian export: {vault_dir}")
+    print(f"Paper notes: {len(records)}")
+    print(f"Copied answers: {copied_answers}")
+    print(f"Copied comparisons: {copied_comparisons}")
+    print(f"Copied deep reads: {copied_deep_reads}")
+
+
+def copy_markdown_outputs(source_dir: Path, target_dir: Path) -> int:
+    if not source_dir.exists():
+        return 0
+    count = 0
+    for source in sorted(source_dir.glob("*.md")):
+        shutil.copy2(source, target_dir / source.name)
+        count += 1
+    return count
+
+
 def doctor_command(args: argparse.Namespace) -> None:
     from .diagnostics import diagnose, render_checks
 
@@ -2417,12 +3101,38 @@ def doctor_command(args: argparse.Namespace) -> None:
         gmail_token=args.gmail_token,
         out_dir=args.out_dir,
         check_gmail_deps=args.gmail_deps,
+        obsidian_dir=args.obsidian_dir,
+        zotero_dir=args.zotero_dir,
     )
     report = render_checks(checks, notes)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(report, encoding="utf-8")
         print(f"Doctor report: {args.output}")
+    else:
+        print(report.rstrip())
+
+
+def guide_command(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    profile_path = (args.profile or (project_dir / "profiles" / "research_profile.json")).expanduser()
+    kb_dir = (args.kb_dir or (project_dir / "knowledge_base")).expanduser()
+    out_dir = (args.out_dir or (project_dir / "reader_out")).expanduser()
+    obsidian_dir = args.obsidian_dir.expanduser() if args.obsidian_dir else None
+    zotero_dir = args.zotero_dir.expanduser() if args.zotero_dir else None
+    report = render_project_guide(
+        project_dir=project_dir,
+        profile_path=profile_path,
+        kb_dir=kb_dir,
+        out_dir=out_dir,
+        obsidian_dir=obsidian_dir,
+        zotero_dir=zotero_dir,
+    )
+    if args.output:
+        output = args.output.expanduser()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report, encoding="utf-8")
+        print(f"Guide written: {output}")
     else:
         print(report.rstrip())
 
@@ -2441,6 +3151,32 @@ def build_parser() -> argparse.ArgumentParser:
     init_project_cmd.add_argument("--project-dir", type=Path, required=True)
     init_project_cmd.add_argument("--force", action="store_true", help="Add/update scaffold files in a non-empty directory")
     init_project_cmd.set_defaults(func=init_project)
+
+    guide = sub.add_parser("guide", help="Render a product-oriented setup and status guide for a local project")
+    guide.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
+    guide.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
+    guide.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
+    guide.add_argument("--out-dir", type=Path, help="Output root. Defaults to project-dir/reader_out")
+    guide.add_argument("--obsidian-dir", type=Path, help="Optional Obsidian generated export directory")
+    guide.add_argument("--zotero-dir", type=Path, help="Optional Zotero export directory. Defaults to kb-dir/zotero")
+    guide.add_argument("--output", type=Path, help="Write guide markdown to this path instead of stdout")
+    guide.set_defaults(func=guide_command)
+
+    source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, or auto source readiness")
+    source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox"], default="auto")
+    source_check.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
+    source_check.add_argument("--mbox-path", type=Path, help="mbox path. Defaults to project-dir/INBOX.mbox")
+    source_check.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
+    source_check.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
+    source_check.add_argument("--gmail-query", help="Additional Gmail search query terms")
+    source_check.add_argument("--since-days", type=int, help="Only check messages newer than this many days")
+    source_check.add_argument("--limit", type=int, default=1, help="Max messages to fetch/export during --live")
+    source_check.add_argument("--timeout", type=int, default=20, help="Mail.app live-check timeout in seconds")
+    source_check.add_argument("--live", action="store_true", help="Attempt a real read from the selected source")
+    source_check.add_argument("--allow-mail-app", action="store_true", help="Allow auto mode to select macOS Mail.app")
+    source_check.add_argument("--strict", action="store_true", help="Exit non-zero if any check warns")
+    source_check.add_argument("--output", type=Path, help="Write markdown report to this path")
+    source_check.set_defaults(func=source_check_command)
 
     auth = sub.add_parser("auth-gmail", help="Run the one-time Gmail OAuth browser flow")
     auth.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
@@ -2461,6 +3197,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument("--since-days", type=int, help="Only include Scholar messages newer than this many days")
     run_cmd.add_argument("--only-new", action="store_true", help="Filter out papers already in the state file")
     run_cmd.add_argument("--update-state", action="store_true", help="Record output paper IDs as seen")
+    run_cmd.add_argument("--no-kb-update", action="store_true", help="Write run outputs without modifying the cumulative knowledge base")
     run_cmd.set_defaults(mode="run")
     run_cmd.set_defaults(func=run)
 
@@ -2529,6 +3266,82 @@ def build_parser() -> argparse.ArgumentParser:
     export_cmd.add_argument("--output", type=Path, help="Output path. Defaults to kb-dir/export.<ext>")
     export_cmd.set_defaults(func=export_library)
 
+    deep = sub.add_parser("deep-read", help="Analyze one selected paper against the local foundation/interested library")
+    deep.add_argument("--profile", type=Path, required=True)
+    deep.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    deep.add_argument("--papers-json", type=Path, help="Optional digest papers.json to select a paper that is not yet retained")
+    deep.add_argument("--paper-id", help="Paper ID from a digest or paper note")
+    deep.add_argument("--title", help="Case-insensitive title substring")
+    deep.add_argument("--limit", type=int, default=12, help="Related foundation papers to include")
+    deep.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_deep_read.md")
+    deep.set_defaults(func=deep_read_command)
+
+    ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
+    ask.add_argument("--profile", type=Path, required=True)
+    ask.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    ask.add_argument("--papers-json", type=Path, help="Optionally include a digest papers.json in addition to the retained library")
+    ask.add_argument("--question", required=True)
+    ask.add_argument("--limit", type=int, default=15)
+    ask.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/answers/<timestamp>_<question>.md")
+    ask.set_defaults(func=ask_library_command)
+
+    advice = sub.add_parser("advice", help="Generate research-gap and reading-strategy advice from foundation/interested papers")
+    advice.add_argument("--profile", type=Path, required=True)
+    advice.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    advice.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    advice.add_argument("--limit", type=int, default=12)
+    advice.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/research_advice.md")
+    advice.set_defaults(func=research_advice_command)
+
+    status_cmd = sub.add_parser("status", help="Update reading status and labels for selected papers")
+    status_cmd.add_argument("--profile", type=Path, required=True)
+    status_cmd.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    status_cmd.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    status_cmd.add_argument("--papers-json", type=Path, help="Optional digest papers.json for recently seen papers")
+    status_cmd.add_argument("--paper-id", help="Comma-separated paper IDs")
+    status_cmd.add_argument("--title", help="Comma-separated title substrings")
+    status_cmd.add_argument("--status", choices=sorted(READING_STATUSES), help="Reading status to assign")
+    status_cmd.add_argument("--label", help="Comma-separated labels to add, e.g. must cite,method reference")
+    status_cmd.add_argument("--remove-label", help="Comma-separated labels to remove")
+    status_cmd.add_argument("--note", help="Append a personal note to the feedback record")
+    status_cmd.set_defaults(func=update_reading_status_command)
+
+    compare = sub.add_parser("compare", help="Compare selected papers side by side")
+    compare.add_argument("--profile", type=Path, required=True)
+    compare.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    compare.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    compare.add_argument("--papers-json", type=Path, help="Optional digest papers.json")
+    compare.add_argument("--paper-id", help="Comma-separated paper IDs")
+    compare.add_argument("--title", help="Comma-separated title substrings")
+    compare.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/comparisons/<timestamp>_<ids>.md")
+    compare.set_defaults(func=compare_papers_command)
+
+    research_map = sub.add_parser("map", help="Generate a topic/research map from the retained literature base")
+    research_map.add_argument("--profile", type=Path, required=True)
+    research_map.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    research_map.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    research_map.add_argument("--limit", type=int, default=12)
+    research_map.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/research_map.md")
+    research_map.set_defaults(func=research_map_command)
+
+    zotero = sub.add_parser("zotero", help="Export Zotero-ready BibTeX and RIS files")
+    zotero.add_argument("--profile", type=Path, required=True)
+    zotero.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    zotero.add_argument("--papers-json", type=Path, help="Optional papers.json to export instead of the retained library")
+    zotero.add_argument("--tiers", default="Must read,Skim", help="Comma-separated tiers to export; empty means all")
+    zotero.add_argument("--limit", type=int, default=0, help="Max papers to export; 0 means no limit")
+    zotero.add_argument("--output-dir", type=Path, help="Output directory. Defaults to kb-dir/zotero")
+    zotero.set_defaults(func=zotero_export_command)
+
+    obsidian = sub.add_parser("obsidian", help="Export an Obsidian-ready Markdown vault folder")
+    obsidian.add_argument("--profile", type=Path, required=True)
+    obsidian.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    obsidian.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    obsidian.add_argument("--tiers", default="Must read,Skim", help="Comma-separated tiers to export; empty means all")
+    obsidian.add_argument("--limit", type=int, default=0, help="Max papers to export; 0 means no limit")
+    obsidian.add_argument("--vault-dir", type=Path, help="Output folder. Defaults to kb-dir/obsidian")
+    obsidian.set_defaults(func=obsidian_export_command)
+
     doctor = sub.add_parser("doctor", help="Check local setup, credentials, outputs, and knowledge-base files")
     doctor.add_argument("--profile", type=Path)
     doctor.add_argument("--kb-dir", type=Path)
@@ -2536,6 +3349,8 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
     doctor.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
     doctor.add_argument("--gmail-deps", action="store_true", help="Also check Gmail API Python dependencies")
+    doctor.add_argument("--obsidian-dir", type=Path, help="Optional Obsidian generated export directory to check")
+    doctor.add_argument("--zotero-dir", type=Path, help="Optional Zotero export directory to check")
     doctor.add_argument("--output", type=Path, help="Write markdown report to this path")
     doctor.set_defaults(func=doctor_command)
 

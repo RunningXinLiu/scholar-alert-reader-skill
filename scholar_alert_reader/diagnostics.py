@@ -66,6 +66,8 @@ def diagnose(
     gmail_token: Path,
     out_dir: Path | None,
     check_gmail_deps: bool,
+    obsidian_dir: Path | None = None,
+    zotero_dir: Path | None = None,
 ) -> tuple[list[Check], list[str]]:
     checks: list[Check] = []
     notes: list[str] = []
@@ -93,6 +95,20 @@ def diagnose(
 
     checks.append(exists_check("gmail credentials", gmail_credentials, required=False))
     checks.append(exists_check("gmail token", gmail_token, required=False))
+
+    if zotero_dir:
+        checks.append(exists_check("zotero export directory", zotero_dir, required=False))
+        checks.append(exists_check("zotero BibTeX", zotero_dir / "scholar_alert_reader.bib", required=False))
+        checks.append(exists_check("zotero RIS", zotero_dir / "scholar_alert_reader.ris", required=False))
+    else:
+        notes.append("No --zotero-dir provided; Zotero integration is optional.")
+
+    if obsidian_dir:
+        checks.append(exists_check("obsidian export directory", obsidian_dir, required=False))
+        checks.append(exists_check("obsidian dashboard", obsidian_dir / "00_Dashboard" / "Scholar Alert Dashboard.md", required=False))
+        checks.append(exists_check("obsidian paper notes", obsidian_dir / "01_Papers", required=False))
+    else:
+        notes.append("No --obsidian-dir provided; Obsidian integration is optional.")
 
     if check_gmail_deps:
         for module_name in [

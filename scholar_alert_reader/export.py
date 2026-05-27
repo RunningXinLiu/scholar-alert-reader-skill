@@ -84,6 +84,11 @@ def render_bibtex(records: list[dict[str, Any]]) -> str:
             "journal": best_journal(record),
             "doi": best_doi(record),
             "url": clean_text(record.get("url")),
+            "keywords": ", ".join(
+                clean_text(value)
+                for value in list(record.get("matched_terms", [])) + list(record.get("tags", []))
+                if clean_text(value)
+            ),
             "abstract": clean_text(record.get("snippet")),
         }
         lines = [f"@article{{{key},"]
@@ -116,6 +121,9 @@ def render_ris(records: list[dict[str, Any]]) -> str:
         snippet = clean_text(record.get("snippet"))
         if snippet:
             lines.append(f"AB  - {snippet}")
+        keywords = [clean_text(value) for value in list(record.get("matched_terms", [])) + list(record.get("tags", [])) if clean_text(value)]
+        for keyword in keywords[:20]:
+            lines.append(f"KW  - {keyword}")
         lines.append("ER  -")
         entries.append("\n".join(lines))
     return "\n\n".join(entries).rstrip() + "\n"

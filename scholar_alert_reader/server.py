@@ -78,6 +78,10 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
                     '<button name="action" value="more">More like this</button>',
                     '<button name="action" value="less">Less like this</button>',
                     '<button name="action" value="deep">Deep read</button>',
+                    '<button name="action" value="status_reading">Reading</button>',
+                    '<button name="action" value="status_read">Read</button>',
+                    '<button name="action" value="status_must_cite">Must cite</button>',
+                    '<button name="action" value="status_method">Method ref</button>',
                     "</form>",
                     "</article>",
                 ]
@@ -250,12 +254,15 @@ def make_handler(config: ServerConfig):
             more_like_this = False
             less_like_this = False
             note = None
+            reading_status = None
+            labels: list[str] = []
             if action == "interested_more":
                 mark = "interested"
                 more_like_this = True
             elif action == "archive_less":
                 mark = "archive"
                 less_like_this = True
+                reading_status = "not-relevant"
             elif action == "more":
                 more_like_this = True
             elif action == "less":
@@ -263,13 +270,37 @@ def make_handler(config: ServerConfig):
             elif action == "deep":
                 mark = "interested"
                 more_like_this = True
+                reading_status = "reading"
                 note = "Queued for deep reading from feedback UI."
+            elif action == "status_reading":
+                mark = "interested"
+                reading_status = "reading"
+            elif action == "status_read":
+                mark = "interested"
+                reading_status = "read"
+            elif action == "status_must_cite":
+                mark = "interested"
+                reading_status = "must-cite"
+                labels = ["must-cite"]
+            elif action == "status_method":
+                mark = "interested"
+                reading_status = "method-reference"
+                labels = ["method-reference"]
 
             profile = core.load_profile(config.profile_path)
             feedback_file = core.default_feedback_file(config.kb_dir)
             feedback = core.load_feedback(feedback_file)
             for paper in selected:
                 core.update_paper_feedback(feedback, paper, mark, more_like_this, less_like_this, note)
+                record = feedback.setdefault("papers", {}).setdefault(paper.id, {})
+                if reading_status:
+                    record["reading_status"] = reading_status
+                if labels:
+                    current = [str(label) for label in record.get("labels", []) if str(label).strip()]
+                    for label in labels:
+                        if label not in current:
+                            current.append(label)
+                    record["labels"] = current
                 if more_like_this:
                     for term, weight in core.feedback_terms_from_paper(paper):
                         core.add_feedback_term(feedback, term, "positive", weight, "paper", paper.id)
@@ -285,9 +316,20 @@ def make_handler(config: ServerConfig):
                 feedback_file,
                 config.profile_path,
             )
+            core.write_reading_status_report(config.kb_dir, [core.asdict(paper) for paper in core.load_paper_library(config.kb_dir)], feedback)
+            deep_report = None
+            if action == "deep":
+                deep_report = core.write_deep_read_report(
+                    profile_path=config.profile_path,
+                    kb_dir=config.kb_dir,
+                    paper_id=paper_id,
+                    papers_json=config.papers_json,
+                )
 
             papers = core.load_papers_json(config.papers_json)
             message = f"Saved feedback for {paper_id}: {action}"
+            if deep_report:
+                message += f"; deep-read report: {deep_report}"
             body = render_page(papers, config, message).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")

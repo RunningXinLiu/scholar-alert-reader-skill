@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.codegraph/
 
 # Private auth
 gmail_credentials.json

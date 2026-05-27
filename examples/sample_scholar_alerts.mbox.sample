@@ -1,0 +1,19 @@
+From scholaralerts-noreply@google.com Wed May 27 09:00:00 2026
+From: Google Scholar Alerts <scholaralerts-noreply@google.com>
+To: researcher@example.com
+Subject: Google Scholar Alert: ambient noise tomography - new articles
+Date: Wed, 27 May 2026 09:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<html>
+  <body>
+    <h3><a href="https://scholar.google.com/scholar_url?url=https%3A%2F%2Fexample.org%2Fpaper1" class="gse_alrt_title">Ambient noise tomography of plateau crustal structure</a></h3>
+    <div style="color:#006621">A Researcher, B Scientist - Journal of Demo Seismology, 2026</div>
+    <div class="gse_alrt_sni">We use ambient noise tomography to image crustal velocity structure and discuss implications for plateau deformation.</div>
+
+    <h3><a href="https://scholar.google.com/scholar_url?url=https%3A%2F%2Fexample.org%2Fpaper2" class="gse_alrt_title">Receiver function constraints on lithospheric discontinuities</a></h3>
+    <div style="color:#006621">C Analyst, D Geophysicist - Example Earth Science Letters, 2026</div>
+    <div class="gse_alrt_sni">Receiver functions reveal crustal thickness variation and possible lithospheric discontinuities beneath an active orogen.</div>
+  </body>
+</html>

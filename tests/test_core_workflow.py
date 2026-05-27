@@ -69,8 +69,33 @@ class CoreWorkflowTests(unittest.TestCase):
             )
             self.assertIn("Project initialized", result.stdout)
             self.assertTrue((project / "profiles" / "research_profile.json").exists())
+            self.assertTrue((project / "examples" / "sample_scholar_alerts.mbox").exists())
+            self.assertTrue((project / "demo_reader.sh").exists())
+            self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "doctor_reader.sh").exists())
+            self.assertTrue((project / "guide_reader.sh").exists())
+            self.assertTrue((project / "compare_papers.sh").exists())
+            self.assertTrue((project / "obsidian_export.sh").exists())
+            self.assertTrue((project / "START_HERE.md").exists())
+            self.assertIn("Product Modes", (project / "START_HERE.md").read_text(encoding="utf-8"))
+            subprocess.run(
+                [str(project / "demo_reader.sh")],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertTrue((project / "reader_out" / "demo" / "digest.html").exists())
+            self.assertTrue((project / "reader_out" / "demo" / "papers.json").exists())
+            source_check = subprocess.run(
+                [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("mbox parse", source_check.stdout)
 
     def test_feedback_updates_knowledge_base(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -149,6 +174,214 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("Scholar Alert Reader Doctor", report.read_text(encoding="utf-8"))
+
+    def test_guide_command_writes_product_setup_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            guide = root / "START_HERE.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "guide",
+                    "--project-dir",
+                    str(root),
+                    "--output",
+                    str(guide),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = guide.read_text(encoding="utf-8")
+            self.assertIn("Product Modes", content)
+            self.assertIn("Codex-only", content)
+            self.assertIn("Optional Integrations", content)
+
+    def test_copilot_commands_write_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = root / "kb"
+            kb.mkdir()
+            library = kb / "library.json"
+            library.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+
+            deep = root / "deep.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "deep-read",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--output",
+                    str(deep),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Deep Read", deep.read_text(encoding="utf-8"))
+
+            answer = root / "answer.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "ask",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--question",
+                    "Taiwan ambient noise tomography",
+                    "--output",
+                    str(answer),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Most Relevant Papers", answer.read_text(encoding="utf-8"))
+
+            advice = root / "advice.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "advice",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--output",
+                    str(advice),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Research Advice", advice.read_text(encoding="utf-8"))
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "status",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--status",
+                    "reading",
+                    "--label",
+                    "must-cite",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("reading", (kb / "reading_status.md").read_text(encoding="utf-8"))
+
+            comparison = root / "compare.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "compare",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--output",
+                    str(comparison),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Paper Comparison", comparison.read_text(encoding="utf-8"))
+
+            research_map = root / "map.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "map",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--output",
+                    str(research_map),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Research Map", research_map.read_text(encoding="utf-8"))
+
+            zotero_dir = root / "zotero"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "zotero",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--output-dir",
+                    str(zotero_dir),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertTrue((zotero_dir / "scholar_alert_reader.bib").exists())
+            self.assertTrue((zotero_dir / "scholar_alert_reader.ris").exists())
+
+            obsidian_dir = root / "obsidian"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "obsidian",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--vault-dir",
+                    str(obsidian_dir),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertTrue((obsidian_dir / "00_Dashboard" / "Scholar Alert Dashboard.md").exists())
+            self.assertTrue((obsidian_dir / "01_Papers").exists())
+            self.assertTrue((obsidian_dir / "02_Maps" / "Research Map.md").exists())
+            self.assertTrue((obsidian_dir / "03_Reading" / "Reading Status.md").exists())
+            self.assertTrue((obsidian_dir / "04_Answers").exists())
+            self.assertTrue((obsidian_dir / "05_Comparisons").exists())
+            self.assertTrue((obsidian_dir / "06_Deep_Reads").exists())
+            paper_note = next((obsidian_dir / "01_Papers").glob("*.md"))
+            note = paper_note.read_text(encoding="utf-8")
+            self.assertIn("citation_key:", note)
+            self.assertIn('doi: "10.0000/test"', note)
 
 
 if __name__ == "__main__":

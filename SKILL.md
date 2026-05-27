@@ -11,17 +11,24 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 
 ## Workflow
 
-1. For a new local setup, run `init-project` to create profiles, outputs, knowledge-base directories, and helper scripts.
-2. Choose a source:
+1. For a new local setup, run `init-project` to create profiles, outputs, knowledge-base directories, helper scripts, and `START_HERE.md`.
+2. Run `./demo_reader.sh` first when the user wants to test without connecting Gmail, Obsidian, or Zotero.
+3. Choose a source:
    - Gmail API: preferred for automation after OAuth setup.
    - Mail.app: works locally on macOS after Automation permission.
    - `.mbox`: works from exported Gmail/Apple Mail archives.
-3. Load or create a JSON research profile.
-4. First run: use `foundation` to build the seen-paper baseline.
-5. Later runs: use `daily` so only papers not already in the state file are reported.
-6. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
-7. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-8. Use `export` for BibTeX/RIS/Markdown handoff and `doctor` when diagnosing local setup problems.
+4. Load or create a JSON research profile.
+5. First run: use `foundation` to build the seen-paper baseline.
+6. Later runs: use `daily` so only papers not already in the state file are reported.
+7. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
+8. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
+9. Use `deep-read`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+10. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
+11. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` when diagnosing local setup problems.
+
+Platform rule: Gmail API and exported mbox work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
+
+Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
 ## Outputs
 
@@ -37,6 +44,14 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
+- `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation.
+- `knowledge_base/answers/*.md`: local-library answers to user research questions.
+- `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
+- `knowledge_base/reading_status.md`: reading tracker grouped by status.
+- `knowledge_base/comparisons/*.md`: side-by-side paper comparisons.
+- `knowledge_base/research_map.md`: topic clusters and representative papers.
+- `knowledge_base/zotero/`: Zotero-ready BibTeX/RIS files.
+- `knowledge_base/obsidian/`: Obsidian-ready Markdown dashboard, paper notes, maps, reading status, library answers, comparisons, and deep reads. In a real vault, sync it into a generated folder such as `01_Literatures/10_Scholar_Alert_Reader/`.
 
 Archive-tier papers should not enter the knowledge base by default; they stay in the run outputs and seen-state file only.
 
@@ -47,6 +62,24 @@ Create a local project:
 ```bash
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
 ```
+
+Render or refresh the local onboarding guide:
+
+```bash
+python3 scripts/scholar_reader.py guide \
+  --project-dir ~/scholar_alerts \
+  --output ~/scholar_alerts/START_HERE.md
+```
+
+Check the configured input source without a full run:
+
+```bash
+python3 scripts/scholar_reader.py source-check \
+  --project-dir ~/scholar_alerts \
+  --source auto
+```
+
+Use `--live` to attempt an actual Gmail, Mail.app, or mbox read.
 
 Install Gmail dependencies when using Gmail API:
 
@@ -121,6 +154,79 @@ python3 scripts/scholar_reader.py serve \
   --kb-dir knowledge_base \
   --open
 ```
+
+Analyze a selected paper against the local foundation:
+
+```bash
+python3 scripts/scholar_reader.py deep-read \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json out/recent/papers.json \
+  --paper-id <ID>
+```
+
+Ask the retained literature base a question:
+
+```bash
+python3 scripts/scholar_reader.py ask \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --question "receiver function + Tibet 有哪些关键论文？"
+```
+
+Generate research advice:
+
+```bash
+python3 scripts/scholar_reader.py advice \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base
+```
+
+Track reading status and labels:
+
+```bash
+python3 scripts/scholar_reader.py status \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json out/recent/papers.json \
+  --paper-id <ID> \
+  --status reading \
+  --label must-cite
+```
+
+Compare papers:
+
+```bash
+python3 scripts/scholar_reader.py compare \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --paper-id <ID1>,<ID2>
+```
+
+Render a research map:
+
+```bash
+python3 scripts/scholar_reader.py map \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base
+```
+
+Export to Zotero or Obsidian:
+
+```bash
+python3 scripts/scholar_reader.py zotero \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base
+```
+
+```bash
+python3 scripts/scholar_reader.py obsidian \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --vault-dir "~/Documents/Obsidian Vault/01_Literatures/10_Scholar_Alert_Reader"
+```
+
+The Obsidian export is generated content. Prefer syncing it into a dedicated folder such as `01_Literatures/10_Scholar_Alert_Reader/`; keep user-authored reading notes, topic synthesis, and writing drafts in sibling folders so reruns never overwrite personal notes.
 
 Enrich retained papers and write a weekly review:
 
