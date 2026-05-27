@@ -2338,6 +2338,28 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertIn('id="status"', initial_body)
                 self.assertIn('data-status="unread"', initial_body)
                 self.assertIn("feedback none", initial_body)
+                self.assertIn('name="note"', initial_body)
+                self.assertIn("Save note", initial_body)
+
+                body = urllib.parse.urlencode(
+                    {
+                        "paper_id": "p1",
+                        "action": "save_note",
+                        "note": "Useful comparison for the Taiwan manuscript.",
+                    }
+                ).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    html_body = response.read().decode("utf-8")
+                self.assertIn("Saved feedback for p1: save_note", html_body)
+                self.assertIn("Useful comparison for the Taiwan manuscript.", html_body)
+                feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
+                self.assertIn("Useful comparison for the Taiwan manuscript.", feedback["papers"]["p1"]["note"])
 
                 body = urllib.parse.urlencode({"paper_id": "p1", "action": "workup"}).encode("utf-8")
                 request = urllib.request.Request(

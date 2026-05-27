@@ -66,6 +66,25 @@ def feedback_badges(paper: Any, feedback: dict[str, Any] | None) -> str:
     return '<div class="badges feedback-badges">' + "".join(render_badge(str(value)) for value in values) + "</div>"
 
 
+def paper_feedback_note_html(paper: Any, feedback: dict[str, Any] | None) -> str:
+    item = paper_feedback_item(feedback, str(getattr(paper, "id", "")))
+    note = str(item.get("note", "") or "").strip()
+    if not note:
+        return ""
+    return '<div class="note"><strong>Note</strong><pre>' + html.escape(note) + "</pre></div>"
+
+
+def append_feedback_note(record: dict[str, Any], note: str | None) -> None:
+    clean_note = str(note or "").strip()
+    if not clean_note:
+        return
+    existing = str(record.get("note", "") or "").strip()
+    existing_lines = [line for line in existing.splitlines() if line.strip()]
+    if clean_note not in existing_lines:
+        existing_lines.append(clean_note)
+    record["note"] = "\n".join(existing_lines)
+
+
 def paper_metadata_summary(paper: Any) -> str:
     metadata = getattr(paper, "metadata", {}) or {}
     openalex = metadata.get("openalex") if isinstance(metadata, dict) else None
@@ -140,6 +159,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
                     + render_badge(f"score {paper.score}")
                     + "</div>",
                     feedback_badges(paper, feedback),
+                    paper_feedback_note_html(paper, feedback),
                     f'<p class="meta">{html.escape(paper.authors_source)}</p>',
                     f'<p class="meta">{html.escape(metadata_summary)}</p>' if metadata_summary else "",
                     f'<p>{html.escape(paper.snippet)}</p>',
@@ -148,6 +168,8 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
                     f"<ul>{reasons}</ul>" if reasons else "",
                     f'<form method="post" action="/feedback">',
                     f'<input type="hidden" name="paper_id" value="{html.escape(paper.id, quote=True)}">',
+                    '<label class="note-input"><span>Personal note</span><textarea name="note" rows="2" placeholder="Why keep, cite, skim, or reject this paper?"></textarea></label>',
+                    '<button name="action" value="save_note">Save note</button>',
                     '<button name="action" value="interested_more">Interested + more like this</button>',
                     '<button name="action" value="archive_less">Archive + less like this</button>',
                     '<button name="action" value="more">More like this</button>',
@@ -211,7 +233,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
               margin-top: 16px;
               max-width: 960px;
             }
-            input, select {
+            input, select, textarea {
               border: 1px solid var(--line);
               border-radius: 8px;
               padding: 9px 10px;
@@ -232,6 +254,19 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
               font-size: 14px;
             }
             .reports a { margin-right: 8px; }
+            .note {
+              margin: 10px 0;
+              border-left: 3px solid var(--accent);
+              padding: 8px 10px;
+              background: #f0fdfa;
+            }
+            .note strong { display: block; margin-bottom: 4px; }
+            .note pre {
+              margin: 0;
+              white-space: pre-wrap;
+              font: inherit;
+              color: var(--ink);
+            }
             .paper {
               background: var(--panel);
               border: 1px solid var(--line);
@@ -249,6 +284,18 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
               font-size: 12px;
             }
             form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+            .note-input {
+              flex: 1 0 100%;
+              display: grid;
+              gap: 4px;
+              color: var(--muted);
+              font-size: 13px;
+            }
+            .note-input textarea {
+              resize: vertical;
+              min-height: 48px;
+              color: var(--ink);
+            }
             button {
               border: 1px solid var(--line);
               border-radius: 8px;
@@ -358,6 +405,7 @@ def make_handler(config: ServerConfig):
             form = parse_qs(self.rfile.read(length).decode("utf-8", errors="replace"))
             paper_id = (form.get("paper_id") or [""])[0]
             action = (form.get("action") or [""])[0]
+            user_note = (form.get("note") or [""])[0].strip()
             papers = core.load_papers_json(config.papers_json)
             selected = [paper for paper in papers if paper.id == paper_id]
             if not selected:
@@ -370,7 +418,9 @@ def make_handler(config: ServerConfig):
             note = None
             reading_status = None
             labels: list[str] = []
-            if action == "interested_more":
+            if action == "save_note":
+                note = None
+            elif action == "interested_more":
                 mark = "interested"
                 more_like_this = True
             elif action == "archive_less":
@@ -429,7 +479,7 @@ def make_handler(config: ServerConfig):
             feedback_file = core.default_feedback_file(config.kb_dir)
             feedback = core.load_feedback(feedback_file)
             for paper in selected:
-                core.update_paper_feedback(feedback, paper, mark, more_like_this, less_like_this, note)
+                core.update_paper_feedback(feedback, paper, mark, more_like_this, less_like_this, None)
                 record = feedback.setdefault("papers", {}).setdefault(paper.id, {})
                 if reading_status:
                     record["reading_status"] = reading_status
@@ -455,6 +505,8 @@ def make_handler(config: ServerConfig):
                 if less_like_this:
                     for term, weight in core.feedback_terms_from_paper(paper):
                         core.add_feedback_term(feedback, term, "negative", weight, "paper", paper.id)
+                append_feedback_note(record, note)
+                append_feedback_note(record, user_note)
             core.save_feedback(feedback_file, feedback)
             core.apply_feedback_to_knowledge_base(
                 config.kb_dir,

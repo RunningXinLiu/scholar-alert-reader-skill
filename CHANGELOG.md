@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.55 - 2026-05-28
+
+- Add personal note entry and display to each paper card in the local feedback UI.
+- Add a `Save note` UI action that records free-form reading notes without changing the paper's ranking status.
+- Preserve system action notes and user notes as separate lines instead of overwriting existing feedback notes.
+
 ## v0.2.54 - 2026-05-28
 
 - Show each paper's current feedback status, reading status, labels, and more/less-like-this signals in the local feedback UI.

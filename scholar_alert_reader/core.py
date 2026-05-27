@@ -9255,7 +9255,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Deduplicating repeated papers across alerts and sources.",
         "- Ranking papers with profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, and adaptive local feedback similarity.",
         "- Producing HTML/Markdown digests, CSV/JSON outputs, and a retained local knowledge base.",
-        "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, method-reference, background-only, and not-relevant labels.",
+        "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, method-reference, background-only, not-relevant, and personal notes.",
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
         "- Evaluating saved ranking quality against interested/archive labels with precision, recall, average precision, false positives, and missed positives.",
