@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.25`
+Version: `0.2.26`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -531,7 +531,7 @@ python3 scripts/scholar_reader.py reading-plan \
   --limit 10
 ```
 
-`reading-plan` writes `knowledge_base/reading_plan.md`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `review-pack`, or `review-queue` next. Normal runs that update the knowledge base refresh this file automatically; use the command directly when you want to include a specific recent `papers.json` or change the limit.
+`reading-plan` writes `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `review-pack`, or `review-queue` next. Normal runs that update the knowledge base refresh both files automatically; use the command directly when you want to include a specific recent `papers.json`, change the limit, or write to another path.
 
 Ask a question against the local literature base:
 
@@ -668,7 +668,7 @@ The richer knowledge base includes:
 - `papers/<paper-id>.md`: one note page per retained paper
 - `directions/*.md`: retained papers grouped by topic tags
 - `weekly_review.md`: recurring synthesis from the retained library
-- `reading_plan.md`: prioritized next-reading queue from retained/recent papers
+- `reading_plan.md` / `reading_plan.html`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_pack.md`: selected-paper review context for an assistant

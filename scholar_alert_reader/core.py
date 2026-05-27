@@ -2743,7 +2743,7 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
         "- `foundation.md` is rendered from cumulative `library.json`, grouped by direction.",
         f"- `interested.md` is rendered from cumulative `library.json` for tiers: {', '.join(settings['interested_tiers'])}.",
         "- `daily_additions.md` keeps the latest new-paper-only additions.",
-        "- `reading_plan.md` prioritizes retained and recent papers for the next reading session.",
+        "- `reading_plan.md` and `reading_plan.html` prioritize retained and recent papers for the next reading session.",
         "- `runs/` keeps timestamped reports from individual runs.",
         "",
         "## Files",
@@ -2756,6 +2756,7 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
         "- [directions/](directions/)",
         "- [weekly_review.md](weekly_review.md)",
         "- [reading_plan.md](reading_plan.md)",
+        "- [reading_plan.html](reading_plan.html)",
         "- [daily_additions.md](daily_additions.md)",
         "- [latest_run.md](latest_run.md)",
     ]
@@ -3017,6 +3018,120 @@ def write_run_snapshot(kb_dir: Path, papers: list[Paper], summary: dict[str, Any
     (kb_dir / "latest_run.md").write_text(content, encoding="utf-8")
 
 
+def inline_markdown_to_html(value: str) -> str:
+    escaped = html.escape(value)
+
+    def link_repl(match: re.Match[str]) -> str:
+        label = match.group(1)
+        url = html.escape(match.group(2), quote=True)
+        return f'<a href="{url}">{label}</a>'
+
+    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link_repl, escaped)
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    return escaped
+
+
+def markdown_to_basic_html(markdown_text: str, title: str) -> str:
+    body: list[str] = []
+    in_ul = False
+    in_ol = False
+    in_code = False
+    code_lines: list[str] = []
+
+    def close_lists() -> None:
+        nonlocal in_ul, in_ol
+        if in_ul:
+            body.append("</ul>")
+            in_ul = False
+        if in_ol:
+            body.append("</ol>")
+            in_ol = False
+
+    for raw_line in markdown_text.splitlines():
+        line = raw_line.rstrip()
+        if line.startswith("```"):
+            if in_code:
+                body.append("<pre><code>" + html.escape("\n".join(code_lines)) + "</code></pre>")
+                code_lines = []
+                in_code = False
+            else:
+                close_lists()
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(raw_line)
+            continue
+        if not line.strip():
+            close_lists()
+            continue
+        if line.startswith("### "):
+            close_lists()
+            body.append(f"<h3>{inline_markdown_to_html(line[4:])}</h3>")
+            continue
+        if line.startswith("## "):
+            close_lists()
+            body.append(f"<h2>{inline_markdown_to_html(line[3:])}</h2>")
+            continue
+        if line.startswith("# "):
+            close_lists()
+            body.append(f"<h1>{inline_markdown_to_html(line[2:])}</h1>")
+            continue
+        ordered = re.match(r"^\d+\.\s+(.*)$", line)
+        if ordered:
+            if in_ul:
+                body.append("</ul>")
+                in_ul = False
+            if not in_ol:
+                body.append("<ol>")
+                in_ol = True
+            body.append(f"<li>{inline_markdown_to_html(ordered.group(1))}</li>")
+            continue
+        bullet = re.match(r"^\s*-\s+(.*)$", line)
+        if bullet:
+            if in_ol:
+                body.append("</ol>")
+                in_ol = False
+            if not in_ul:
+                body.append("<ul>")
+                in_ul = True
+            body.append(f"<li>{inline_markdown_to_html(bullet.group(1))}</li>")
+            continue
+        close_lists()
+        body.append(f"<p>{inline_markdown_to_html(line)}</p>")
+    if in_code:
+        body.append("<pre><code>" + html.escape("\n".join(code_lines)) + "</code></pre>")
+    close_lists()
+    return "\n".join(
+        [
+            "<!doctype html>",
+            '<html lang="en">',
+            "<head>",
+            '<meta charset="utf-8">',
+            '<meta name="viewport" content="width=device-width, initial-scale=1">',
+            f"<title>{html.escape(title)}</title>",
+            "<style>",
+            "body{margin:0;background:#f6f8fb;color:#16202d;font:16px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}",
+            "main{max-width:980px;margin:0 auto;padding:34px 24px 64px}",
+            "h1{font-size:34px;margin:0 0 18px}h2{font-size:24px;margin:34px 0 12px;border-top:1px solid #d8e0eb;padding-top:22px}h3{font-size:18px;margin:22px 0 10px}",
+            "p,li{color:#334256}ul,ol{background:#fff;border:1px solid #d8e0eb;border-radius:10px;padding:14px 24px;margin:12px 0}li{margin:7px 0}",
+            "a{color:#145bd7;text-decoration:none}a:hover{text-decoration:underline}code{background:#eef3f9;border:1px solid #d9e2ef;border-radius:5px;padding:1px 5px}",
+            "pre{background:#0f1724;color:#e7eef8;border-radius:10px;padding:16px;overflow:auto}pre code{background:transparent;border:0;color:inherit;padding:0}",
+            "</style>",
+            "</head>",
+            "<body><main>",
+            *body,
+            "</main></body></html>",
+        ]
+    )
+
+
+def write_markdown_html(markdown_path: Path, html_path: Path, title: str) -> Path:
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+    html_path.write_text(markdown_to_basic_html(markdown_path.read_text(encoding="utf-8"), title), encoding="utf-8")
+    return html_path
+
+
 def write_knowledge_base(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], summary: dict[str, Any]) -> None:
     kb_dir.mkdir(parents=True, exist_ok=True)
     additions = retained_for_foundation(papers, profile)
@@ -3046,7 +3161,7 @@ def write_knowledge_base(kb_dir: Path, papers: list[Paper], profile: dict[str, A
     write_run_snapshot(kb_dir, papers, summary)
 
 
-def write_auto_reading_plan(kb_dir: Path, out_dir: Path, profile: dict[str, Any], limit: int = 10) -> Path:
+def write_auto_reading_plan(kb_dir: Path, out_dir: Path, profile: dict[str, Any], limit: int = 10) -> tuple[Path, Path]:
     from .copilot import render_reading_plan
 
     records = merged_paper_records(kb_dir, out_dir / "papers.json")
@@ -3062,7 +3177,8 @@ def write_auto_reading_plan(kb_dir: Path, out_dir: Path, profile: dict[str, Any]
             full_text_ids=available_full_text_ids(kb_dir),
         ),
     )
-    return output
+    html_output = write_markdown_html(output, kb_dir / "reading_plan.html", "Scholar Alert Reading Plan")
+    return output, html_output
 
 
 def write_outputs(
@@ -3082,12 +3198,15 @@ def write_outputs(
     if update_knowledge_base:
         summary["knowledge_base_updated"] = True
         write_knowledge_base(kb_dir, papers, profile, summary)
-        summary["reading_plan"] = str(write_auto_reading_plan(kb_dir, out_dir, profile))
+        reading_plan, reading_plan_html = write_auto_reading_plan(kb_dir, out_dir, profile)
+        summary["reading_plan"] = str(reading_plan)
+        summary["reading_plan_html"] = str(reading_plan_html)
     else:
         summary["knowledge_base_updated"] = False
         summary["library_papers"] = len(load_paper_library(kb_dir))
         summary["library_additions"] = 0
         summary["reading_plan"] = ""
+        summary["reading_plan_html"] = ""
     save_json(out_dir / "summary.json", summary)
 
 
@@ -5126,6 +5245,8 @@ def run(args: argparse.Namespace) -> None:
     print(f"Deep-read queue: {args.out_dir / 'deep_read_queue.md'}")
     if summary.get("reading_plan"):
         print(f"Reading plan: {summary['reading_plan']}")
+    if summary.get("reading_plan_html"):
+        print(f"Reading plan HTML: {summary['reading_plan_html']}")
     print(f"JSON: {args.out_dir / 'papers.json'}")
     print(f"CSV: {args.out_dir / 'papers.csv'}")
     print(f"Knowledge base: {kb_dir}")
@@ -5743,6 +5864,7 @@ def reading_plan_command(args: argparse.Namespace) -> None:
     feedback = load_feedback(feedback_file)
     records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
     output = args.output or (kb_dir / "reading_plan.md")
+    html_output = args.html_output or output.with_suffix(".html")
     write_report(
         output,
         render_reading_plan(
@@ -5753,7 +5875,11 @@ def reading_plan_command(args: argparse.Namespace) -> None:
             full_text_ids=available_full_text_ids(kb_dir),
         ),
     )
+    if not args.no_html:
+        write_markdown_html(output, html_output, "Scholar Alert Reading Plan")
     print(f"Reading plan: {output}")
+    if not args.no_html:
+        print(f"Reading plan HTML: {html_output}")
     print(f"Papers considered: {len(records)}")
 
 
@@ -6511,6 +6637,8 @@ def build_parser() -> argparse.ArgumentParser:
     reading_plan.add_argument("--papers-json", type=Path, help="Optional digest papers.json to include recent papers")
     reading_plan.add_argument("--limit", type=int, default=10, help="Maximum papers to include in the plan")
     reading_plan.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/reading_plan.md")
+    reading_plan.add_argument("--html-output", type=Path, help="Output HTML path. Defaults to the markdown output with .html suffix")
+    reading_plan.add_argument("--no-html", action="store_true", help="Do not write a browser-friendly HTML reading plan")
     reading_plan.set_defaults(func=reading_plan_command)
 
     status_cmd = sub.add_parser("status", help="Update reading status and labels for selected papers")

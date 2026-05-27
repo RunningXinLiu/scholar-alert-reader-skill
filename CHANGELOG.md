@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.26 - 2026-05-27
+
+- Write `knowledge_base/reading_plan.html` alongside `reading_plan.md` so daily reading plans are browser-friendly.
+- Add `--html-output` / `--no-html` to `reading-plan`.
+- Include the HTML reading-plan path in summaries, terminal output, and the knowledge-base index.
+- Add tests for automatic and explicit HTML reading-plan generation.
+
 ## v0.2.25 - 2026-05-27
 
 - Generate `knowledge_base/reading_plan.md` automatically after runs that update the knowledge base.

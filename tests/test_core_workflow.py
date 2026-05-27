@@ -230,10 +230,15 @@ class CoreWorkflowTests(unittest.TestCase):
             )
             self.assertTrue((project / "reader_out" / "web" / "digest.html").exists())
             self.assertIn("Reading plan:", web_run.stdout)
+            self.assertIn("Reading plan HTML:", web_run.stdout)
             self.assertTrue((project / "knowledge_base" / "reading_plan.md").exists())
+            self.assertTrue((project / "knowledge_base" / "reading_plan.html").exists())
             web_summary = json.loads((project / "reader_out" / "web" / "summary.json").read_text(encoding="utf-8"))
             self.assertEqual(Path(web_summary["reading_plan"]).resolve(), (project / "knowledge_base" / "reading_plan.md").resolve())
+            self.assertEqual(Path(web_summary["reading_plan_html"]).resolve(), (project / "knowledge_base" / "reading_plan.html").resolve())
+            self.assertIn("Reading Plan", (project / "knowledge_base" / "reading_plan.html").read_text(encoding="utf-8"))
             self.assertIn("reading_plan.md", (project / "knowledge_base" / "index.md").read_text(encoding="utf-8"))
+            self.assertIn("reading_plan.html", (project / "knowledge_base" / "index.md").read_text(encoding="utf-8"))
             source_check = subprocess.run(
                 [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
                 cwd=project,
@@ -1042,6 +1047,7 @@ SCHEDULE_TIME=09:00
             self.assertIn("reading", (kb / "reading_status.md").read_text(encoding="utf-8"))
 
             reading_plan = root / "reading_plan.md"
+            reading_plan_html = root / "reading_plan.html"
             subprocess.run(
                 [
                     sys.executable,
@@ -1062,6 +1068,8 @@ SCHEDULE_TIME=09:00
             self.assertIn("Reading Plan", reading_plan_content)
             self.assertIn("Read First", reading_plan_content)
             self.assertIn("already in reading", reading_plan_content)
+            self.assertTrue(reading_plan_html.exists())
+            self.assertIn("<!doctype html>", reading_plan_html.read_text(encoding="utf-8"))
 
             comparison = root / "compare.md"
             subprocess.run(
