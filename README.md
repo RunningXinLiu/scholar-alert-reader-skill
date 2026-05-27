@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="Scholar Alert Reader logo" width="104">
+  <img src="./docs/assets/logo.png" alt="Scholar Alert Reader logo" width="104">
 </p>
 
 # Scholar Alert Reader Skill
@@ -11,12 +11,39 @@ Version: `0.1.0`
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
 <p align="center">
-  <img src="docs/assets/social-card.svg" alt="Scholar Alert Reader social card" width="900">
+  <img src="./docs/assets/social-card.png" alt="Scholar Alert Reader social card" width="900">
 </p>
 
 <p align="center">
-  <img src="docs/assets/workflow.gif" alt="Animated Scholar Alert Reader workflow" width="760">
+  <img src="./docs/assets/workflow.gif" alt="Animated Scholar Alert Reader workflow" width="760">
 </p>
+
+## Start Here
+
+If you are a Codex user, install the skill and then talk to Codex in plain language:
+
+```bash
+mkdir -p ~/.codex/skills
+git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git \
+  ~/.codex/skills/scholar-alert-reader
+```
+
+Restart Codex or reload skills, then ask:
+
+```text
+Use the scholar-alert-reader skill to initialize a Scholar Alert project for me.
+```
+
+Good next prompts:
+
+- "Check whether my Gmail/Mail.app/mbox source is ready."
+- "Build my first foundation from existing Scholar Alert emails."
+- "Run today's new-paper digest."
+- "Open the feedback UI so I can mark interested papers."
+- "Deep-read this paper against my foundation."
+- "Export my retained library to Obsidian and Zotero."
+
+The skill works without Obsidian or Zotero. Those are optional upgrades for people who want a larger personal knowledge system.
 
 ## What It Does
 
@@ -42,7 +69,7 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 ## Architecture
 
-![Scholar Alert Reader architecture](docs/assets/architecture.svg)
+![Scholar Alert Reader architecture](./docs/assets/architecture.png)
 
 ## Platform Support
 
@@ -80,6 +107,16 @@ cp -R scholar-alert-reader-skill ~/.codex/skills/scholar-alert-reader
 ```
 
 Then restart Codex or reload skills.
+
+You can also install directly from GitHub:
+
+```bash
+mkdir -p ~/.codex/skills
+git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git \
+  ~/.codex/skills/scholar-alert-reader
+```
+
+After that, Codex can read `SKILL.md` and guide the user through setup, source checks, Gmail OAuth, daily runs, feedback, deep reads, and optional Obsidian/Zotero exports.
 
 ## Gmail API Setup
 
