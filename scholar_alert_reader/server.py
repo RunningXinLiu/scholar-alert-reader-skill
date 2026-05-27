@@ -25,6 +25,47 @@ def render_badge(value: str) -> str:
     return f'<span class="badge">{html.escape(value)}</span>'
 
 
+def paper_feedback_item(feedback: dict[str, Any] | None, paper_id: str) -> dict[str, Any]:
+    if not isinstance(feedback, dict):
+        return {}
+    papers = feedback.get("papers", {})
+    if not isinstance(papers, dict):
+        return {}
+    item = papers.get(paper_id, {})
+    return item if isinstance(item, dict) else {}
+
+
+def paper_reading_status(paper: Any, feedback: dict[str, Any] | None) -> str:
+    item = paper_feedback_item(feedback, str(getattr(paper, "id", "")))
+    reading_status = str(item.get("reading_status", "") or "")
+    if reading_status:
+        return reading_status
+    status = str(item.get("status", "") or "")
+    if status == "archive":
+        return "not-relevant"
+    return "unread"
+
+
+def feedback_badges(paper: Any, feedback: dict[str, Any] | None) -> str:
+    item = paper_feedback_item(feedback, str(getattr(paper, "id", "")))
+    if not item:
+        return '<div class="badges feedback-badges">' + render_badge("feedback none") + render_badge("reading unread") + "</div>"
+    values = [
+        f"feedback {item.get('status', 'neutral')}",
+        f"reading {paper_reading_status(paper, feedback)}",
+    ]
+    labels = item.get("labels", [])
+    if isinstance(labels, list):
+        values.extend(f"label {label}" for label in labels if str(label).strip())
+    signals = item.get("signals", {})
+    if isinstance(signals, dict):
+        if signals.get("more_like_this"):
+            values.append("more-like-this")
+        if signals.get("less_like_this"):
+            values.append("less-like-this")
+    return '<div class="badges feedback-badges">' + "".join(render_badge(str(value)) for value in values) + "</div>"
+
+
 def paper_metadata_summary(paper: Any) -> str:
     metadata = getattr(paper, "metadata", {}) or {}
     openalex = metadata.get("openalex") if isinstance(metadata, dict) else None
@@ -73,10 +114,11 @@ def safe_report_path(config: ServerConfig, name: str) -> Path | None:
     return report_path
 
 
-def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> str:
+def render_page(papers: list[Any], config: ServerConfig, message: str = "", feedback: dict[str, Any] | None = None) -> str:
     cards = []
     for paper in papers:
         reasons = "".join(f"<li>{html.escape(reason)}</li>" for reason in paper.reasons[:3])
+        reading_status = paper_reading_status(paper, feedback)
         searchable = " ".join(
             [
                 paper.title,
@@ -90,13 +132,14 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
         cards.append(
             "\n".join(
                 [
-                    f'<article class="paper" data-tier="{html.escape(str(paper.tier), quote=True)}" data-search="{html.escape(searchable, quote=True)}">',
+                    f'<article class="paper" data-tier="{html.escape(str(paper.tier), quote=True)}" data-status="{html.escape(reading_status, quote=True)}" data-search="{html.escape(searchable, quote=True)}">',
                     f"<h2>{html.escape(paper.title)}</h2>",
                     '<div class="badges">'
                     + render_badge(f"id {paper.id}")
                     + render_badge(str(paper.tier))
                     + render_badge(f"score {paper.score}")
                     + "</div>",
+                    feedback_badges(paper, feedback),
                     f'<p class="meta">{html.escape(paper.authors_source)}</p>',
                     f'<p class="meta">{html.escape(metadata_summary)}</p>' if metadata_summary else "",
                     f'<p>{html.escape(paper.snippet)}</p>',
@@ -163,10 +206,10 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
             .meta, .empty { color: var(--muted); }
             .toolbar {
               display: grid;
-              grid-template-columns: minmax(220px, 1fr) 180px;
+              grid-template-columns: minmax(220px, 1fr) 180px 180px;
               gap: 10px;
               margin-top: 16px;
-              max-width: 760px;
+              max-width: 960px;
             }
             input, select {
               border: 1px solid var(--line);
@@ -197,6 +240,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
               margin-bottom: 12px;
             }
             .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+            .feedback-badges { margin-top: -2px; }
             .badge {
               border-radius: 999px;
               background: #eef2f7;
@@ -232,6 +276,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
             '<div class="toolbar">',
             '<input id="search" type="search" placeholder="Search title, alert, term, source">',
             '<select id="tier"><option value="">All tiers</option><option>Must read</option><option>Skim</option><option>Archive</option></select>',
+            '<select id="status"><option value="">All statuses</option><option>unread</option><option>reading</option><option>read</option><option>must-cite</option><option>method-reference</option><option>background-only</option><option>not-relevant</option></select>',
             "</div>",
             f'<div class="message">{html.escape(message)}</div>' if message else "",
             "</header>",
@@ -242,18 +287,22 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
             """
             const search = document.getElementById('search');
             const tier = document.getElementById('tier');
+            const status = document.getElementById('status');
             const cards = Array.from(document.querySelectorAll('.paper'));
             function applyFilters() {
               const q = search.value.trim().toLowerCase();
               const wantedTier = tier.value;
+              const wantedStatus = status.value;
               for (const card of cards) {
                 const matchesText = !q || card.dataset.search.includes(q);
                 const matchesTier = !wantedTier || card.dataset.tier === wantedTier;
-                card.style.display = matchesText && matchesTier ? '' : 'none';
+                const matchesStatus = !wantedStatus || card.dataset.status === wantedStatus;
+                card.style.display = matchesText && matchesTier && matchesStatus ? '' : 'none';
               }
             }
             search.addEventListener('input', applyFilters);
             tier.addEventListener('change', applyFilters);
+            status.addEventListener('change', applyFilters);
             """,
             "</script>",
             "</body>",
@@ -293,7 +342,8 @@ def make_handler(config: ServerConfig):
                 self.send_error(404)
                 return
             papers = core.load_papers_json(config.papers_json)
-            body = render_page(papers, config).encode("utf-8")
+            feedback = core.load_feedback(core.default_feedback_file(config.kb_dir))
+            body = render_page(papers, config, feedback=feedback).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -459,7 +509,7 @@ def make_handler(config: ServerConfig):
                 message += f"; workup report: {workup_report}"
             if review_pack_report:
                 message += f"; review pack: {review_pack_report}"
-            body = render_page(papers, config, message).encode("utf-8")
+            body = render_page(papers, config, message, feedback=feedback).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))

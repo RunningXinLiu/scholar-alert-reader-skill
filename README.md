@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.53`
+Version: `0.2.54`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -476,7 +476,7 @@ Open the feedback UI:
 ./serve_reader.sh
 ```
 
-The browser UI can mark papers, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` links.
+The browser UI can mark papers, show current feedback and reading-status badges, filter by tier or reading status, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` links.
 
 Review recent alerts again without modifying the cumulative library:
 
@@ -542,7 +542,7 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
-The UI includes buttons for `Interested`, `Archive`, `Deep read`, `Full review`, `Workup`, `Review pack`, reading status, citation/method labels, `Background only`, and `Not relevant`. Generated reports appear as links on the paper card after the action completes.
+The UI includes buttons for `Interested`, `Archive`, `Deep read`, `Full review`, `Workup`, `Review pack`, reading status, citation/method labels, `Background only`, and `Not relevant`. Paper cards show the current feedback state, reading status, labels, and more/less-like-this signals. Generated reports appear as links on the paper card after the action completes.
 
 ## Literature Copilot
 

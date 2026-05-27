@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.54 - 2026-05-28
+
+- Show each paper's current feedback status, reading status, labels, and more/less-like-this signals in the local feedback UI.
+- Add a reading-status filter to the feedback UI so users can narrow the browser view to unread, reading, must-cite, background-only, not-relevant, and related states.
+- Load feedback state on both initial UI render and after POST actions so paper cards immediately reflect the user's latest decision.
+
 ## v0.2.53 - 2026-05-28
 
 - Add `Background only` and `Not relevant` reading-decision buttons to the local feedback UI.

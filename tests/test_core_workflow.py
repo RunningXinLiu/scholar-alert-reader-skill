@@ -2335,6 +2335,9 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertIn("Full review", initial_body)
                 self.assertIn('value="status_background"', initial_body)
                 self.assertIn('value="status_not_relevant"', initial_body)
+                self.assertIn('id="status"', initial_body)
+                self.assertIn('data-status="unread"', initial_body)
+                self.assertIn("feedback none", initial_body)
 
                 body = urllib.parse.urlencode({"paper_id": "p1", "action": "workup"}).encode("utf-8")
                 request = urllib.request.Request(
@@ -2402,6 +2405,9 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 with urllib.request.urlopen(request, timeout=5) as response:
                     html_body = response.read().decode("utf-8")
                 self.assertIn("Saved feedback for p1: status_background", html_body)
+                self.assertIn('data-status="background-only"', html_body)
+                self.assertIn("feedback neutral", html_body)
+                self.assertIn("reading background-only", html_body)
                 feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
                 self.assertEqual(feedback["papers"]["p1"]["reading_status"], "background-only")
                 self.assertEqual(feedback["papers"]["p1"]["status"], "neutral")
@@ -2422,6 +2428,10 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 with urllib.request.urlopen(request, timeout=5) as response:
                     html_body = response.read().decode("utf-8")
                 self.assertIn("Saved feedback for p1: status_not_relevant", html_body)
+                self.assertIn('data-status="not-relevant"', html_body)
+                self.assertIn("feedback archive", html_body)
+                self.assertIn("reading not-relevant", html_body)
+                self.assertIn("less-like-this", html_body)
                 feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
                 self.assertEqual(feedback["papers"]["p1"]["reading_status"], "not-relevant")
                 self.assertEqual(feedback["papers"]["p1"]["status"], "archive")
