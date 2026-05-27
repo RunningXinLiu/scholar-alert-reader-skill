@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.67 - 2026-05-28
+
+- Show existing selected-paper answer reports on matching paper cards and one-paper workspaces.
+- Detect paper-specific answers by the generated `Target paper: ...` marker so library-wide answers are not attached to unrelated papers.
+- Cover the paper-answer backlink in the browser feedback UI workflow test.
+
 ## v0.2.66 - 2026-05-28
 
 - Add generated Obsidian index notes for library/paper answers, comparisons, and analysis reports so exported vault folders are navigable.

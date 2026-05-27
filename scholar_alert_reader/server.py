@@ -121,6 +121,40 @@ def report_links(paper_id: str, config: ServerConfig) -> str:
     return '<p class="reports">Reports: ' + " · ".join(links) + "</p>"
 
 
+def markdown_title_fallback(path: Path, content: str) -> str:
+    for line in content.splitlines():
+        cleaned = line.strip()
+        if cleaned.startswith("# "):
+            title = cleaned[2:].strip()
+            title = title.removeprefix("Selected Paper Answer:").strip()
+            if len(title) > 90:
+                return title[:87].rstrip() + "..."
+            return title or path.stem
+    return path.stem
+
+
+def selected_answer_links(paper_id: str, config: ServerConfig, limit: int = 5) -> str:
+    answers_dir = config.kb_dir / "answers"
+    if not answers_dir.exists():
+        return ""
+    marker = f"Target paper: `{paper_id}`"
+    links: list[str] = []
+    for path in sorted(answers_dir.glob("*.md"), key=lambda item: item.stat().st_mtime, reverse=True):
+        try:
+            content = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if marker not in content:
+            continue
+        label = markdown_title_fallback(path, content)
+        links.append(f'<a href="/answer?name={quote(path.name, safe="")}">{html.escape(label)}</a>')
+        if len(links) >= limit:
+            break
+    if not links:
+        return ""
+    return '<p class="reports">Paper answers: ' + " · ".join(links) + "</p>"
+
+
 def safe_report_path(config: ServerConfig, name: str) -> Path | None:
     if not name or "/" in name or "\\" in name or not name.endswith(".md"):
         return None
@@ -226,6 +260,7 @@ def render_page(
                     + (f' · <a href="{html.escape(paper.url, quote=True)}">Open paper</a>' if paper.url else "")
                     + "</p>",
                     report_links(paper.id, config),
+                    selected_answer_links(paper.id, config),
                     f"<ul>{reasons}</ul>" if reasons else "",
                     f'<form method="post" action="/feedback">',
                     f'<input type="hidden" name="paper_id" value="{html.escape(paper.id, quote=True)}">',

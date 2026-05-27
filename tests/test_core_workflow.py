@@ -2535,10 +2535,16 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     paper_ask_html = response.read().decode("utf-8")
                 self.assertIn("Answered paper question for p1", paper_ask_html)
                 self.assertIn("Scholar Alert Paper Workspace", paper_ask_html)
+                self.assertIn("Paper answers:", paper_ask_html)
                 answer_files = sorted((kb / "answers").glob("*.md"))
                 self.assertEqual(len(answer_files), 2)
                 selected_answers = [path for path in answer_files if "p1-how-does-this-fit" in path.name]
                 self.assertEqual(len(selected_answers), 1)
+                self.assertIn(f"/answer?name={urllib.parse.quote(selected_answers[0].name)}", paper_ask_html)
+                with urllib.request.urlopen(f"{base_url}/paper?id=p1", timeout=5) as response:
+                    updated_workspace = response.read().decode("utf-8")
+                self.assertIn("Paper answers:", updated_workspace)
+                self.assertIn("How does this fit my foundation", updated_workspace)
                 with urllib.request.urlopen(
                     f"{base_url}/answer?name={urllib.parse.quote(selected_answers[0].name)}",
                     timeout=5,
