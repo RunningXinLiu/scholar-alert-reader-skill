@@ -501,7 +501,7 @@ python3 scripts/scholar_reader.py ask \
   --question "receiver function + Tibet 有哪些关键论文？"
 ```
 
-`ask` loads `knowledge_base/feedback.json` by default, so reading status, labels, and personal notes can retrieve papers and appear as evidence in the answer. Use `--feedback-file` for a custom feedback file.
+`ask` loads `knowledge_base/feedback.json` by default, so reading status, labels, and personal notes can retrieve papers and appear as evidence in the answer. `advice`, `compare`, and `map` also surface saved notes when they explain reading strategy, paper differences, and topic clusters. Use `--feedback-file` for a custom feedback file where available.
 
 Generate research advice:
 

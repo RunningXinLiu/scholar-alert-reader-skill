@@ -878,6 +878,7 @@ def render_research_advice(
     interested_terms = top_counter([str(term) for record in interested for term in record.get("matched_terms", [])], 18)
     tags = top_counter([str(tag) for record in records for tag in record.get("tags", [])], 12)
     alerts = top_counter([str(alert) for record in records for alert in record.get("alerts", [])], 12)
+    noted_records = [record for record in records if feedback_note(record, feedback)]
     profile_term_set = {term.lower() for term in profile_terms(profile)}
     repeated_terms = {term.lower() for term, count in all_term_counter.items() if count >= 3}
     profile_gaps = [term for term in profile_terms(profile) if term.lower() not in repeated_terms]
@@ -889,6 +890,7 @@ def render_research_advice(
         f"- Profile: {profile.get('name', 'unnamed')}",
         f"- Foundation papers: {len(records)}",
         f"- Must read: {len(must)}; Skim: {len(skim)}; Interested signals: {len(interested)}",
+        f"- Papers with personal notes: {len(noted_records)}",
         "",
         "## Current Center Of Gravity",
         "",
@@ -912,6 +914,19 @@ def render_research_advice(
     emerging = [term for term, count in all_term_counter.most_common() if term.lower() not in profile_term_set and count >= 4]
     for term in emerging[:limit]:
         lines.append(f"- `{term}` appears repeatedly but is not explicitly configured; consider whether it should become a focus term, method, or exclude term.")
+    lines.append("")
+
+    lines.extend(["## Personal Notes To Revisit", ""])
+    if noted_records:
+        for record in sorted(noted_records, key=lambda item: (-int(item.get("score", 0) or 0), text(item.get("title")).lower()))[:limit]:
+            lines.append(paper_line(record))
+            lines.append(f"  - Status: {reading_status(record, feedback)}")
+            labels = reading_labels(record, feedback)
+            if labels:
+                lines.append(f"  - Labels: {', '.join(labels)}")
+            lines.append(f"  - Note: {feedback_note_summary(record, feedback)}")
+    else:
+        lines.append("- No saved personal notes yet. Add a short note after each interested/archive decision to make future advice more specific.")
     lines.append("")
 
     lines.extend(["## Reading Strategy", ""])
@@ -1203,6 +1218,9 @@ def render_compare(records: list[dict[str, Any]], profile: dict[str, Any], feedb
                 "",
             ]
         )
+        note = feedback_note_summary(record, feedback)
+        if note:
+            lines.extend(["#### Saved Personal Note", "", note, ""])
     lines.extend(
         [
             "## Decision Help",
@@ -1251,11 +1269,13 @@ def render_research_map(
         ranked = sorted(items, key=lambda record: (-int(record.get("score", 0) or 0), text(record.get("title")).lower()))
         status_counts = Counter(reading_status(record, feedback) for record in ranked)
         terms = top_counter([str(term) for record in ranked for term in record.get("matched_terms", [])], 10)
+        noted_count = sum(1 for record in ranked if feedback_note(record, feedback))
         lines.extend(
             [
                 f"### {tag} ({len(ranked)})",
                 "",
                 "- Reading status: " + "; ".join(f"{name} ({count})" for name, count in status_counts.most_common()),
+                f"- Personal notes: {noted_count}",
             ]
         )
         if terms:
@@ -1263,6 +1283,9 @@ def render_research_map(
         lines.append("")
         for record in ranked[:limit]:
             lines.append(paper_line(record))
+            note = feedback_note_summary(record, feedback)
+            if note:
+                lines.append(f"  - Note: {note}")
         if len(ranked) > limit:
             lines.append(f"- ... {len(ranked) - limit} more")
         lines.append("")

@@ -1837,7 +1837,10 @@ SCHEDULE_TIME=09:00
                 capture_output=True,
                 check=True,
             )
-            self.assertIn("Research Advice", advice.read_text(encoding="utf-8"))
+            advice_content = advice.read_text(encoding="utf-8")
+            self.assertIn("Research Advice", advice_content)
+            self.assertIn("Personal Notes To Revisit", advice_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", advice_content)
 
             subprocess.run(
                 [
@@ -1941,7 +1944,10 @@ SCHEDULE_TIME=09:00
                 capture_output=True,
                 check=True,
             )
-            self.assertIn("Paper Comparison", comparison.read_text(encoding="utf-8"))
+            comparison_content = comparison.read_text(encoding="utf-8")
+            self.assertIn("Paper Comparison", comparison_content)
+            self.assertIn("Saved Personal Note", comparison_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", comparison_content)
 
             research_map = root / "map.md"
             subprocess.run(
@@ -1960,7 +1966,10 @@ SCHEDULE_TIME=09:00
                 capture_output=True,
                 check=True,
             )
-            self.assertIn("Research Map", research_map.read_text(encoding="utf-8"))
+            research_map_content = research_map.read_text(encoding="utf-8")
+            self.assertIn("Research Map", research_map_content)
+            self.assertIn("Personal notes: 1", research_map_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", research_map_content)
 
             zotero_dir = root / "zotero"
             subprocess.run(

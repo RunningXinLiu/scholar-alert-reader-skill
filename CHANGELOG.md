@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.59 - 2026-05-28
+
+- Surface saved personal notes in `advice`, `compare`, and `map` reports.
+- Add personal-note counts to research advice and topic-cluster summaries.
+- Show saved note excerpts beside compared papers and mapped cluster representatives.
+
 ## v0.2.58 - 2026-05-28
 
 - Make `ask` / local-library Q&A load feedback by default and accept `--feedback-file`.
