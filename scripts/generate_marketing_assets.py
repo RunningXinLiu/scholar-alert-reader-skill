@@ -136,48 +136,48 @@ def svg_assets() -> None:
 <rect x="48" y="38" width="1104" height="126" rx="28" fill="url(#hero)" filter="url(#shadow)"/>
 <g transform="translate(82 66) scale(.13)">{logo_mark}</g>
 <text x="168" y="94" fill="#ffffff" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="34" font-weight="850">Scholar Alert Reader</text>
-<text x="168" y="128" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="20" font-weight="600">把 Scholar Alert 邮件变成个人文献知识库</text>
-<text x="835" y="92" fill="#ffffff" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="17" font-weight="750">本地优先 · 隐私友好 · Agent 可用</text>
-<text x="835" y="123" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="14">Codex / Claude / 终端 / Obsidian / Zotero</text>
+<text x="168" y="128" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="20" font-weight="600">每天筛论文，长期积累自己的研究线索</text>
+<text x="835" y="92" fill="#ffffff" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="17" font-weight="750">本地运行 · 隐私可控 · 多工具可用</text>
+<text x="835" y="123" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="14">Codex / Claude / 终端均可使用</text>
 
 <g font-family="PingFang SC, Inter, Arial, sans-serif">
   <rect x="62" y="205" width="302" height="318" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
-  <text x="92" y="246" fill="#0f172a" font-size="25" font-weight="850">1. 接入提醒</text>
-  <text x="92" y="276" fill="#64748b" font-size="16">从邮件里抽取论文信息</text>
+  <text x="92" y="246" fill="#0f172a" font-size="25" font-weight="850">1. 汇聚来源</text>
+  <text x="92" y="276" fill="#64748b" font-size="16">自动读取 Scholar Alert</text>
   <rect x="92" y="314" width="216" height="58" rx="14" fill="#dbeafe" stroke="#bfdbfe"/>
   <text x="116" y="350" fill="#1d4ed8" font-size="18" font-weight="800">Gmail API</text>
   <rect x="114" y="394" width="216" height="58" rx="14" fill="#dcfce7" stroke="#bbf7d0"/>
-  <text x="138" y="430" fill="#047857" font-size="18" font-weight="800">.mbox / .eml</text>
+  <text x="138" y="430" fill="#047857" font-size="18" font-weight="800">邮件归档</text>
   <rect x="92" y="474" width="216" height="58" rx="14" fill="#fef3c7" stroke="#fde68a"/>
-  <text x="116" y="510" fill="#92400e" font-size="18" font-weight="800">Mail.app</text>
+  <text x="116" y="510" fill="#92400e" font-size="18" font-weight="800">Apple Mail</text>
   <path d="M285 318l32 18 -32 18z" fill="#93c5fd" opacity=".7"/>
   <path d="M307 398l32 18 -32 18z" fill="#86efac" opacity=".7"/>
   <path d="M285 478l32 18 -32 18z" fill="#fcd34d" opacity=".7"/>
 
   <rect x="449" y="188" width="302" height="352" rx="28" fill="#ffffff" stroke="#2563eb" stroke-width="2.5" filter="url(#shadow)"/>
   <rect x="477" y="216" width="246" height="70" rx="18" fill="#eff6ff"/>
-  <text x="508" y="246" fill="#1e3a8a" font-size="18" font-weight="800">本地文献分诊引擎</text>
-  <text x="508" y="270" fill="#475569" font-size="14">Python CLI + 可选 Agent</text>
+  <text x="508" y="246" fill="#1e3a8a" font-size="18" font-weight="800">2. 自动分诊</text>
+  <text x="508" y="270" fill="#475569" font-size="14">去重、打分、按偏好排序</text>
   <g font-size="15" font-weight="760">
     <rect x="489" y="318" width="94" height="42" rx="12" fill="#dbeafe"/><text x="520" y="344" fill="#1d4ed8">抽取</text>
-    <rect x="607" y="318" width="94" height="42" rx="12" fill="#dcfce7"/><text x="638" y="344" fill="#047857">去重</text>
-    <rect x="489" y="380" width="94" height="42" rx="12" fill="#ede9fe"/><text x="520" y="406" fill="#6d28d9">评分</text>
-    <rect x="607" y="380" width="94" height="42" rx="12" fill="#fef3c7"/><text x="638" y="406" fill="#92400e">学习</text>
+    <rect x="607" y="318" width="94" height="42" rx="12" fill="#dcfce7"/><text x="638" y="344" fill="#047857">合并</text>
+    <rect x="489" y="380" width="94" height="42" rx="12" fill="#ede9fe"/><text x="520" y="406" fill="#6d28d9">排序</text>
+    <rect x="607" y="380" width="94" height="42" rx="12" fill="#fef3c7"/><text x="638" y="406" fill="#92400e">反馈</text>
   </g>
   <path d="M536 457h128" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
   <circle cx="536" cy="457" r="5" fill="#2563eb"/><circle cx="664" cy="457" r="5" fill="#10b981"/>
-  <text x="491" y="492" fill="#0f172a" font-size="17" font-weight="800">研究方向 + 阅读反馈</text>
-  <text x="491" y="518" fill="#64748b" font-size="14">每次选择都会影响下次排序</text>
+  <text x="491" y="492" fill="#0f172a" font-size="17" font-weight="800">研究方向 + 你的选择</text>
+  <text x="491" y="518" fill="#64748b" font-size="14">越用越贴近当前问题</text>
 
   <rect x="836" y="205" width="302" height="318" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
-  <text x="866" y="246" fill="#0f172a" font-size="25" font-weight="850">3. 沉淀价值</text>
-  <text x="866" y="276" fill="#64748b" font-size="16">只保留真正值得读的内容</text>
+  <text x="866" y="246" fill="#0f172a" font-size="25" font-weight="850">3. 形成知识库</text>
+  <text x="866" y="276" fill="#64748b" font-size="16">把值得读的论文留下来</text>
   <g font-size="16" font-weight="800">
     <rect x="866" y="313" width="104" height="48" rx="14" fill="#e0f2fe" stroke="#bae6fd"/><text x="886" y="343" fill="#075985">每日简报</text>
-    <rect x="990" y="313" width="116" height="48" rx="14" fill="#d1fae5" stroke="#a7f3d0"/><text x="1014" y="343" fill="#047857">重点阅读</text>
-    <rect x="866" y="381" width="142" height="48" rx="14" fill="#ede9fe" stroke="#ddd6fe"/><text x="893" y="411" fill="#6d28d9">Foundation</text>
-    <rect x="1028" y="381" width="78" height="48" rx="14" fill="#fef3c7" stroke="#fde68a"/><text x="1045" y="411" fill="#92400e">深读</text>
-    <rect x="866" y="449" width="240" height="48" rx="14" fill="#fff7ed" stroke="#fed7aa"/><text x="899" y="479" fill="#c2410c">Obsidian + Zotero</text>
+    <rect x="990" y="313" width="116" height="48" rx="14" fill="#d1fae5" stroke="#a7f3d0"/><text x="1014" y="343" fill="#047857">阅读队列</text>
+    <rect x="866" y="381" width="130" height="48" rx="14" fill="#ede9fe" stroke="#ddd6fe"/><text x="899" y="411" fill="#6d28d9">文献底座</text>
+    <rect x="1008" y="381" width="98" height="48" rx="14" fill="#fef3c7" stroke="#fde68a"/><text x="1025" y="411" fill="#92400e">深读问答</text>
+    <rect x="866" y="449" width="240" height="48" rx="14" fill="#fff7ed" stroke="#fed7aa"/><text x="929" y="479" fill="#c2410c">笔记与引用</text>
   </g>
 </g>
 
@@ -187,8 +187,8 @@ def svg_assets() -> None:
 </g>
 <g font-family="PingFang SC, Inter, Arial, sans-serif">
   <rect x="190" y="570" width="820" height="56" rx="18" fill="#ffffff" stroke="#d8e0ea"/>
-  <text x="224" y="604" fill="#475569" font-size="17" font-weight="650">Archive 噪音默认不进 Foundation · Gmail OAuth 用户自带</text>
-  <text x="1035" y="606" fill="#64748b" font-size="15" font-weight="650">作者 Xin Liu</text>
+  <text x="224" y="604" fill="#475569" font-size="17" font-weight="650">本地处理 · 授权文件只留本机 · 筛掉的论文不进知识库</text>
+  <text x="1035" y="606" fill="#64748b" font-size="15" font-weight="650">作者：Xin Liu</text>
 </g>
 </svg>
 """
