@@ -684,7 +684,7 @@ def pixel_workflow_gif(path: Path) -> None:
 
 
 def output_label_lines(label: str, locale: str) -> list[str]:
-    if locale == "zh" or len(label) <= 14:
+    if locale == "zh" or len(label) <= 18:
         return [label]
     parts = label.split()
     if len(parts) <= 1:
@@ -700,38 +700,55 @@ def workflow_frame_svg(
     right_label: str,
     footer: str,
     locale: str,
+    step_number: int = 1,
+    total_steps: int = 5,
 ) -> str:
     font = "PingFang SC, Inter, Arial, sans-serif" if locale == "zh" else "Inter, Arial, sans-serif"
+    raw_right_label = right_label
     title = escape(title)
     subtitle = escape(subtitle)
-    right_label = escape(right_label)
     footer = escape(footer)
-    output_caption = "输出" if locale == "zh" else "Output"
-    engine_label = "分诊引擎" if locale == "zh" else "Triage engine"
-    engine_detail = "抽取 · 去重 · 排序 · 反馈" if locale == "zh" else "dedupe · rank · feedback"
-    output_lines = output_label_lines(right_label, locale)
+    input_caption = "输入" if locale == "zh" else "Input"
+    core_caption = "分诊核心" if locale == "zh" else "Reader Core"
+    output_caption = "输出" if locale == "zh" else "Result"
+    ready_caption = "可继续阅读" if locale == "zh" else "ready for review"
+    step_badge = f"{step_number}/{total_steps}" if locale == "zh" else f"{step_number:02d}/{total_steps:02d}"
+    progress_dots = "\n".join(
+        f'<circle cx="{606 + index * 22}" cy="66" r="4.5" fill="{"#5eead4" if index + 1 == step_number else "#94a3b8"}" opacity="{"1" if index + 1 == step_number else ".62"}"/>'
+        for index in range(total_steps)
+    )
+    output_lines = output_label_lines(raw_right_label, locale)
     if len(output_lines) == 1:
         output_text = (
-            f'<text x="594" y="258" fill="#1e3a8a" font-size="{23 if locale == "zh" else 21}" '
+            f'<text x="552" y="248" fill="#1e3a8a" font-size="{28 if locale == "zh" else 24}" '
             f'font-weight="850">{escape(output_lines[0])}</text>'
         )
     else:
         output_text = "\n  ".join(
-            f'<text x="594" y="{248 + index * 28}" fill="#1e3a8a" font-size="20" font-weight="850">{escape(line)}</text>'
+            f'<text x="552" y="{238 + index * 30}" fill="#1e3a8a" font-size="22" font-weight="850">{escape(line)}</text>'
             for index, line in enumerate(output_lines)
         )
     left_svg = []
     fills = [("#dbeafe", "#1d4ed8"), ("#dcfce7", "#047857"), ("#fef3c7", "#92400e")]
     for index, (label, (fill, color)) in enumerate(zip(left_labels, fills)):
         label = escape(label)
-        y = 158 + index * 76
+        y = 204 + index * 46
         left_svg.append(
-            f'<rect x="58" y="{y}" width="224" height="56" rx="14" fill="{fill}" stroke="#cbd5e1"/>'
-            f'<text x="82" y="{y + 35}" fill="{color}" font-size="19" font-weight="800">{label}</text>'
-            f'<path d="M302 {y + 28} H328" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>'
-            f'<path d="M328 {y + 18} L348 {y + 28} L328 {y + 38}" fill="#94a3b8"/>'
+            f'<rect x="78" y="{y}" width="168" height="34" rx="10" fill="{fill}" stroke="#cbd5e1"/>'
+            f'<text x="96" y="{y + 23}" fill="{color}" font-size="15" font-weight="800">{label}</text>'
         )
     left_content = "\n  ".join(left_svg)
+    if locale == "zh":
+        core_chips = [("抽取", 334, 214), ("去重", 406, 214), ("排序", 334, 260), ("反馈", 406, 260)]
+        chip_font = 14
+    else:
+        core_chips = [("Extract", 334, 214), ("Dedupe", 406, 214), ("Rank", 334, 260), ("Feedback", 406, 260)]
+        chip_font = 11
+    core_svg = "\n  ".join(
+        f'<rect x="{x}" y="{y}" width="64" height="32" rx="10" fill="#ffffff" stroke="#ccfbf1"/>'
+        f'<text x="{x + 10}" y="{y + 21}" fill="#0f766e" font-size="{chip_font}" font-weight="800">{label}</text>'
+        for label, x, y in core_chips
+    )
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
 <defs>
   <linearGradient id="top" x1="0" x2="1">
@@ -743,20 +760,29 @@ def workflow_frame_svg(
   </filter>
 </defs>
 <rect width="800" height="450" fill="#f8fafc"/>
-<rect x="0" y="0" width="800" height="86" fill="url(#top)"/>
+<rect x="0" y="0" width="800" height="96" fill="url(#top)"/>
 <text x="34" y="38" fill="#ffffff" font-family="{font}" font-size="{30 if locale == 'en' else 28}" font-weight="850">{title}</text>
 <text x="36" y="67" fill="#cdece8" font-family="{font}" font-size="{16 if locale == 'en' else 15}" font-weight="650">{subtitle}</text>
-<rect x="34" y="112" width="732" height="272" rx="28" fill="#ffffff" stroke="#d8e0ea" filter="url(#shadow)"/>
+<rect x="678" y="23" width="74" height="32" rx="16" fill="#ffffff" opacity=".14"/>
+<text x="695" y="44" fill="#ffffff" font-family="{font}" font-size="14" font-weight="850">{step_badge}</text>
+{progress_dots}
+<rect x="34" y="118" width="732" height="270" rx="30" fill="#ffffff" stroke="#d8e0ea" filter="url(#shadow)"/>
 <g font-family="{font}">
+  <rect x="58" y="150" width="210" height="200" rx="22" fill="#f8fafc" stroke="#d8e0ea"/>
+  <text x="78" y="184" fill="#334155" font-size="15" font-weight="850">{input_caption}</text>
   {left_content}
-  <rect x="352" y="180" width="166" height="132" rx="20" fill="#f8fafc" stroke="#cbd5e1"/>
-  <text x="385" y="230" fill="#111827" font-size="{21 if locale == 'en' else 23}" font-weight="850">{engine_label}</text>
-  <text x="376" y="265" fill="#64748b" font-size="{12 if locale == 'en' else 13}" font-weight="750">{engine_detail}</text>
-  <path d="M530 246 H558" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
-  <path d="M558 236 L578 246 L558 256" fill="#94a3b8"/>
-  <rect x="582" y="180" width="164" height="132" rx="20" fill="#eff6ff" stroke="#bfdbfe"/>
-  <text x="594" y="216" fill="#2563eb" font-size="{15 if locale == 'en' else 16}" font-weight="850">{output_caption}</text>
+  <path d="M284 250 H310" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M310 240 L330 250 L310 260" fill="#94a3b8"/>
+  <rect x="328" y="150" width="166" height="200" rx="24" fill="#f0fdfa" stroke="#99f6e4"/>
+  <text x="360" y="184" fill="#134e4a" font-size="{17 if locale == 'en' else 19}" font-weight="850">{core_caption}</text>
+  {core_svg}
+  <path d="M510 250 H530" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M530 240 L550 250 L530 260" fill="#94a3b8"/>
+  <rect x="548" y="150" width="194" height="200" rx="24" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="552" y="184" fill="#2563eb" font-size="{15 if locale == 'en' else 16}" font-weight="850">{output_caption}</text>
   {output_text}
+  <rect x="552" y="292" width="136" height="30" rx="15" fill="#ffffff" stroke="#bfdbfe"/>
+  <text x="572" y="312" fill="#64748b" font-size="{12 if locale == 'en' else 13}" font-weight="800">{ready_caption}</text>
   <text x="38" y="420" fill="#64748b" font-size="16" font-weight="700">{footer}</text>
   <text x="650" y="420" fill="#64748b" font-size="14" font-weight="700">Xin Liu</text>
 </g>
@@ -771,10 +797,23 @@ def workflow_gif_from_svg(path: Path, steps: list[tuple[str, str, list[str], str
     pixel_frames: list[list[tuple[int, int, int]]] = []
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
+        total_steps = len(steps)
         for index, (title, subtitle, left_labels, right_label) in enumerate(steps):
             svg_path = tmp_path / f"frame_{index:02d}.svg"
             png_path = tmp_path / f"frame_{index:02d}.png"
-            svg_path.write_text(workflow_frame_svg(title, subtitle, left_labels, right_label, footer, locale), encoding="utf-8")
+            svg_path.write_text(
+                workflow_frame_svg(
+                    title,
+                    subtitle,
+                    left_labels,
+                    right_label,
+                    footer,
+                    locale,
+                    step_number=index + 1,
+                    total_steps=total_steps,
+                ),
+                encoding="utf-8",
+            )
             subprocess.run(
                 [sips, "-s", "format", "png", str(svg_path), "--out", str(png_path)],
                 check=True,
@@ -795,18 +834,18 @@ def workflow_gif_from_svg(path: Path, steps: list[tuple[str, str, list[str], str
 
 def gif_assets() -> None:
     english_steps = [
-        ("Connect paper sources", "Gmail, Apple Mail, mbox, BibTeX/RIS, RSS feeds, arXiv", ["Email alerts", "Bibliography", "Feeds / arXiv"], "Fresh papers"),
-        ("Rank by your profile", "Keywords, methods, regions, authors, exclusions, temporary boosts", ["Extract", "Dedupe", "Score"], "Reading queue"),
-        ("Learn from feedback", "Interested, archive, more-like-this, less-like-this", ["Interested", "Archive", "Feedback"], "Better next run"),
-        ("Build research memory", "Foundation, deep reads, Q&A, comparisons, maps, advice", ["Digest", "Foundation", "Deep reads"], "Literature copilot"),
-        ("Export to your tools", "HTML digest, Markdown, CSV/JSON, Obsidian notes, Zotero files", ["HTML", "Obsidian", "Zotero"], "Your workflow"),
+        ("Connect paper sources", "Gmail, Apple Mail, mbox, BibTeX/RIS, RSS feeds, arXiv", ["Email alerts", "Bibliography", "Feeds / arXiv"], "New papers"),
+        ("Rank by your profile", "Keywords, methods, regions, authors, exclusions, temporary boosts", ["Extract", "Dedupe", "Score"], "Ranked queue"),
+        ("Learn from feedback", "Interested, archive, more-like-this, less-like-this", ["Interested", "Archive", "Feedback"], "Smarter ranking"),
+        ("Build research memory", "Foundation, deep reads, Q&A, comparisons, maps, advice", ["Digest", "Foundation", "Deep reads"], "Research memory"),
+        ("Export to your tools", "HTML digest, Markdown, CSV/JSON, Obsidian notes, Zotero files", ["HTML", "Obsidian", "Zotero"], "Notes + citations"),
     ]
     chinese_steps = [
         ("接入你的论文来源", "Gmail、Apple Mail、mbox、BibTeX/RIS、RSS 和 arXiv", ["邮件提醒", "文献导出", "订阅 / arXiv"], "新论文"),
-        ("按研究方向排序", "关键词、方法、地区、作者、排除词和临时关注点", ["抽取", "去重", "打分"], "阅读队列"),
-        ("用反馈调整推荐", "感兴趣、忽略、更多类似、减少类似", ["感兴趣", "忽略", "反馈"], "下次更准"),
-        ("沉淀个人知识库", "文献底座、深读、问答、对比、图谱和建议", ["每日简报", "文献底座", "深读报告"], "文献助手"),
-        ("接到你的工作流", "HTML digest、Markdown、CSV/JSON、Obsidian 笔记、Zotero 文件", ["HTML", "Obsidian", "Zotero"], "持续更新"),
+        ("按研究方向排序", "关键词、方法、地区、作者、排除词和临时关注点", ["抽取", "去重", "打分"], "排序队列"),
+        ("用反馈调整推荐", "感兴趣、忽略、更多类似、减少类似", ["感兴趣", "忽略", "反馈"], "推荐更准"),
+        ("沉淀个人知识库", "文献底座、深读、问答、对比、图谱和建议", ["每日简报", "文献底座", "深读报告"], "研究记忆"),
+        ("接到你的工作流", "HTML digest、Markdown、CSV/JSON、Obsidian 笔记、Zotero 文件", ["HTML", "Obsidian", "Zotero"], "笔记引用"),
     ]
     english_path = ASSET_DIR / "workflow.en.gif"
     if not workflow_gif_from_svg(
