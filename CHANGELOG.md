@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.2.10 - 2026-05-27
+
+- Add generated `demo_sources.sh` to run sanitized examples for mbox, BibTeX, RIS, webpage metadata, and RSS without reading private data or updating the retained knowledge base.
+- Surface the multi-source demo in generated project onboarding and README quickstart instructions.
+
 ## v0.2.9 - 2026-05-27
 
 - Add `--source-web` / generated `web_import.sh` for structured scholarly webpage metadata imports from URLs, saved HTML, directories, or URL/path lists.

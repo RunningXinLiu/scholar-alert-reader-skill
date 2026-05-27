@@ -13,7 +13,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 
 1. For a new local setup, run `init-project` to create profiles, outputs, knowledge-base directories, helper scripts, and `START_HERE.md`.
 2. Run `self-test` or `./self_test.sh` first when the user wants to verify the install without connecting Gmail, Obsidian, Zotero, or private files.
-3. Run `./demo_reader.sh` when the user wants to inspect the sample digest output.
+3. Run `./demo_reader.sh` when the user wants to inspect the sample mbox digest output. Run `./demo_sources.sh` when the user wants to verify all bundled non-private source paths.
 4. Run `./setup_reader.sh` or the `setup` command to persist local defaults in `reader.env` when the user has chosen a source, profile template, schedule, or integration paths.
 5. Choose a source:
    - Gmail API: preferred for automation after OAuth setup.

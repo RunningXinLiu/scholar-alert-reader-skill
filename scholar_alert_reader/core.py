@@ -3118,6 +3118,7 @@ def render_project_guide(
         "",
         "0. Verify the install with bundled sample data: `./self_test.sh`.",
         "1. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
+        "   - To test every bundled non-private source path, run `./demo_sources.sh`.",
         "2. Configure your local defaults once with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
         "3. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
         f"   - Current profile: `{profile_name}`.",
@@ -3349,6 +3350,20 @@ exec "${cmd[@]}"
 
     helper_specs = {
         "demo_reader.sh": 'SOURCE=mbox MBOX_PATH="$PROJECT_DIR/examples/sample_scholar_alerts.mbox" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"\n',
+        "demo_sources.sh": """echo "Running sanitized source demos. No Gmail, Mail.app, private mailbox, Zotero, or Obsidian data is read."
+SOURCE=mbox MBOX_PATH="$PROJECT_DIR/examples/sample_scholar_alerts.mbox" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo_sources/mbox" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"
+SOURCE=bibtex BIBTEX_PATH="$PROJECT_DIR/examples/sample_import.bib" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo_sources/bibtex" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"
+SOURCE=ris RIS_PATH="$PROJECT_DIR/examples/sample_import.ris" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo_sources/ris" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"
+SOURCE=web WEB_SOURCE="$PROJECT_DIR/examples/web_sources.example.txt" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo_sources/web" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"
+SOURCE=rss RSS_SOURCE="$PROJECT_DIR/examples/feeds.example.txt" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo_sources/rss" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"
+echo
+echo "Demo digests:"
+echo " - $PROJECT_DIR/reader_out/demo_sources/mbox/digest.html"
+echo " - $PROJECT_DIR/reader_out/demo_sources/bibtex/digest.html"
+echo " - $PROJECT_DIR/reader_out/demo_sources/ris/digest.html"
+echo " - $PROJECT_DIR/reader_out/demo_sources/web/digest.html"
+echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
+""",
         "bibtex_import.sh": 'SOURCE=bibtex BIBTEX_PATH="${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/bibtex}" "$PROJECT_DIR/run_reader.sh"\n',
         "ris_import.sh": 'SOURCE=ris RIS_PATH="${RIS_PATH:-$PROJECT_DIR/import.ris}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/ris}" "$PROJECT_DIR/run_reader.sh"\n',
         "web_import.sh": 'SOURCE=web WEB_SOURCE="${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/web}" "$PROJECT_DIR/run_reader.sh"\n',
@@ -3440,6 +3455,7 @@ exec "${cmd[@]}"
                     "```bash",
                     "./self_test.sh",
                     "./demo_reader.sh",
+                    "./demo_sources.sh",
                     "./setup_reader.sh --source auto --profile-template ai-seismology",
                     "./source_check.sh --source auto",
                     "./run_reader.sh",

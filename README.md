@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.9`
+Version: `0.2.10`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -227,9 +227,12 @@ Try the built-in demo without Gmail, Obsidian, or Zotero:
 
 ```bash
 ./demo_reader.sh
+./demo_sources.sh
 ./source_check.sh --source auto
 open reader_out/demo/digest.html
 ```
+
+`demo_sources.sh` runs sanitized examples for mbox, BibTeX, RIS, webpage metadata, and RSS into `reader_out/demo_sources/`.
 
 Persist your local defaults:
 

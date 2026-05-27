@@ -114,6 +114,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "examples" / "sample_feed.atom").exists())
             self.assertTrue((project / "examples" / "feeds.example.txt").exists())
             self.assertTrue((project / "demo_reader.sh").exists())
+            self.assertTrue((project / "demo_sources.sh").exists())
             self.assertTrue((project / "copy_profile_template.sh").exists())
             self.assertTrue((project / "setup_reader.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
@@ -182,6 +183,19 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "reader_out" / "demo" / "papers.json").exists())
             demo_summary = json.loads((project / "reader_out" / "demo" / "summary.json").read_text(encoding="utf-8"))
             self.assertIn("sample_scholar_alerts.mbox", demo_summary["source"])
+            subprocess.run(
+                [str(project / "demo_sources.sh")],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            for source_name in ["mbox", "bibtex", "ris", "web", "rss"]:
+                self.assertTrue((project / "reader_out" / "demo_sources" / source_name / "digest.html").exists())
+                source_summary = json.loads(
+                    (project / "reader_out" / "demo_sources" / source_name / "summary.json").read_text(encoding="utf-8")
+                )
+                self.assertFalse(source_summary["knowledge_base_updated"])
             subprocess.run(
                 [
                     str(project / "web_import.sh"),
