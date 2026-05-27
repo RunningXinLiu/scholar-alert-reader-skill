@@ -6,6 +6,8 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from .copilot import feedback_note, feedback_note_summary, reading_labels, reading_status
+
 
 def parse_iso_date(value: str) -> date | None:
     if not value:
@@ -45,6 +47,7 @@ def top_counter(values: list[str], limit: int = 12) -> list[tuple[str, int]]:
 def render_weekly_review(
     records: list[dict[str, Any]],
     profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
     days: int = 7,
     limit: int = 12,
 ) -> str:
@@ -62,6 +65,8 @@ def render_weekly_review(
     tags = top_counter([tag for record in recent for tag in record.get("tags", [])], 10)
     terms = top_counter([term for record in recent for term in record.get("matched_terms", [])], 12)
     alerts = top_counter([alert for record in recent for alert in record.get("alerts", [])], 10)
+    noted = [record for record in ranked if feedback_note(record, feedback)]
+    status_counts = Counter(reading_status(record, feedback) for record in recent)
 
     lines = [
         "# Weekly Literature Review",
@@ -70,6 +75,7 @@ def render_weekly_review(
         f"- Window: latest {days} days",
         f"- Papers considered: {len(recent)}",
         f"- Must read: {len(must)}; Skim: {len(skim)}",
+        f"- Papers with personal notes: {len(noted)}",
         "",
     ]
 
@@ -85,6 +91,13 @@ def render_weekly_review(
         lines.append("No Must read papers in this window.")
     for record in must[:limit]:
         lines.append(paper_line(record))
+        lines.append(f"  - Status: {reading_status(record, feedback)}")
+        labels = reading_labels(record, feedback)
+        if labels:
+            lines.append(f"  - Labels: {', '.join(labels)}")
+        note = feedback_note_summary(record, feedback)
+        if note:
+            lines.append(f"  - Note: {note}")
     lines.append("")
 
     lines.extend(["## Skim Candidates", ""])
@@ -92,6 +105,29 @@ def render_weekly_review(
         lines.append("No Skim papers in this window.")
     for record in skim[:limit]:
         lines.append(paper_line(record))
+        note = feedback_note_summary(record, feedback)
+        if note:
+            lines.append(f"  - Note: {note}")
+    lines.append("")
+
+    lines.extend(["## Reading State", ""])
+    if status_counts:
+        lines.append("; ".join(f"{name}: {count}" for name, count in sorted(status_counts.items())))
+    else:
+        lines.append("No reading-status signals yet.")
+    lines.append("")
+
+    lines.extend(["## Personal Notes Review", ""])
+    if noted:
+        for record in noted[:limit]:
+            lines.append(paper_line(record))
+            lines.append(f"  - Status: {reading_status(record, feedback)}")
+            labels = reading_labels(record, feedback)
+            if labels:
+                lines.append(f"  - Labels: {', '.join(labels)}")
+            lines.append(f"  - Note: {feedback_note_summary(record, feedback)}")
+    else:
+        lines.append("No saved personal notes in this window.")
     lines.append("")
 
     lines.extend(["## Direction Signals", ""])

@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.59`
+Version: `0.2.60`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -848,11 +848,13 @@ python3 scripts/scholar_reader.py weekly \
   --days 7
 ```
 
+`weekly` loads `knowledge_base/feedback.json` by default, so reading status, labels, and saved personal notes appear in the weekly review. Use `--feedback-file` for a custom feedback file.
+
 The richer knowledge base includes:
 
 - `papers/<paper-id>.md`: one note page per retained paper
 - `directions/*.md`: retained papers grouped by topic tags
-- `weekly_review.md`: recurring synthesis from the retained library
+- `weekly_review.md`: recurring synthesis from the retained library, feedback state, and saved personal notes
 - `reading_plan.md` / `reading_plan.html`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers

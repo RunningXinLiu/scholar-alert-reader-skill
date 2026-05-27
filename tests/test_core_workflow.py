@@ -1524,11 +1524,23 @@ ER  -
         records = [sample_paper()]
         bibtex = export_records(records, "bibtex")
         ris = export_records(records, "ris")
-        weekly = render_weekly_review(records, {"name": "test profile"}, days=30)
+        feedback = {
+            "papers": {
+                "p1": {
+                    "status": "interested",
+                    "reading_status": "reading",
+                    "labels": ["must-cite"],
+                    "note": "Useful comparison for the Taiwan manuscript.",
+                }
+            }
+        }
+        weekly = render_weekly_review(records, {"name": "test profile"}, feedback=feedback, days=30)
         self.assertIn("@article", bibtex)
         self.assertIn("doi = {10.0000/test}", bibtex)
         self.assertIn("TY  - JOUR", ris)
         self.assertIn("Weekly Literature Review", weekly)
+        self.assertIn("Personal Notes Review", weekly)
+        self.assertIn("Useful comparison for the Taiwan manuscript.", weekly)
 
     def test_title_similarity(self) -> None:
         self.assertGreater(
@@ -1868,6 +1880,9 @@ SCHEDULE_TIME=09:00
             paper_page_content = (kb / "papers" / "p1.md").read_text(encoding="utf-8")
             self.assertIn("## Saved Feedback", paper_page_content)
             self.assertIn("Useful comparison for the Taiwan manuscript.", paper_page_content)
+            weekly_content = (kb / "weekly_review.md").read_text(encoding="utf-8")
+            self.assertIn("Personal Notes Review", weekly_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", weekly_content)
 
             reading_plan = root / "reading_plan.md"
             reading_plan_html = root / "reading_plan.html"

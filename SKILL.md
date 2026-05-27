@@ -60,7 +60,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/pdfs/<paper-id>.pdf`: local PDF downloaded from an explicit/open PDF URL.
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
-- `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
+- `knowledge_base/weekly_review.md`: recurring synthesis from the retained library, feedback state, and saved personal notes.
 - `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`: prioritized next-reading queue from retained/recent papers and feedback, refreshed automatically by runs that update the knowledge base.
 - `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation, including cached local full-text evidence when available.
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
@@ -581,6 +581,8 @@ python3 scripts/scholar_reader.py weekly \
   --kb-dir knowledge_base \
   --days 7
 ```
+
+`weekly` loads `knowledge_base/feedback.json` by default, so reading status, labels, and saved personal notes appear in the weekly review. Use `--feedback-file` for a custom feedback file.
 
 Export retained papers or diagnose setup:
 

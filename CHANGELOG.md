@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.60 - 2026-05-28
+
+- Make `weekly` / `weekly_review.md` load feedback by default and accept `--feedback-file`.
+- Add reading-status, label, and personal-note sections to weekly reviews.
+- Refresh automatic weekly reviews with saved user notes when the knowledge base is updated.
+
 ## v0.2.59 - 2026-05-28
 
 - Surface saved personal notes in `advice`, `compare`, and `map` reports.

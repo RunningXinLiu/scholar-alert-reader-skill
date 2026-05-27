@@ -3167,9 +3167,10 @@ def write_kb_direction_pages(kb_dir: Path, papers: list[Paper], profile: dict[st
 def write_weekly_review(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], days: int = 7) -> None:
     from .weekly import render_weekly_review
 
+    feedback = load_feedback(default_feedback_file(kb_dir))
     records = [asdict(paper) for paper in papers]
     (kb_dir / "weekly_review.md").write_text(
-        render_weekly_review(records, profile, days=days),
+        render_weekly_review(records, profile, feedback=feedback, days=days),
         encoding="utf-8",
     )
 
@@ -7323,11 +7324,12 @@ def write_weekly_command(args: argparse.Namespace) -> None:
 
     profile = load_profile(args.profile)
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
     library = load_paper_library(kb_dir)
     records = [asdict(paper) for paper in library]
     output = args.output or (kb_dir / "weekly_review.md")
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(render_weekly_review(records, profile, days=args.days, limit=args.limit), encoding="utf-8")
+    output.write_text(render_weekly_review(records, profile, feedback=feedback, days=args.days, limit=args.limit), encoding="utf-8")
     print(f"Weekly review: {output}")
 
 
@@ -9114,7 +9116,9 @@ def update_reading_status_command(args: argparse.Namespace) -> None:
             item["note"] = (previous + "\n" + args.note).strip() if previous else args.note
     save_feedback(feedback_file, feedback)
     library = load_paper_library(kb_dir)
+    profile = load_profile(args.profile)
     write_kb_paper_pages(kb_dir, library, feedback)
+    write_weekly_review(kb_dir, library, profile)
     report = write_reading_status_report(kb_dir, [asdict(paper) for paper in library], feedback)
     print(f"Feedback updated: {feedback_file}")
     print(f"Reading status: {report}")
@@ -9818,6 +9822,7 @@ def build_parser() -> argparse.ArgumentParser:
     weekly_cmd = sub.add_parser("weekly", help="Render a weekly synthesis from the retained library")
     weekly_cmd.add_argument("--profile", type=Path, required=True)
     weekly_cmd.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    weekly_cmd.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
     weekly_cmd.add_argument("--days", type=int, default=7)
     weekly_cmd.add_argument("--limit", type=int, default=12)
     weekly_cmd.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/weekly_review.md")
