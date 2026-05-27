@@ -1836,6 +1836,9 @@ SCHEDULE_TIME=09:00
             reading_status_content = (kb / "reading_status.md").read_text(encoding="utf-8")
             self.assertIn("reading", reading_status_content)
             self.assertIn("Useful comparison for the Taiwan manuscript.", reading_status_content)
+            paper_page_content = (kb / "papers" / "p1.md").read_text(encoding="utf-8")
+            self.assertIn("## Saved Feedback", paper_page_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", paper_page_content)
 
             reading_plan = root / "reading_plan.md"
             reading_plan_html = root / "reading_plan.html"
@@ -2285,11 +2288,15 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertTrue((obsidian_dir / "04_Answers").exists())
             self.assertTrue((obsidian_dir / "05_Comparisons").exists())
             self.assertTrue((obsidian_dir / "06_Deep_Reads").exists())
+            dashboard_note = (obsidian_dir / "00_Dashboard" / "Scholar Alert Dashboard.md").read_text(encoding="utf-8")
+            self.assertIn("Personal notes: 1", dashboard_note)
             paper_note = next((obsidian_dir / "01_Papers").glob("*.md"))
             note = paper_note.read_text(encoding="utf-8")
             self.assertIn('citation_key: "zoteroAmbient2026"', note)
             self.assertIn('doi: "10.0000/test"', note)
             self.assertIn(str(pdf_path), note)
+            self.assertIn("## Saved Feedback", note)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", note)
 
     def test_workup_accepts_loose_library_records(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

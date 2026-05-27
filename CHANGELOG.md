@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.57 - 2026-05-28
+
+- Carry saved personal notes into generated `knowledge_base/papers/<paper-id>.md` pages.
+- Add saved feedback status, reading labels, and personal notes to Obsidian paper notes and dashboard note counts.
+- Refresh knowledge-base paper pages after `status` updates so note-only or reading-status changes are visible outside `feedback.json`.
+
 ## v0.2.56 - 2026-05-28
 
 - Carry saved personal reading notes into selected-paper `deep-read`, `workup`, and `reading_status.md` reports.

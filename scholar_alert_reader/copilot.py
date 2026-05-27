@@ -1291,6 +1291,8 @@ def render_obsidian_paper(
 ) -> str:
     labels = reading_labels(record, feedback)
     status = reading_status(record, feedback)
+    item = feedback_record(record, feedback)
+    note = feedback_note(record, feedback, limit=3000)
     doi = best_doi(record)
     year = best_year(record)
     journal = best_journal(record)
@@ -1304,8 +1306,10 @@ def render_obsidian_paper(
         f"citation_key: {yaml_scalar(citation_key)}",
         f"tier: {record.get('tier', '')}",
         f"score: {record.get('score', 0)}",
+        f"feedback_status: {yaml_scalar(item.get('status', '') if item else '')}",
         f"reading_status: {status}",
         f"labels: {yaml_list(labels)}",
+        f"personal_note: {yaml_scalar(note)}",
         f"tags: {yaml_list([str(tag) for tag in record.get('tags', [])])}",
         f"matched_terms: {yaml_list([str(term) for term in record.get('matched_terms', [])])}",
         f"year: {yaml_scalar(year)}",
@@ -1331,6 +1335,17 @@ def render_obsidian_paper(
         f"- Reading status: `{status}`",
         f"- Labels: {', '.join(labels) if labels else 'none'}",
         "",
+        "## Saved Feedback",
+        "",
+        f"- Feedback status: `{item.get('status', 'none')}`" if item else "- Feedback status: none",
+        f"- Reading status: `{status}`",
+        f"- Labels: {', '.join(labels) if labels else 'none'}",
+        "",
+    ]
+    if note:
+        lines.extend(["### Personal Note", "", note, ""])
+    lines.extend(
+        [
         "## Alert Signal",
         "",
         text(record.get("snippet", "No snippet available.")),
@@ -1344,7 +1359,8 @@ def render_obsidian_paper(
         "- Relation to my work:",
         "- Citation context:",
         "",
-    ]
+        ]
+    )
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -1354,6 +1370,7 @@ def render_obsidian_index(records: list[dict[str, Any]], feedback: dict[str, Any
         "",
         f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"- Papers: {len(records)}",
+        f"- Personal notes: {sum(1 for record in records if feedback_note(record, feedback))}",
         "",
         "## Navigation",
         "",

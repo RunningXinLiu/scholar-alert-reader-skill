@@ -339,7 +339,7 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
-The browser UI can mark papers, show and filter current feedback/reading-status badges, save personal reading notes, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` links. Saved notes are included in reading-status, deep-read, and workup reports.
+The browser UI can mark papers, show and filter current feedback/reading-status badges, save personal reading notes, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
 
 Suggest profile updates from accumulated feedback:
 

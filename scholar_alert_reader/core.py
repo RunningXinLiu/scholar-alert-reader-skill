@@ -3080,10 +3080,18 @@ def metadata_lines(paper: Paper) -> list[str]:
     return lines
 
 
-def write_kb_paper_pages(kb_dir: Path, papers: list[Paper]) -> None:
+def write_kb_paper_pages(kb_dir: Path, papers: list[Paper], feedback: dict[str, Any] | None = None) -> None:
+    from .copilot import feedback_note, reading_labels, reading_status
+
+    if feedback is None:
+        feedback = load_feedback(default_feedback_file(kb_dir))
     paper_dir = kb_dir / "papers"
     paper_dir.mkdir(parents=True, exist_ok=True)
     for paper in papers:
+        record = asdict(paper)
+        labels = reading_labels(record, feedback)
+        status = reading_status(record, feedback)
+        note = feedback_note(record, feedback, limit=3000)
         lines = [
             f"# {paper.title}",
             "",
@@ -3096,6 +3104,8 @@ def write_kb_paper_pages(kb_dir: Path, papers: list[Paper]) -> None:
             f"- Last seen: {paper.last_seen}",
             f"- Directions: {', '.join(paper_directions(paper))}",
             f"- Matched: {', '.join(paper.matched_terms)}",
+            f"- Reading status: {status}",
+            f"- Labels: {', '.join(labels) if labels else 'none'}",
             "",
             "## Snippet",
             "",
@@ -3107,6 +3117,15 @@ def write_kb_paper_pages(kb_dir: Path, papers: list[Paper]) -> None:
         lines.extend(f"- {reason}" for reason in paper.reasons[:8])
         lines.append("")
         lines.extend(metadata_lines(paper))
+        if note:
+            lines.extend(
+                [
+                    "## Saved Feedback",
+                    "",
+                    note,
+                    "",
+                ]
+            )
         lines.extend(
             [
                 "## Notes",
@@ -6309,7 +6328,7 @@ def apply_feedback_to_knowledge_base(
     write_kb_index(kb_dir, library, profile, summary)
     write_kb_foundation(kb_dir, library, profile)
     write_kb_interested(kb_dir, library, profile)
-    write_kb_paper_pages(kb_dir, library)
+    write_kb_paper_pages(kb_dir, library, feedback)
     write_kb_direction_pages(kb_dir, library, profile)
     write_weekly_review(kb_dir, library, profile)
     write_run_snapshot(kb_dir, reranked, summary)
@@ -9093,7 +9112,9 @@ def update_reading_status_command(args: argparse.Namespace) -> None:
             previous = str(item.get("note", "") or "")
             item["note"] = (previous + "\n" + args.note).strip() if previous else args.note
     save_feedback(feedback_file, feedback)
-    report = write_reading_status_report(kb_dir, paper_records_from_library(kb_dir), feedback)
+    library = load_paper_library(kb_dir)
+    write_kb_paper_pages(kb_dir, library, feedback)
+    report = write_reading_status_report(kb_dir, [asdict(paper) for paper in library], feedback)
     print(f"Feedback updated: {feedback_file}")
     print(f"Reading status: {report}")
     print("Papers: " + ", ".join(str(record.get("id", "")) for record in selected))
