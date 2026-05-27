@@ -2254,6 +2254,135 @@ def paper_to_row(paper: Paper) -> dict[str, Any]:
     return row
 
 
+def metadata_mapping(paper: Paper) -> dict[str, Any]:
+    return paper.metadata if isinstance(paper.metadata, dict) else {}
+
+
+def nested_mapping(value: Any, key: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    nested = value.get(key)
+    return nested if isinstance(nested, dict) else {}
+
+
+def local_file_exists(path_value: str) -> bool:
+    if not path_value:
+        return False
+    try:
+        return Path(path_value).expanduser().exists()
+    except OSError:
+        return False
+
+
+def metadata_pdf_urls(metadata: dict[str, Any]) -> list[str]:
+    urls: list[str] = []
+    for key in ["web", "arxiv", "openalex", "full_text"]:
+        source = nested_mapping(metadata, key)
+        value = str(source.get("pdf_url") or source.get("pdf") or "").strip()
+        if value and value not in urls:
+            urls.append(value)
+    return urls
+
+
+def metadata_pdf_paths(metadata: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    for key in ["full_text", "zotero"]:
+        source = nested_mapping(metadata, key)
+        for path in coerce_list(source.get("pdf_paths")):
+            if path and path not in paths:
+                paths.append(path)
+    return paths
+
+
+def paper_evidence_summary(paper: Paper, kb_dir: Path | None = None) -> dict[str, Any]:
+    """Summarize what evidence is currently available for a paper.
+
+    The labels are intentionally conservative: ranking can start from metadata,
+    while full-text-backed reports require a local text cache or full-text brief.
+    """
+
+    metadata = metadata_mapping(paper)
+    badges = ["title/snippet"]
+    source_labels = {
+        "bibtex": "BibTeX fields",
+        "ris": "RIS fields",
+        "feed": "feed summary",
+        "arxiv": "arXiv metadata",
+        "web": "article metadata",
+    }
+    for key, label in source_labels.items():
+        if isinstance(metadata.get(key), dict):
+            badges.append(label)
+
+    enriched = []
+    if isinstance(metadata.get("openalex"), dict):
+        enriched.append("OpenAlex")
+        badges.append("OpenAlex")
+    if isinstance(metadata.get("crossref"), dict):
+        enriched.append("Crossref")
+        badges.append("Crossref")
+
+    pdf_urls = metadata_pdf_urls(metadata)
+    if pdf_urls:
+        badges.append("open PDF link")
+
+    pdf_paths = metadata_pdf_paths(metadata)
+    existing_pdf_paths = [path for path in pdf_paths if local_file_exists(path)]
+    if pdf_paths:
+        badges.append("local PDF path")
+    if existing_pdf_paths:
+        badges.append("local PDF present")
+
+    full_text_cache = False
+    full_text_brief = False
+    review_pack = False
+    if kb_dir is not None:
+        full_text_cache = (kb_dir / "full_text" / f"{paper.id}.txt").exists()
+        full_text_brief = (kb_dir / "analysis" / f"{paper.id}_full_text_brief.md").exists()
+        review_pack = (kb_dir / "analysis" / f"{paper.id}_review_pack.md").exists()
+    if full_text_cache:
+        badges.append("cached full text")
+    if full_text_brief:
+        badges.append("full-text brief")
+    if review_pack:
+        badges.append("review pack")
+
+    if full_text_cache or full_text_brief:
+        level = "full-text-backed"
+        description = "Local full-text cache or full-text brief exists for closer reading."
+    elif existing_pdf_paths:
+        level = "local-PDF-ready"
+        description = "A local PDF path exists; run full-text or review-workflow to extract evidence."
+    elif pdf_paths or pdf_urls:
+        level = "PDF-link-ready"
+        description = "An open PDF URL or local PDF path is known, but no local full-text brief is cached yet."
+    elif enriched:
+        level = "metadata-enriched"
+        description = "Includes public metadata enrichment, but not paper full text."
+    else:
+        level = "metadata-only"
+        description = "Uses title, source line, snippet, alert/import metadata, profile terms, and feedback signals."
+
+    unique_badges = list(dict.fromkeys(badges))
+    return {
+        "level": level,
+        "badges": unique_badges,
+        "description": description,
+        "pdf_urls": pdf_urls,
+        "pdf_paths": pdf_paths,
+        "existing_pdf_paths": existing_pdf_paths,
+        "has_full_text_cache": full_text_cache,
+        "has_full_text_brief": full_text_brief,
+        "has_review_pack": review_pack,
+    }
+
+
+def paper_evidence_text(paper: Paper, kb_dir: Path | None = None) -> str:
+    summary = paper_evidence_summary(paper, kb_dir)
+    badges = ", ".join(summary["badges"])
+    return f"{summary['level']} ({badges}) - {summary['description']}"
+
+
 def write_csv(path: Path, papers: list[Paper]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = list(paper_to_row(papers[0]).keys()) if papers else [
@@ -2439,6 +2568,13 @@ def feedback_commands(path: Path, summary: dict[str, Any]) -> list[str]:
     ]
 
 
+def summary_kb_dir(summary: dict[str, Any]) -> Path | None:
+    value = str(summary.get("knowledge_base_dir", "") or "").strip()
+    if not value:
+        return None
+    return Path(value).expanduser()
+
+
 def recent_review_command(path: Path) -> str | None:
     project_dir = project_dir_from_output(path)
     if project_dir and (project_dir / "review_recent.sh").exists():
@@ -2450,6 +2586,7 @@ def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summa
     lim = limits(profile)
     tier_counts = counts_by_tier(papers)
     commands = feedback_commands(path, summary)
+    kb_dir = summary_kb_dir(summary)
     lines: list[str] = [
         "# Scholar Alert 文献分诊",
         "",
@@ -2494,7 +2631,7 @@ def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summa
             lines.extend(["None.", ""])
             continue
         for index, paper in enumerate(items[:max_items], 1):
-            lines.extend(render_paper(index, paper))
+            lines.extend(render_paper(index, paper, kb_dir=kb_dir))
 
     archive_items = papers_for_tier(papers, "Archive")
     lines.extend(["## Archive quick view", ""])
@@ -2530,6 +2667,7 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
     generated = datetime.now().strftime("%Y-%m-%d %H:%M")
     title = "Scholar Alert 文献分诊"
     questions = profile.get("research_questions", [])
+    kb_dir = summary_kb_dir(summary)
     sections = [
         ("Must read", papers_for_tier(papers, "Must read"), lim["must_read"]),
         ("Skim", papers_for_tier(papers, "Skim"), lim["skim"]),
@@ -2635,6 +2773,12 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
         }
         .badge.must { background: var(--warn-soft); color: var(--warn); }
         .badge.new { background: var(--accent-soft); color: var(--accent); }
+        .badge.evidence { background: #e0f2fe; color: #075985; }
+        .evidence-note {
+          margin: 6px 0 0;
+          color: var(--muted);
+          font-size: 13px;
+        }
         .why { margin: 10px 0 0; padding-left: 18px; }
         .why li { margin: 3px 0; color: var(--muted); }
         .archive { columns: 2 320px; padding-left: 18px; }
@@ -2715,7 +2859,7 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
         if not items:
             parts.append('<p class="meta">None.</p>')
         for index, paper in enumerate(items[:max_items], 1):
-            parts.append(render_paper_html(index, paper))
+            parts.append(render_paper_html(index, paper, kb_dir=kb_dir))
         parts.append("</section>")
 
     archive_items = papers_for_tier(papers, "Archive")
@@ -2727,7 +2871,7 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
     path.write_text("\n".join(parts), encoding="utf-8")
 
 
-def render_paper_html(index: int, paper: Paper) -> str:
+def render_paper_html(index: int, paper: Paper, kb_dir: Path | None = None) -> str:
     icon = favicon_url(paper.url)
     icon_html = (
         f'<img class="favicon" alt="" src="{icon}">'
@@ -2741,6 +2885,12 @@ def render_paper_html(index: int, paper: Paper) -> str:
     ]
     if paper.is_new:
         badges.append('<span class="badge new">new</span>')
+    evidence = paper_evidence_summary(paper, kb_dir)
+    badges.append(f'<span class="badge evidence">evidence {html.escape(str(evidence["level"]))}</span>')
+    badges.extend(
+        f'<span class="badge evidence">{html.escape(str(item))}</span>'
+        for item in evidence["badges"][1:8]
+    )
     badges.extend(f'<span class="badge">{html.escape(term)}</span>' for term in terms)
     reasons = "".join(f"<li>{html.escape(reason)}</li>" for reason in paper.reasons[:4])
     alerts = "; ".join(paper.alerts[:4])
@@ -2754,6 +2904,7 @@ def render_paper_html(index: int, paper: Paper) -> str:
             f'<h3>{index}. <a href="{html.escape(paper.url, quote=True)}">{html.escape(paper.title)}</a></h3>',
             f'<div class="meta">{html.escape(paper.authors_source)}</div>',
             f'<div class="badges">{"".join(badges)}</div>',
+            f'<div class="evidence-note">{html.escape(str(evidence["description"]))}</div>',
             f'<p class="snippet">{html.escape(paper.snippet)}</p>',
             f'<div class="reason">Alert: {html.escape(alerts)}</div>',
             f'<ul class="why">{reasons}</ul>',
@@ -2763,7 +2914,7 @@ def render_paper_html(index: int, paper: Paper) -> str:
     )
 
 
-def render_paper(index: int, paper: Paper) -> list[str]:
+def render_paper(index: int, paper: Paper, kb_dir: Path | None = None) -> list[str]:
     new_mark = "NEW " if paper.is_new else ""
     terms = ", ".join(paper.matched_terms) if paper.matched_terms else "none"
     alerts = "; ".join(paper.alerts[:4])
@@ -2775,6 +2926,7 @@ def render_paper(index: int, paper: Paper) -> list[str]:
         f"- Score: {paper.score}; terms: {terms}",
         f"- ID: {paper.id}",
         f"- Source: {paper.authors_source}",
+        f"- Evidence: {paper_evidence_text(paper, kb_dir)}",
         f"- Alert: {alerts}",
         f"- Link: {paper.url}",
         f"- Snippet: {paper.snippet}",
@@ -2830,15 +2982,16 @@ def paper_directions(paper: Paper) -> list[str]:
     return sorted(set(directions))
 
 
-def paper_md_line(paper: Paper) -> str:
+def paper_md_line(paper: Paper, kb_dir: Path | None = None) -> str:
     terms = ", ".join(paper.matched_terms[:8]) if paper.matched_terms else "no matched terms"
     metadata_note = ""
     openalex = paper.metadata.get("openalex") if paper.metadata else None
     if isinstance(openalex, dict) and openalex.get("cited_by_count") is not None:
         metadata_note = f"; cited by {openalex.get('cited_by_count')}"
+    evidence_note = f"; evidence: {paper_evidence_summary(paper, kb_dir)['level']}"
     return (
         f"- **[{paper.title}]({paper.url})** "
-        f"({paper.score}, {paper.tier}; {terms}{metadata_note}) - {paper.authors_source}"
+        f"({paper.score}, {paper.tier}; {terms}{metadata_note}{evidence_note}) - {paper.authors_source}"
     )
 
 
@@ -3017,7 +3170,7 @@ def write_kb_foundation(
         items = sorted(grouped[direction], key=lambda p: (-p.score, p.title.lower()))
         lines.extend([f"## {direction} ({len(items)})", ""])
         for paper in items[: settings["foundation_limit_per_direction"]]:
-            lines.append(paper_md_line(paper))
+            lines.append(paper_md_line(paper, kb_dir))
             lines.extend(kb_feedback_markdown_lines(paper, feedback))
         if len(items) > settings["foundation_limit_per_direction"]:
             lines.append(f"- ... {len(items) - settings['foundation_limit_per_direction']} more in papers.json")
@@ -3051,6 +3204,7 @@ def write_kb_interested(
                 "",
                 f"- Link: {paper.url}",
                 f"- Score: {paper.score}; tier: {paper.tier}",
+                f"- Evidence: {paper_evidence_text(paper, kb_dir)}",
                 f"- Directions: {', '.join(paper_directions(paper))}",
                 f"- Source: {paper.authors_source}",
                 f"- Matched: {', '.join(paper.matched_terms)}",
@@ -3151,6 +3305,7 @@ def write_kb_paper_pages(kb_dir: Path, papers: list[Paper], feedback: dict[str, 
             f"- Score: {paper.score}",
             f"- Link: {paper.url}",
             f"- Source: {paper.authors_source}",
+            f"- Evidence: {paper_evidence_text(paper, kb_dir)}",
             f"- First seen: {paper.first_seen}",
             f"- Last seen: {paper.last_seen}",
             f"- Directions: {', '.join(paper_directions(paper))}",
@@ -3215,7 +3370,7 @@ def write_kb_direction_pages(
             "",
         ]
         for paper in items:
-            lines.append(paper_md_line(paper) + f" [notes](../papers/{paper.id}.md)")
+            lines.append(paper_md_line(paper, kb_dir) + f" [notes](../papers/{paper.id}.md)")
             lines.extend(kb_feedback_markdown_lines(paper, feedback))
         (direction_dir / filename).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     if not grouped:

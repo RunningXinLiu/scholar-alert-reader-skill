@@ -39,11 +39,11 @@ Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
-Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local semantic reranking, and retained-library context. `semantic-rerank` defaults to dependency-free sparse TF-IDF; `--backend sentence-transformers` uses an optional user-installed local embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
+Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local semantic reranking, and retained-library context. Digest cards, feedback UI cards, paper notes, and foundation/interested indexes show per-paper evidence levels such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed. `semantic-rerank` defaults to dependency-free sparse TF-IDF; `--backend sentence-transformers` uses an optional user-installed local embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
 
 ## Outputs
 
-- `digest.md` and `digest.html`: human-readable triage reports.
+- `digest.md` and `digest.html`: human-readable triage reports with per-paper evidence-level labels.
 - `papers.json` and `papers.csv`: structured run output.
 - `summary.json`: run metadata, source counts, seen-state filtering counts, and `empty_run_diagnosis` when no papers are written.
 - `deep_read_queue.md`: top papers for actual reading.
@@ -54,8 +54,8 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
 - `knowledge_base/profile_tuning.md`: suggested profile updates from interested/archive feedback patterns.
 - `knowledge_base/library.json`: cumulative retained papers, usually Must read + Skim.
-- `knowledge_base/foundation.md`: cumulative retained library grouped by direction, including saved feedback state and personal note excerpts when present.
-- `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read, including saved feedback state and personal note excerpts when present.
+- `knowledge_base/foundation.md`: cumulative retained library grouped by direction, including evidence level, saved feedback state, and personal note excerpts when present.
+- `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read, including evidence level, saved feedback state, and personal note excerpts when present.
 - `knowledge_base/daily_additions.md`: retained additions from the latest daily run.
 - `knowledge_base/pdfs/<paper-id>.pdf`: local PDF downloaded from an explicit/open PDF URL.
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
@@ -340,7 +340,7 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
-The browser UI can mark papers, show and filter current feedback/reading-status badges, save personal reading notes, open a one-paper workspace, ask library-wide or selected-paper questions, show existing selected-paper answers for that paper, open the generated answer index, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` and `/answer?name=...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
+The browser UI can mark papers, show and filter current feedback/reading-status badges, display each paper's evidence level, save personal reading notes, open a one-paper workspace, ask library-wide or selected-paper questions, show existing selected-paper answers for that paper, open the generated answer index, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` and `/answer?name=...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
 
 Suggest profile updates from accumulated feedback:
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.69 - 2026-05-28
+
+- Add per-paper evidence summaries with conservative levels: metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, and full-text-backed.
+- Show evidence-level badges and notes in Markdown/HTML digests and the local feedback UI so users can distinguish snippet-based triage from cached full-text work.
+- Carry evidence levels into foundation/interested indexes, direction pages, and per-paper knowledge-base notes.
+
 ## v0.2.68 - 2026-05-28
 
 - Generate `knowledge_base/answers_index.md` whenever a library-wide or selected-paper answer is written.

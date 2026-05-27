@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.68`
+Version: `0.2.69`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -132,6 +132,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Reranks saved papers with a local semantic layer so weak-keyword papers close to your profile or interested seeds can be inspected before you tune broad terms; the default backend is sparse and zero-dependency, and an optional local `sentence-transformers` backend is available for users who install it.
 - Checks optional embedding readiness before a real embedding rerank, without loading models unless you pass `--load-model`.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
+- Labels each paper with its current evidence level, such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed, so users can tell when a report is based on snippets versus cached full text.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card or answer index, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
@@ -154,7 +155,7 @@ python3 -m scholar_alert_reader capabilities
 
 The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional semantic reranking. `semantic-rerank` defaults to sparse TF-IDF with no extra dependencies; `--backend sentence-transformers` uses a user-installed local embedding model. It is not a hosted embedding service or autonomous reviewer.
 
-`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. `ask`, `advice`, `compare`, and `map` surface saved notes as evidence, so your own reading judgments become part of the local research memory. These commands are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
+`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. Digest cards, feedback UI cards, paper notes, and foundation/interested indexes show an evidence level so users can distinguish metadata-only triage from PDF-ready or full-text-backed work. `ask`, `advice`, `compare`, and `map` surface saved notes as evidence, so your own reading judgments become part of the local research memory. These commands are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
 ## Product Modes
 
@@ -476,7 +477,7 @@ Open the feedback UI:
 ./serve_reader.sh
 ```
 
-The browser UI can mark papers, show current feedback and reading-status badges, save personal reading notes, filter by tier or reading status, open a focused one-paper workspace, ask paper-specific questions against the retained foundation/interested library, show existing selected-paper answers for that paper, open the generated answer index, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` or `/answer?...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
+The browser UI can mark papers, show current feedback, reading-status, and evidence-level badges, save personal reading notes, filter by tier or reading status, open a focused one-paper workspace, ask paper-specific questions against the retained foundation/interested library, show existing selected-paper answers for that paper, open the generated answer index, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` or `/answer?...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
 
 Review recent alerts again without modifying the cumulative library:
 

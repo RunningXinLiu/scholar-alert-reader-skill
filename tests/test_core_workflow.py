@@ -805,6 +805,49 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertTrue(any(term.startswith("dissimilar:") for term in paper.matched_terms))
         self.assertTrue(any("反馈相似度降权" in reason for reason in paper.reasons))
 
+    def test_paper_evidence_summary_and_digest_badges(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            kb = root / "knowledge_base"
+            kb.mkdir()
+            paper_data = sample_paper()
+            paper = core.paper_from_dict(paper_data)
+
+            enriched = core.paper_evidence_summary(paper, kb)
+            self.assertEqual(enriched["level"], "metadata-enriched")
+            self.assertIn("OpenAlex", enriched["badges"])
+            self.assertIn("Crossref", enriched["badges"])
+
+            pdf_path = root / "paper.pdf"
+            pdf_path.write_bytes(b"%PDF-1.4\n")
+            paper_data["metadata"]["full_text"] = {
+                "pdf_url": "https://example.org/paper.pdf",
+                "pdf_paths": [str(pdf_path)],
+            }
+            paper = core.paper_from_dict(paper_data)
+            pdf_ready = core.paper_evidence_summary(paper, kb)
+            self.assertEqual(pdf_ready["level"], "local-PDF-ready")
+            self.assertIn("local PDF present", pdf_ready["badges"])
+
+            (kb / "full_text").mkdir()
+            (kb / "full_text" / "p1.txt").write_text("full text cache", encoding="utf-8")
+            (kb / "analysis").mkdir()
+            (kb / "analysis" / "p1_full_text_brief.md").write_text("# Full-Text Brief", encoding="utf-8")
+            full_text_backed = core.paper_evidence_summary(paper, kb)
+            self.assertEqual(full_text_backed["level"], "full-text-backed")
+            self.assertIn("cached full text", full_text_backed["badges"])
+            self.assertIn("full-text brief", full_text_backed["badges"])
+
+            digest = root / "out" / "digest.md"
+            html_digest = root / "out" / "digest.html"
+            summary = {"knowledge_base_dir": str(kb), "profile": str(root / "profile.json")}
+            core.write_digest(digest, [paper], {"name": "evidence test"}, summary)
+            core.write_html_digest(html_digest, [paper], {"name": "evidence test"}, summary)
+            self.assertIn("Evidence: full-text-backed", digest.read_text(encoding="utf-8"))
+            html_content = html_digest.read_text(encoding="utf-8")
+            self.assertIn("evidence full-text-backed", html_content)
+            self.assertIn("cached full text", html_content)
+
     def test_profile_tune_reports_and_applies_feedback_suggestions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2485,6 +2528,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertIn('id="status"', initial_body)
                 self.assertIn('data-status="unread"', initial_body)
                 self.assertIn("feedback none", initial_body)
+                self.assertIn("evidence metadata-enriched", initial_body)
+                self.assertIn("OpenAlex", initial_body)
                 self.assertIn('name="note"', initial_body)
                 self.assertIn("Save note", initial_body)
                 self.assertIn('action="/ask"', initial_body)

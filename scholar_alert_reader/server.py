@@ -102,6 +102,20 @@ def paper_metadata_summary(paper: Any) -> str:
     return " · ".join(items)
 
 
+def paper_evidence_html(paper: Any, config: ServerConfig) -> str:
+    from . import core
+
+    summary = core.paper_evidence_summary(paper, config.kb_dir)
+    badges = [f"evidence {summary['level']}"]
+    badges.extend(str(item) for item in summary["badges"][1:8])
+    return (
+        '<div class="badges evidence-badges">'
+        + "".join(render_badge(value) for value in badges)
+        + "</div>"
+        + f'<p class="evidence-note">{html.escape(str(summary["description"]))}</p>'
+    )
+
+
 def report_links(paper_id: str, config: ServerConfig) -> str:
     analysis_dir = config.kb_dir / "analysis"
     reports = [
@@ -247,6 +261,7 @@ def render_page(
                     + render_badge(str(paper.tier))
                     + render_badge(f"score {paper.score}")
                     + "</div>",
+                    paper_evidence_html(paper, config),
                     feedback_badges(paper, feedback),
                     paper_feedback_note_html(paper, feedback),
                     f'<p class="meta">{html.escape(paper.authors_source)}</p>',
@@ -402,6 +417,15 @@ def render_page(
             }
             .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
             .feedback-badges { margin-top: -2px; }
+            .evidence-badges .badge {
+              background: #e0f2fe;
+              color: #075985;
+            }
+            .evidence-note {
+              margin: -2px 0 8px;
+              color: var(--muted);
+              font-size: 13px;
+            }
             .badge {
               border-radius: 999px;
               background: #eef2f7;
