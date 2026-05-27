@@ -1,6 +1,6 @@
 # Automation Notes
 
-Use the local mbox, BibTeX/RIS, RSS/Atom, or arXiv path for the first reliable version. For a true daily pipeline, choose one source connector:
+Use the local mbox, BibTeX/RIS, webpage metadata, RSS/Atom, or arXiv path for the first reliable version. For a true daily pipeline, choose one source connector:
 
 For a new workspace, initialize the local project first:
 
@@ -10,7 +10,7 @@ cd ~/scholar_alerts
 ./self_test.sh
 ```
 
-`self_test.sh` uses bundled sample data only. It verifies the Python CLI, project scaffold, sample mbox parsing, sample RSS parsing, digest generation, and doctor report before connecting Gmail or personal files.
+`self_test.sh` uses bundled sample data only. It verifies the Python CLI, project scaffold, sample mbox parsing, sample web metadata/RSS checks, digest generation, and doctor report before connecting Gmail or personal files.
 
 Then persist local defaults so scheduled runs do not depend on a long command line:
 
@@ -18,7 +18,7 @@ Then persist local defaults so scheduled runs do not depend on a long command li
 ./setup_reader.sh --source auto --profile-template ai-seismology --schedule-time 09:00 --schedule-days weekdays
 ```
 
-`reader.env` is read by generated shell scripts only for variables that are not already set by the caller. This keeps daily automation simple while still allowing one-off overrides such as `SOURCE=rss RSS_SOURCE=... ./run_reader.sh`.
+`reader.env` is read by generated shell scripts only for variables that are not already set by the caller. This keeps daily automation simple while still allowing one-off overrides such as `SOURCE=web WEB_SOURCE=... ./run_reader.sh` or `SOURCE=rss RSS_SOURCE=... ./run_reader.sh`.
 
 ## Gmail API
 
@@ -32,7 +32,7 @@ Suggested flow:
 3. Fetch messages since last run.
 4. Save only extracted paper metadata, not raw emails.
 
-The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token exists; otherwise it checks `INBOX.mbox`, `import.bib`, `import.ris`, `feeds.txt`, `ARXIV_QUERY`, and then optional Mail.app fallback.
+The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token exists; otherwise it checks `INBOX.mbox`, `import.bib`, `import.ris`, `web_sources.txt`, `feeds.txt`, `ARXIV_QUERY`, and then optional Mail.app fallback.
 
 If the workflow uses `--kb-dir knowledge_base`, saved paper feedback is read from `knowledge_base/feedback.json` automatically. Pass `--no-feedback` only for a diagnostic run that should ignore personal ranking signals.
 
@@ -113,9 +113,16 @@ After the user has marked several papers as interested/archive or more-like-this
 
 This writes `knowledge_base/profile_tuning.md` and is safe by default. It only edits the active profile when the user passes `--apply`.
 
-## RSS/Atom And arXiv
+## Web Metadata, RSS/Atom, And arXiv
 
-Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer RSS/Atom feeds and the arXiv public Atom API over arbitrary webpage scraping.
+Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer structured webpage metadata, RSS/Atom feeds, and the arXiv public Atom API over arbitrary deep crawling.
+
+```bash
+SOURCE=web WEB_SOURCE=~/scholar_alerts/web_sources.txt MODE=run ./run_reader.sh
+./web_import.sh
+```
+
+`WEB_SOURCE` accepts a URL, saved `.html`/`.htm` file, directory of saved HTML pages, or `.txt`/`.list` file with one source per line. It reads citation meta tags, JSON-LD, Dublin Core, and OpenGraph.
 
 ```bash
 SOURCE=rss RSS_SOURCE=~/scholar_alerts/feeds.txt MODE=run ./run_reader.sh

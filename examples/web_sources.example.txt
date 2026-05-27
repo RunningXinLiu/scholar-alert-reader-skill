@@ -1,0 +1,4 @@
+# One scholarly webpage URL or saved HTML file per line.
+# Relative paths are resolved from this list file's directory.
+# The importer reads citation meta tags, JSON-LD, Dublin Core, and OpenGraph.
+sample_web_article.html

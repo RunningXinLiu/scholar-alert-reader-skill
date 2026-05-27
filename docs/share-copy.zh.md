@@ -2,13 +2,13 @@
 
 ## 一句话
 
-Scholar Alert Reader 是一个本地运行的自动文献分诊工具：把 Gmail/Apple Mail/Google Scholar Alert、BibTeX/RIS、RSS/Atom 和 arXiv 查询变成个性化论文 digest、阅读队列和个人研究知识库。
+Scholar Alert Reader 是一个本地运行的自动文献分诊工具：把 Gmail/Apple Mail/Google Scholar Alert、BibTeX/RIS、指定学术网页、RSS/Atom 和 arXiv 查询变成个性化论文 digest、阅读队列和个人研究知识库。
 
 ## 短版
 
 我做了一个 Codex skill / 本地 CLI：Scholar Alert Reader。
 
-它可以从 Gmail、Apple Mail、导出的 mbox、Zotero/Google Scholar 的 BibTeX/RIS、RSS/Atom feed 和 arXiv 查询里收集新论文；按你的研究方向、关键词、方法、地区、作者和排除词自动排序；每天或手动生成 HTML digest。
+它可以从 Gmail、Apple Mail、导出的 mbox、Zotero/Google Scholar 的 BibTeX/RIS、指定学术网页、RSS/Atom feed 和 arXiv 查询里收集新论文；按你的研究方向、关键词、方法、地区、作者和排除词自动排序；每天或手动生成 HTML digest。
 
 你可以把论文标成 interested / archive / more-like-this / less-like-this，后面的推荐会跟着调整。Obsidian 和 Zotero 是可选联动：Zotero 管引用和 PDF，Obsidian 沉淀笔记、方向图谱和深读报告。
 
@@ -24,7 +24,7 @@ GitHub: https://github.com/RunningXinLiu/scholar-alert-reader-skill
 
 - Gmail API / Apple Mail / 导出的 `.mbox`
 - Zotero、Google Scholar、出版社和数据库导出的 BibTeX / RIS
-- RSS/Atom feed、arXiv 查询，以及其他结构化网页来源
+- 指定学术网页、RSS/Atom feed、arXiv 查询，以及其他结构化网页来源
 
 它也支持持续学习：
 
@@ -39,7 +39,7 @@ GitHub: https://github.com/RunningXinLiu/scholar-alert-reader-skill
 
 ## 面向用户的功能点
 
-- **多来源接入**：Gmail、Apple Mail、mbox、BibTeX/RIS、RSS/Atom、arXiv。
+- **多来源接入**：Gmail、Apple Mail、mbox、BibTeX/RIS、指定学术网页、RSS/Atom、arXiv。
 - **个性化筛选**：按研究问题、关键词、方法、地区、作者、排除词打分。
 - **可反馈学习**：对论文做 interested/archive/more-like-this/less-like-this，后续推荐会调整。
 - **自动或手动推送**：可以每天定时生成 digest，也可以随时手动跑。

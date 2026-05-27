@@ -1,6 +1,6 @@
 ---
 name: scholar-alert-reader
-description: Build and run an automatic literature triage workflow from Google Scholar Alert emails, exported mbox files, BibTeX/RIS bibliography files, RSS/Atom feeds, arXiv queries, Gmail API, Mail.app, and research-profile feedback. Use when the user wants daily or manual paper-reading digests, Scholar Alert analysis, bibliography import, structured web literature monitoring, personalized paper ranking, or an automated research reading push system.
+description: Build and run an automatic literature triage workflow from Google Scholar Alert emails, exported mbox files, BibTeX/RIS bibliography files, scholarly webpage metadata, RSS/Atom feeds, arXiv queries, Gmail API, Mail.app, and research-profile feedback. Use when the user wants daily or manual paper-reading digests, Scholar Alert analysis, bibliography import, structured web literature monitoring, personalized paper ranking, or an automated research reading push system.
 ---
 
 # Scholar Alert Reader
@@ -20,7 +20,8 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
    - Mail.app: works locally on macOS after Automation permission.
    - `.mbox`: works from exported Gmail/Apple Mail archives.
    - BibTeX/RIS: works from Zotero, EndNote, Google Scholar library, publisher, and database exports.
-   - RSS/Atom or arXiv: works for structured web monitoring without scraping arbitrary pages.
+   - Structured webpage metadata: works from publisher/article URLs, saved HTML files, or URL/path lists with citation meta tags, JSON-LD, Dublin Core, or OpenGraph.
+   - RSS/Atom or arXiv: works for structured web monitoring without deep crawling arbitrary pages.
 6. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the exact terms and `semantic_queries`.
 7. First run: use `foundation` to build the seen-paper baseline.
 8. Later runs: use `daily` so only papers not already in the state file are reported.
@@ -31,7 +32,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 13. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 14. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` when diagnosing local setup problems.
 
-Platform rule: Gmail API, exported mbox, BibTeX/RIS, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
+Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
@@ -121,7 +122,7 @@ python3 scripts/scholar_reader.py source-check \
   --source auto
 ```
 
-Use `--live` to attempt an actual Gmail, Mail.app, mbox, BibTeX, RIS, RSS/Atom, or arXiv read.
+Use `--live` to attempt an actual Gmail, Mail.app, mbox, BibTeX, RIS, webpage metadata, RSS/Atom, or arXiv read.
 
 Install Gmail dependencies when using Gmail API:
 
@@ -186,6 +187,18 @@ python3 scripts/scholar_reader.py run \
   --out-dir out/ris \
   --kb-dir knowledge_base
 ```
+
+Run from scholarly webpage metadata:
+
+```bash
+python3 scripts/scholar_reader.py run \
+  --source-web web_sources.txt \
+  --profile profiles/research_profile.json \
+  --out-dir out/web \
+  --kb-dir knowledge_base
+```
+
+`--source-web` accepts a URL, saved `.html`/`.htm` file, directory of saved HTML files, or `.txt`/`.list` file with one URL/path per line. It reads citation meta tags, JSON-LD, Dublin Core, and OpenGraph; it is not a full-site crawler.
 
 Run from an RSS/Atom feed or feed list:
 

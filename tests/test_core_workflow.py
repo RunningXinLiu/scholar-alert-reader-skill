@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -108,6 +109,8 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "examples" / "sample_scholar_alerts.mbox").exists())
             self.assertTrue((project / "examples" / "sample_import.bib").exists())
             self.assertTrue((project / "examples" / "sample_import.ris").exists())
+            self.assertTrue((project / "examples" / "sample_web_article.html").exists())
+            self.assertTrue((project / "examples" / "web_sources.example.txt").exists())
             self.assertTrue((project / "examples" / "sample_feed.atom").exists())
             self.assertTrue((project / "examples" / "feeds.example.txt").exists())
             self.assertTrue((project / "demo_reader.sh").exists())
@@ -118,6 +121,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "bibtex_import.sh").exists())
             self.assertTrue((project / "ris_import.sh").exists())
+            self.assertTrue((project / "web_import.sh").exists())
             self.assertTrue((project / "rss_import.sh").exists())
             self.assertTrue((project / "arxiv_search.sh").exists())
             self.assertTrue((project / "doctor_reader.sh").exists())
@@ -131,6 +135,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("web_sources.txt", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn(".self_test/", (project / ".gitignore").read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Product Modes", start_here)
@@ -177,6 +182,17 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "reader_out" / "demo" / "papers.json").exists())
             demo_summary = json.loads((project / "reader_out" / "demo" / "summary.json").read_text(encoding="utf-8"))
             self.assertIn("sample_scholar_alerts.mbox", demo_summary["source"])
+            subprocess.run(
+                [
+                    str(project / "web_import.sh"),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+                env={**os.environ, "WEB_SOURCE": str(project / "examples" / "sample_web_article.html")},
+            )
+            self.assertTrue((project / "reader_out" / "web" / "digest.html").exists())
             source_check = subprocess.run(
                 [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
                 cwd=project,
@@ -453,6 +469,35 @@ ER  -
             papers = json.loads((root / "out" / "papers.json").read_text(encoding="utf-8"))
             self.assertEqual(len(papers), 2)
             self.assertEqual(papers[0]["metadata"]["feed"]["source"], "Demo Geophysics Feed")
+            self.assertTrue((root / "out" / "digest.html").exists())
+
+    def test_web_source_runs_full_workflow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "run",
+                    "--source-web",
+                    str(ROOT / "examples" / "web_sources.example.txt"),
+                    "--profile",
+                    str(profile),
+                    "--out-dir",
+                    str(root / "out"),
+                    "--kb-dir",
+                    str(root / "kb"),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            papers = json.loads((root / "out" / "papers.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(papers), 1)
+            self.assertEqual(papers[0]["title"], "Uncertainty-aware dense array monitoring of induced seismicity")
+            self.assertEqual(papers[0]["metadata"]["web"]["doi"], "10.0000/web-demo")
             self.assertTrue((root / "out" / "digest.html").exists())
 
     def test_arxiv_url_builder(self) -> None:

@@ -4,9 +4,9 @@
 
 # Scholar Alert Reader Skill
 
-Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
+Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.8`
+Version: `0.2.9`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -38,10 +38,11 @@ Use the scholar-alert-reader skill to initialize a Scholar Alert project for me.
 
 Good next prompts:
 
-- "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS/RSS/arXiv source is ready."
+- "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS/web/RSS/arXiv source is ready."
 - "Build my first foundation from existing Scholar Alert emails."
 - "Run today's new-paper digest."
 - "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
+- "Import papers from this scholarly webpage or saved HTML list."
 - "Pull papers from this RSS feed or arXiv query and rank them against my profile."
 - "Open the feedback UI so I can mark interested papers."
 - "Deep-read this paper against my foundation."
@@ -95,8 +96,8 @@ Sanitized demo screenshots are included for product previews and sharing.
 
 ## What It Does
 
-- Connects to Gmail API, Apple Mail, exported `.mbox`, BibTeX/RIS files, RSS/Atom feeds, and arXiv queries.
-- Monitors structured web sources such as journal feeds and saved-search feeds without depending on a hosted service.
+- Connects to Gmail API, Apple Mail, exported `.mbox`, BibTeX/RIS files, structured scholarly webpages, RSS/Atom feeds, and arXiv queries.
+- Monitors configured web sources such as publisher article pages, journal feeds, saved-search feeds, and arXiv queries without depending on a hosted service.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, and temporary boost terms.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
@@ -127,7 +128,7 @@ Chinese sharing assets are also included under `docs/assets/*.zh.*` and paired w
 - Gmail API source: macOS, Linux, and Windows, as long as Python can open the OAuth browser flow once and store the token.
 - Exported `.mbox` source: macOS, Linux, and Windows.
 - BibTeX/RIS source: macOS, Linux, and Windows. Useful when the user has Zotero, EndNote, publisher exports, Google Scholar library exports, or no Gmail access.
-- RSS/Atom and arXiv sources: macOS, Linux, and Windows. Useful for journal feeds, saved-search feeds, and structured web monitoring without scraping arbitrary pages.
+- Structured webpage metadata, RSS/Atom, and arXiv sources: macOS, Linux, and Windows. Useful for publisher article pages, journal feeds, saved-search feeds, and structured web monitoring without deep crawling.
 - Mail.app source: macOS only, because it uses AppleScript and requires Automation permission.
 - LaunchAgent scheduling: macOS only. Other platforms can use cron, systemd timers, or Task Scheduler around `run_reader.sh` / the Python CLI.
 - Codex skill mode is the intended UX, but the Python CLI can also be run directly from this repository.
@@ -240,7 +241,7 @@ Persist your local defaults:
   --schedule-days weekdays
 ```
 
-This writes `reader.env`, which is automatically read by generated helper scripts. Explicit one-off command variables still win, so `SOURCE=mbox ./run_reader.sh` or `RSS_SOURCE=... ./rss_import.sh` can override the saved defaults.
+This writes `reader.env`, which is automatically read by generated helper scripts. Explicit one-off command variables still win, so `SOURCE=mbox ./run_reader.sh`, `WEB_SOURCE=... ./web_import.sh`, or `RSS_SOURCE=... ./rss_import.sh` can override the saved defaults.
 
 Choose a starting research profile:
 
@@ -288,7 +289,19 @@ BIBTEX_PATH=examples/sample_import.bib ./bibtex_import.sh
 RIS_PATH=examples/sample_import.ris ./ris_import.sh
 ```
 
-Import from RSS/Atom or arXiv:
+Import from structured scholarly webpages, RSS/Atom, or arXiv:
+
+```bash
+WEB_SOURCE=examples/sample_web_article.html ./web_import.sh
+open reader_out/web/digest.html
+```
+
+```bash
+WEB_SOURCE=examples/web_sources.example.txt ./web_import.sh
+open reader_out/web/digest.html
+```
+
+The webpage importer reads common scholarly metadata from configured URLs or saved HTML files: citation meta tags, JSON-LD, Dublin Core, and OpenGraph. It is meant for article pages and saved search pages with structured metadata, not arbitrary full-site crawling.
 
 ```bash
 RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
@@ -326,9 +339,10 @@ python3 scripts/scholar_reader.py run --source-bibtex ~/Downloads/export.bib --p
 python3 scripts/scholar_reader.py run --source-ris ~/Downloads/export.ris --profile profiles/research_profile.json --out-dir out/ris --kb-dir knowledge_base
 ```
 
-Direct RSS/arXiv imports use the same pipeline:
+Direct webpage/RSS/arXiv imports use the same pipeline:
 
 ```bash
+python3 scripts/scholar_reader.py run --source-web ~/scholar_alerts/web_sources.txt --profile profiles/research_profile.json --out-dir out/web --kb-dir knowledge_base
 python3 scripts/scholar_reader.py run --source-rss ~/scholar_alerts/feeds.txt --profile profiles/research_profile.json --out-dir out/rss --kb-dir knowledge_base
 python3 scripts/scholar_reader.py run --source-arxiv-query 'cat:physics.geo-ph AND all:tomography' --profile profiles/research_profile.json --out-dir out/arxiv --kb-dir knowledge_base
 ```
@@ -506,6 +520,7 @@ Check input-source readiness without running the full workflow:
 ./source_check.sh --source mbox --mbox-path examples/sample_scholar_alerts.mbox --live
 ./source_check.sh --source bibtex --bibtex-path import.bib --live
 ./source_check.sh --source ris --ris-path import.ris --live
+./source_check.sh --source web --web-source examples/sample_web_article.html --live
 ./source_check.sh --source rss --rss-source examples/sample_feed.atom --live
 ./source_check.sh --source arxiv --arxiv-query 'cat:physics.geo-ph AND all:tomography' --live
 ```
@@ -597,6 +612,7 @@ Do not commit:
 - Gmail OAuth credentials or token files
 - raw mailbox exports
 - personal `import.bib` / `import.ris` files
+- personal `web_sources.txt` source lists
 - personal `zotero.bib` read-back files
 - personal `feeds.txt` source lists
 - `reader.env`

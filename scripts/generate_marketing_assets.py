@@ -133,19 +133,19 @@ def architecture_svg(locale: str) -> str:
             "footer": "定时或手动推送 · 本地优先 · 可接 Zotero / Obsidian",
             "author": "作者：Xin Liu",
         }
-        source_items = ["Gmail API", "Apple Mail", "mbox / 邮件归档", "BibTeX / RIS", "RSS / arXiv"]
+        source_items = ["Gmail API", "Apple Mail", "mbox / 邮件归档", "BibTeX / RIS", "网页 / RSS / arXiv"]
         triage_items = ["抽取", "去重", "排序", "反馈"]
         kb_items = ["每日简报", "阅读队列", "文献底座", "深读问答", "笔记与引用"]
         font = "PingFang SC, Inter, Arial, sans-serif"
         small_font = 16
     else:
         copy = {
-            "desc": "Scholar Alert Reader architecture: connect paper alerts, bibliography exports, feeds, and arXiv to personalized digests, reading queues, research memory, and Obsidian/Zotero exports.",
+            "desc": "Scholar Alert Reader architecture: connect paper alerts, bibliography exports, scholarly webpages, feeds, and arXiv to personalized digests, reading queues, research memory, and Obsidian/Zotero exports.",
             "subtitle": "Connect sources, rank papers by your research profile",
             "right1": "Local-first · Private · Agent-friendly",
             "right2": "Codex / Claude / terminal ready",
             "source_title": "1. Collect sources",
-            "source_subtitle": "Email, bibliography, feeds",
+            "source_subtitle": "Email, web, bibliography, feeds",
             "triage_title": "2. Triage automatically",
             "triage_subtitle": "Extract, dedupe, rank, feedback",
             "profile": "Keywords + Profile + Feedback",
@@ -155,7 +155,7 @@ def architecture_svg(locale: str) -> str:
             "footer": "Scheduled or manual digests · Local-first · Zotero / Obsidian ready",
             "author": "By Xin Liu",
         }
-        source_items = ["Gmail API", "Apple Mail", "mbox archives", "BibTeX / RIS", "RSS / arXiv"]
+        source_items = ["Gmail API", "Apple Mail", "mbox archives", "BibTeX / RIS", "Web / RSS / arXiv"]
         triage_items = ["Extract", "Dedupe", "Rank", "Feedback"]
         kb_items = ["Digest", "Queue", "Foundation", "Deep read", "Notes"]
         font = "Inter, Arial, sans-serif"
@@ -294,7 +294,7 @@ def social_card_svg(locale: str) -> str:
     else:
         desc = "A social sharing card for Scholar Alert Reader."
         subtitle_lines = [
-            "Rank papers from email, feeds, arXiv, Zotero exports,",
+            "Rank papers from email, web pages, feeds, arXiv,",
             "and your own research profile.",
         ]
         badges = [("Sources", 138, 174, "#dbeafe", "#1d4ed8", 174), ("Rank", 340, 168, "#dcfce7", "#047857", 382), ("Feedback", 536, 196, "#ede9fe", "#6d28d9", 574), ("Zotero + Notes", 760, 252, "#fef3c7", "#92400e", 792)]
@@ -657,7 +657,7 @@ def pixel_workflow_gif(path: Path) -> None:
     width, height = 800, 450
     frames: list[bytearray] = []
     steps = [
-        ("PAPER SOURCE INBOX", "GMAIL MAIL MBOX FEEDS ARXIV", ["GMAIL", "BIBTEX", "RSS"], "NEW PAPERS"),
+        ("PAPER SOURCE INBOX", "GMAIL MAIL MBOX WEB FEEDS", ["GMAIL", "BIBTEX", "WEB"], "NEW PAPERS"),
         ("PROFILE RANKING", "KEYWORDS METHODS AUTHORS FILTERS", ["EXTRACT", "DEDUPE", "SCORE"], "READING QUEUE"),
         ("FEEDBACK LOOP", "INTERESTED ARCHIVE MORE LIKE THIS", ["INTERESTED", "ARCHIVE", "FEEDBACK"], "BETTER NEXT RUN"),
         ("RESEARCH MEMORY", "FOUNDATION DEEP READS MAPS QA", ["DIGEST", "FOUNDATION", "DEEP READ"], "COPILOT"),
@@ -834,14 +834,14 @@ def workflow_gif_from_svg(path: Path, steps: list[tuple[str, str, list[str], str
 
 def gif_assets() -> None:
     english_steps = [
-        ("Connect paper sources", "Gmail, Apple Mail, mbox, BibTeX/RIS, RSS feeds, arXiv", ["Email alerts", "Bibliography", "Feeds / arXiv"], "New papers"),
+        ("Connect paper sources", "Gmail, Apple Mail, mbox, BibTeX/RIS, web pages, RSS, arXiv", ["Email alerts", "Bibliography", "Web / arXiv"], "New papers"),
         ("Rank by your profile", "Keywords, methods, regions, authors, exclusions, temporary boosts", ["Extract", "Dedupe", "Score"], "Ranked queue"),
         ("Learn from feedback", "Interested, archive, more-like-this, less-like-this", ["Interested", "Archive", "Feedback"], "Smarter ranking"),
         ("Build research memory", "Foundation, deep reads, Q&A, comparisons, maps, advice", ["Digest", "Foundation", "Deep reads"], "Research memory"),
         ("Export to your tools", "HTML digest, Markdown, CSV/JSON, Obsidian notes, Zotero files", ["HTML", "Obsidian", "Zotero"], "Notes + citations"),
     ]
     chinese_steps = [
-        ("接入你的论文来源", "Gmail、Apple Mail、mbox、BibTeX/RIS、RSS 和 arXiv", ["邮件提醒", "文献导出", "订阅 / arXiv"], "新论文"),
+        ("接入你的论文来源", "Gmail、Apple Mail、mbox、BibTeX/RIS、学术网页、RSS 和 arXiv", ["邮件提醒", "文献导出", "网页 / arXiv"], "新论文"),
         ("按研究方向排序", "关键词、方法、地区、作者、排除词和临时关注点", ["抽取", "去重", "打分"], "排序队列"),
         ("用反馈调整推荐", "感兴趣、忽略、更多类似、减少类似", ["感兴趣", "忽略", "反馈"], "推荐更准"),
         ("沉淀个人知识库", "文献底座、深读、问答、对比、图谱和建议", ["每日简报", "文献底座", "深读报告"], "研究记忆"),

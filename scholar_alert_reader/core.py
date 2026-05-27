@@ -1426,6 +1426,265 @@ def parse_rss_source(source: str, timeout: int = 20, limit: int = 0) -> tuple[li
     return papers, dict(counts)
 
 
+def parse_html_attrs(tag: str) -> dict[str, str]:
+    attrs: dict[str, str] = {}
+    for match in re.finditer(r"([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", tag):
+        key = match.group(1).lower()
+        value = match.group(2).strip().strip("\"'")
+        attrs[key] = html.unescape(value)
+    return attrs
+
+
+def web_meta_fields(page_html: str) -> dict[str, list[str]]:
+    fields: dict[str, list[str]] = {}
+    for tag in re.findall(r"<meta\b[^>]*>", page_html, flags=re.IGNORECASE | re.DOTALL):
+        attrs = parse_html_attrs(tag)
+        key = (attrs.get("name") or attrs.get("property") or attrs.get("itemprop") or "").strip().lower()
+        content = attrs.get("content", "").strip()
+        if key and content:
+            fields.setdefault(key, []).append(content)
+    title_match = re.search(r"<title\b[^>]*>(.*?)</title>", page_html, flags=re.IGNORECASE | re.DOTALL)
+    if title_match:
+        title = clean_html(title_match.group(1))
+        if title:
+            fields.setdefault("html:title", []).append(title)
+    return fields
+
+
+def first_web_value(fields: dict[str, list[str]], names: list[str]) -> str:
+    for name in names:
+        values = fields.get(name.lower(), [])
+        for value in values:
+            cleaned = clean_html(str(value))
+            if cleaned:
+                return cleaned
+    return ""
+
+
+def web_values(fields: dict[str, list[str]], names: list[str]) -> list[str]:
+    values: list[str] = []
+    for name in names:
+        for value in fields.get(name.lower(), []):
+            cleaned = clean_html(str(value))
+            if cleaned and cleaned not in values:
+                values.append(cleaned)
+    return values
+
+
+def jsonld_items(value: Any) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    if isinstance(value, dict):
+        graph = value.get("@graph")
+        if isinstance(graph, list):
+            for item in graph:
+                items.extend(jsonld_items(item))
+        item_type = value.get("@type", "")
+        types = item_type if isinstance(item_type, list) else [item_type]
+        normalized = {str(item).lower() for item in types}
+        if normalized & {"scholarlyarticle", "article", "report", "techarticle"}:
+            items.append(value)
+    elif isinstance(value, list):
+        for item in value:
+            items.extend(jsonld_items(item))
+    return items
+
+
+def jsonld_authors(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        value = [value] if value else []
+    authors: list[str] = []
+    for item in value:
+        if isinstance(item, dict):
+            name = clean_html(str(item.get("name", "")))
+        else:
+            name = clean_html(str(item))
+        if name and name not in authors:
+            authors.append(name)
+    return authors
+
+
+def jsonld_source(value: dict[str, Any]) -> str:
+    for key in ["isPartOf", "publisher", "sourceOrganization"]:
+        item = value.get(key)
+        if isinstance(item, dict):
+            name = clean_html(str(item.get("name", "")))
+            if name:
+                return name
+        elif isinstance(item, str) and item.strip():
+            return clean_html(item)
+    return ""
+
+
+def jsonld_text_values(value: Any) -> list[str]:
+    values: list[str] = []
+    if isinstance(value, list):
+        for item in value:
+            values.extend(jsonld_text_values(item))
+    elif isinstance(value, dict):
+        for key in ["value", "name", "@id", "url"]:
+            item = value.get(key)
+            if item:
+                values.extend(jsonld_text_values(item))
+                break
+    elif value:
+        text = clean_html(str(value))
+        if text:
+            values.append(text)
+    return values
+
+
+def jsonld_to_web_fields(item: dict[str, Any]) -> dict[str, list[str]]:
+    fields: dict[str, list[str]] = {}
+    mapping = {
+        "citation_title": ["headline", "name"],
+        "citation_abstract": ["abstract", "description"],
+        "citation_publication_date": ["datePublished", "dateCreated", "dateModified"],
+        "citation_public_url": ["url", "mainEntityOfPage"],
+        "citation_doi": ["doi", "identifier"],
+    }
+    for target, keys in mapping.items():
+        for key in keys:
+            values = jsonld_text_values(item.get(key))
+            if values:
+                fields.setdefault(target, []).extend(values)
+                break
+    for author in jsonld_authors(item.get("author") or item.get("creator")):
+        fields.setdefault("citation_author", []).append(author)
+    source = jsonld_source(item)
+    if source:
+        fields.setdefault("citation_journal_title", []).append(source)
+    return fields
+
+
+def paper_from_web_fields(fields: dict[str, list[str]], source_name: str) -> Paper | None:
+    title = first_web_value(fields, ["citation_title", "dc.title", "dcterms.title", "og:title", "twitter:title", "html:title"])
+    if not title:
+        return None
+    authors = web_values(fields, ["citation_author", "dc.creator", "dcterms.creator", "author"])
+    source = first_web_value(fields, ["citation_journal_title", "citation_conference_title", "dc.source", "og:site_name"])
+    date_value = first_web_value(fields, ["citation_publication_date", "citation_date", "dc.date", "dcterms.date", "article:published_time"])
+    date = feed_date(date_value)
+    doi = normalize_doi(first_web_value(fields, ["citation_doi", "dc.identifier", "doi"]))
+    url = first_web_value(fields, ["citation_public_url", "citation_fulltext_html_url", "og:url", "twitter:url"]) or doi_url(doi) or source_name
+    snippet = first_web_value(fields, ["citation_abstract", "dc.description", "dcterms.description", "description", "og:description", "twitter:description"])
+    keywords = web_values(fields, ["citation_keywords", "keywords", "dc.subject", "article:tag"])
+    if not snippet and keywords:
+        snippet = "Keywords: " + ", ".join(keywords)
+    metadata = {
+        "web": {
+            "source": source_name,
+            "doi": doi,
+            "published": date_value,
+            "authors": authors,
+            "keywords": keywords,
+        }
+    }
+    return Paper(
+        id=stable_id(title),
+        title=title,
+        authors_source=bibliography_authors_source(authors, source or source_name, date[:4]),
+        snippet=snippet or "Imported from webpage metadata.",
+        url=url,
+        scholar_url="",
+        first_seen=date,
+        last_seen=date,
+        alerts=[source or source_name, "Web metadata import"],
+        occurrences=1,
+        metadata=metadata,
+    )
+
+
+def parse_web_page(page_html: str, source_name: str) -> tuple[list[Paper], dict[str, int]]:
+    papers_by_key: dict[str, Paper] = {}
+    counts = Counter()
+    meta_fields = web_meta_fields(page_html)
+    jsonld_count = 0
+    for raw_script in re.findall(
+        r"<script\b[^>]*type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
+        page_html,
+        flags=re.IGNORECASE | re.DOTALL,
+    ):
+        raw_json = html.unescape(raw_script).strip()
+        if not raw_json:
+            continue
+        try:
+            parsed = json.loads(raw_json)
+        except json.JSONDecodeError:
+            counts["web_jsonld_parse_errors"] += 1
+            continue
+        for item in jsonld_items(parsed):
+            jsonld_count += 1
+            paper = paper_from_web_fields({**meta_fields, **jsonld_to_web_fields(item)}, source_name)
+            if paper is None:
+                counts["web_skipped_no_title"] += 1
+                continue
+            merge_bibliography_paper(papers_by_key, paper)
+    if not papers_by_key:
+        paper = paper_from_web_fields(meta_fields, source_name)
+        if paper:
+            merge_bibliography_paper(papers_by_key, paper)
+        else:
+            counts["web_skipped_no_title"] += 1
+    counts["web_jsonld_items"] = jsonld_count
+    counts["web_unique_papers"] = len(papers_by_key)
+    return list(papers_by_key.values()), dict(counts)
+
+
+def read_web_text(source: str, timeout: int) -> str:
+    return read_feed_text(source, timeout)
+
+
+def web_sources(source: str) -> list[str]:
+    source = source.strip()
+    if not source:
+        raise SystemExit("Web source is empty.")
+    path = Path(source).expanduser()
+    if path.exists():
+        if path.is_dir():
+            files = sorted(
+                item
+                for item in path.iterdir()
+                if item.is_file() and item.suffix.lower() in {".html", ".htm"}
+            )
+            if not files:
+                raise SystemExit(f"No .html/.htm files found in directory: {path}")
+            return [str(item) for item in files]
+        if path.suffix.lower() in {".txt", ".list"}:
+            lines: list[str] = []
+            for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = raw_line.strip()
+                if not line or line.lstrip().startswith("#"):
+                    continue
+                line_path = Path(line).expanduser()
+                if not is_url(line) and not line_path.is_absolute():
+                    line = str(path.parent / line_path)
+                lines.append(line)
+            if not lines:
+                raise SystemExit(f"No webpage URLs or paths found in: {path}")
+            return lines
+        return [str(path)]
+    return split_csv(source) or [source]
+
+
+def parse_web_source(source: str, timeout: int = 20, limit: int = 0) -> tuple[list[Paper], dict[str, int]]:
+    papers_by_key: dict[str, Paper] = {}
+    counts = Counter()
+    for web_source in web_sources(source):
+        counts["web_sources"] += 1
+        text = read_web_text(web_source, timeout)
+        papers, page_counts = parse_web_page(text, web_source)
+        counts.update(page_counts)
+        for paper in papers:
+            merge_bibliography_paper(papers_by_key, paper)
+    papers = list(papers_by_key.values())
+    papers.sort(key=lambda paper: (paper.last_seen, paper.title.lower()), reverse=True)
+    if limit > 0:
+        papers = papers[:limit]
+    counts["web_unique_papers"] = len(papers_by_key)
+    counts["web_returned_papers"] = len(papers)
+    return papers, dict(counts)
+
+
 def arxiv_api_url(query: str, limit: int, sort_by: str = "submittedDate", sort_order: str = "descending") -> str:
     params = {
         "search_query": query,
@@ -2727,6 +2986,7 @@ def write_project_env(path: Path, values: dict[str, str | Path | int | bool]) ->
         "MBOX_PATH",
         "BIBTEX_PATH",
         "RIS_PATH",
+        "WEB_SOURCE",
         "RSS_SOURCE",
         "ARXIV_QUERY",
         "GMAIL_CREDENTIALS",
@@ -2867,7 +3127,7 @@ def render_project_guide(
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
         "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
         "   - Bibliography import: place `import.bib` or `import.ris` in this project, then run `./bibtex_import.sh` or `./ris_import.sh`.",
-        "   - Structured web sources: place feed URLs in `feeds.txt` and run `./rss_import.sh`, or set `ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh`.",
+        "   - Structured web sources: place webpage URLs or saved HTML paths in `web_sources.txt` and run `./web_import.sh`, feed URLs in `feeds.txt` and run `./rss_import.sh`, or set `ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh`.",
         "5. Build the baseline with `MODE=foundation ./run_reader.sh`.",
         "6. Run daily triage with `./run_reader.sh`.",
         "7. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
@@ -2879,7 +3139,7 @@ def render_project_guide(
         "## Daily Loop",
         "",
         "- `./run_reader.sh`: fetch and rank new alert papers.",
-        "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, RSS/arXiv, or optional Mail.app source readiness.",
+        "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, or optional Mail.app source readiness.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
@@ -2902,6 +3162,7 @@ def render_project_guide(
         f"- Local mbox: {status_marker(project_dir / 'INBOX.mbox')}",
         f"- BibTeX import: {status_marker(project_dir / 'import.bib')}",
         f"- RIS import: {status_marker(project_dir / 'import.ris')}",
+        f"- Web metadata source list: {status_marker(project_dir / 'web_sources.txt')}",
         f"- RSS/Atom feed list: {status_marker(project_dir / 'feeds.txt')}",
         f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
         f"- Daily papers JSON: {count_marker(daily_dir / 'papers.json')}",
@@ -2969,7 +3230,14 @@ def init_project(args: argparse.Namespace) -> None:
         sample_target = project_dir / "examples" / "sample_scholar_alerts.mbox"
         if not sample_target.exists() or args.force:
             shutil.copyfile(sample_mbox, sample_target)
-    for sample_name in ["sample_import.bib", "sample_import.ris", "sample_feed.atom", "feeds.example.txt"]:
+    for sample_name in [
+        "sample_import.bib",
+        "sample_import.ris",
+        "sample_web_article.html",
+        "web_sources.example.txt",
+        "sample_feed.atom",
+        "feeds.example.txt",
+    ]:
         sample_source = SCRIPT_DIR.parent / "examples" / sample_name
         if sample_source.exists():
             sample_target = project_dir / "examples" / sample_name
@@ -2982,6 +3250,7 @@ SOURCE="${SOURCE:-auto}"
 MBOX_PATH="${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}"
 BIBTEX_PATH="${BIBTEX_PATH:-$PROJECT_DIR/import.bib}"
 RIS_PATH="${RIS_PATH:-$PROJECT_DIR/import.ris}"
+WEB_SOURCE="${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}"
 RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}"
 ARXIV_QUERY="${ARXIV_QUERY:-}"
 GMAIL_CREDENTIALS="${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}"
@@ -3006,6 +3275,8 @@ if [[ "$SOURCE" == "auto" ]]; then
     SOURCE="bibtex"
   elif [[ -f "$RIS_PATH" || -d "$RIS_PATH" ]]; then
     SOURCE="ris"
+  elif [[ -f "$WEB_SOURCE" || -d "$WEB_SOURCE" || "$WEB_SOURCE" == http://* || "$WEB_SOURCE" == https://* ]]; then
+    SOURCE="web"
   elif [[ -f "$RSS_SOURCE" || -d "$RSS_SOURCE" ]]; then
     SOURCE="rss"
   elif [[ -n "$ARXIV_QUERY" ]]; then
@@ -3015,11 +3286,11 @@ if [[ "$SOURCE" == "auto" ]]; then
   elif [[ -f "$GMAIL_TOKEN" && "$GMAIL_DEPS_READY" != "1" ]]; then
     echo "Gmail token exists, but this Python is missing Gmail API dependencies." >&2
     echo "Install with: $PYTHON_BIN -m pip install -r requirements-gmail.txt" >&2
-    echo "Or set SOURCE=mbox, bibtex, ris, rss, arxiv, or mail-app explicitly." >&2
+    echo "Or set SOURCE=mbox, bibtex, ris, web, rss, arxiv, or mail-app explicitly." >&2
     exit 2
   else
     echo "No Scholar Alert source is ready." >&2
-    echo "Set up Gmail OAuth, place INBOX.mbox/import.bib/import.ris/feeds.txt in this project, set ARXIV_QUERY, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2
+    echo "Set up Gmail OAuth, place INBOX.mbox/import.bib/import.ris/web_sources.txt/feeds.txt in this project, set ARXIV_QUERY, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2
     exit 2
   fi
 fi
@@ -3045,6 +3316,8 @@ elif [[ "$SOURCE" == "bibtex" ]]; then
   cmd+=(--source-bibtex "$BIBTEX_PATH")
 elif [[ "$SOURCE" == "ris" ]]; then
   cmd+=(--source-ris "$RIS_PATH")
+elif [[ "$SOURCE" == "web" ]]; then
+  cmd+=(--source-web "$WEB_SOURCE")
 elif [[ "$SOURCE" == "rss" ]]; then
   cmd+=(--source-rss "$RSS_SOURCE")
 elif [[ "$SOURCE" == "arxiv" ]]; then
@@ -3062,6 +3335,8 @@ if [[ -n "${GMAIL_LIMIT:-}" ]]; then cmd+=(--gmail-limit "$GMAIL_LIMIT"); fi
 if [[ -n "${GMAIL_QUERY:-}" ]]; then cmd+=(--gmail-query "$GMAIL_QUERY"); fi
 if [[ -n "${RSS_LIMIT:-}" ]]; then cmd+=(--rss-limit "$RSS_LIMIT"); fi
 if [[ -n "${RSS_TIMEOUT:-}" ]]; then cmd+=(--rss-timeout "$RSS_TIMEOUT"); fi
+if [[ -n "${WEB_LIMIT:-}" ]]; then cmd+=(--web-limit "$WEB_LIMIT"); fi
+if [[ -n "${WEB_TIMEOUT:-}" ]]; then cmd+=(--web-timeout "$WEB_TIMEOUT"); fi
 if [[ -n "${ARXIV_LIMIT:-}" ]]; then cmd+=(--arxiv-limit "$ARXIV_LIMIT"); fi
 if [[ "$MODE" != "foundation" && -n "${SINCE_DAYS:-}" ]]; then cmd+=(--since-days "$SINCE_DAYS"); fi
 if [[ "$MODE" == "run" && "${ONLY_NEW:-0}" == "1" ]]; then cmd+=(--only-new); fi
@@ -3076,9 +3351,10 @@ exec "${cmd[@]}"
         "demo_reader.sh": 'SOURCE=mbox MBOX_PATH="$PROJECT_DIR/examples/sample_scholar_alerts.mbox" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"\n',
         "bibtex_import.sh": 'SOURCE=bibtex BIBTEX_PATH="${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/bibtex}" "$PROJECT_DIR/run_reader.sh"\n',
         "ris_import.sh": 'SOURCE=ris RIS_PATH="${RIS_PATH:-$PROJECT_DIR/import.ris}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/ris}" "$PROJECT_DIR/run_reader.sh"\n',
+        "web_import.sh": 'SOURCE=web WEB_SOURCE="${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/web}" "$PROJECT_DIR/run_reader.sh"\n',
         "rss_import.sh": 'SOURCE=rss RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/rss}" "$PROJECT_DIR/run_reader.sh"\n',
         "arxiv_search.sh": 'if [[ -z "${ARXIV_QUERY:-}" ]]; then echo "Set ARXIV_QUERY before running arxiv_search.sh" >&2; exit 2; fi\nSOURCE=arxiv MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/arxiv}" "$PROJECT_DIR/run_reader.sh"\n',
-        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
+        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --web-source "${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
         "self_test.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" self-test --project-dir "${SELF_TEST_PROJECT_DIR:-$PROJECT_DIR/.self_test}" --force "$@"\n',
         "setup_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" setup --project-dir "$PROJECT_DIR" "$@"\n',
         "copy_profile_template.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" init-profile --profile "$PROFILE_PATH" "$@"\n',
@@ -3126,6 +3402,7 @@ exec "${cmd[@]}"
                     "import.bib",
                     "import.ris",
                     "zotero.bib",
+                    "web_sources.txt",
                     "feeds.txt",
                     "gmail_credentials.json",
                     "gmail_token.json",
@@ -3189,7 +3466,14 @@ exec "${cmd[@]}"
                     "RIS_PATH=examples/sample_import.ris ./ris_import.sh",
                     "```",
                     "",
-                    "## Import from RSS/Atom or arXiv",
+                    "## Import from web metadata, RSS/Atom, or arXiv",
+                    "",
+                    "Place webpage URLs or saved scholarly HTML pages in `web_sources.txt`, then run:",
+                    "",
+                    "```bash",
+                    "WEB_SOURCE=examples/sample_web_article.html ./web_import.sh",
+                    "./web_import.sh",
+                    "```",
                     "",
                     "Place feed URLs in `feeds.txt` or point `RSS_SOURCE` at a feed file:",
                     "",
@@ -3310,6 +3594,12 @@ def setup_project(args: argparse.Namespace) -> None:
     values["MBOX_PATH"] = project_relative_path(project_dir, args.mbox_path, "INBOX.mbox")
     values["BIBTEX_PATH"] = project_relative_path(project_dir, args.bibtex_path, "import.bib")
     values["RIS_PATH"] = project_relative_path(project_dir, args.ris_path, "import.ris")
+    web_source = args.web_source or str(project_dir / "web_sources.txt")
+    if not is_url(web_source):
+        web_path = Path(web_source).expanduser()
+        if not web_path.is_absolute():
+            web_source = str(project_dir / web_path)
+    values["WEB_SOURCE"] = web_source
     rss_source = args.rss_source or str(project_dir / "feeds.txt")
     if not is_url(rss_source):
         rss_path = Path(rss_source).expanduser()
@@ -3713,6 +4003,7 @@ def choose_auto_source(
     mbox_path: Path,
     bibtex_path: Path,
     ris_path: Path,
+    web_source: str,
     rss_source: str,
     arxiv_query: str | None,
     gmail_token: Path,
@@ -3726,6 +4017,9 @@ def choose_auto_source(
         return "bibtex", f"BibTeX file or directory found at {bibtex_path}"
     if ris_path.exists():
         return "ris", f"RIS file or directory found at {ris_path}"
+    web_path = Path(web_source).expanduser()
+    if is_url(web_source) or web_path.exists():
+        return "web", f"Web metadata source found at {web_source}"
     rss_path = Path(rss_source).expanduser()
     if is_url(rss_source) or rss_path.exists():
         return "rss", f"RSS/Atom source found at {rss_source}"
@@ -3736,7 +4030,7 @@ def choose_auto_source(
     if gmail_token.exists() and not gmail_dependencies_available():
         return "gmail", "Gmail token exists but Python Gmail dependencies are missing"
     return "none", (
-        "No automatic source is ready. Configure Gmail OAuth, place an INBOX.mbox/import.bib/import.ris/feeds.txt "
+        "No automatic source is ready. Configure Gmail OAuth, place an INBOX.mbox/import.bib/import.ris/web_sources.txt/feeds.txt "
         "in the project, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 on macOS after granting Mail Automation permission."
     )
 
@@ -3747,6 +4041,7 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
     mbox_path = (args.mbox_path or (project_dir / "INBOX.mbox")).expanduser()
     bibtex_path = (args.bibtex_path or (project_dir / "import.bib")).expanduser()
     ris_path = (args.ris_path or (project_dir / "import.ris")).expanduser()
+    web_source = args.web_source or str(project_dir / "web_sources.txt")
     rss_source = args.rss_source or str(project_dir / "feeds.txt")
     gmail_credentials = args.gmail_credentials.expanduser()
     gmail_token = args.gmail_token.expanduser()
@@ -3762,6 +4057,7 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
             mbox_path,
             bibtex_path,
             ris_path,
+            web_source,
             rss_source,
             args.arxiv_query,
             gmail_token,
@@ -3827,6 +4123,16 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
             except (SystemExit, Exception) as exc:
                 checks.append(("RIS parse", False, exc_detail(exc)))
         notes.append("RIS import is useful for Zotero, EndNote, publisher exports, and many academic databases.")
+    elif source == "web":
+        web_path = Path(web_source).expanduser()
+        checks.append(("Web metadata source", is_url(web_source) or web_path.exists(), web_source))
+        if args.live and (is_url(web_source) or web_path.exists()):
+            try:
+                papers, counts = parse_web_source(web_source, timeout=args.web_timeout or args.timeout, limit=args.web_limit or args.limit)
+                checks.append(("Web metadata live read", True, f"{len(papers)} papers from {counts.get('web_sources', 0)} page sources"))
+            except (SystemExit, Exception) as exc:
+                checks.append(("Web metadata live read", False, exc_detail(exc)))
+        notes.append("Web metadata import reads citation meta tags, JSON-LD, Dublin Core, and OpenGraph from configured URLs or saved HTML; it is not a deep crawler.")
     elif source == "rss":
         rss_path = Path(rss_source).expanduser()
         checks.append(("RSS/Atom source", is_url(rss_source) or rss_path.exists(), rss_source))
@@ -3836,7 +4142,7 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
                 checks.append(("RSS/Atom live read", True, f"{len(papers)} papers from {counts.get('feed_entries', 0)} entries"))
             except (SystemExit, Exception) as exc:
                 checks.append(("RSS/Atom live read", False, exc_detail(exc)))
-        notes.append("RSS/Atom import is best for journal feeds, saved search feeds, and other structured web sources.")
+        notes.append("RSS/Atom import is best for journal feeds, saved-search feeds, and publisher/database feeds.")
     elif source == "arxiv":
         checks.append(("arXiv query", bool(args.arxiv_query), args.arxiv_query or "missing --arxiv-query"))
         if args.live and args.arxiv_query:
@@ -3914,6 +4220,7 @@ def self_test_command(args: argparse.Namespace) -> None:
     kb_dir = project_dir / "knowledge_base"
     demo_out = project_dir / "reader_out" / "self_test_demo"
     mbox = project_dir / "examples" / "sample_scholar_alerts.mbox"
+    web_page = project_dir / "examples" / "sample_web_article.html"
     rss = project_dir / "examples" / "sample_feed.atom"
 
     try:
@@ -3952,6 +4259,23 @@ def self_test_command(args: argparse.Namespace) -> None:
             checks.append(("summary.json", False, str(summary_path)))
         checks.append(("digest.html", digest_path.exists(), str(digest_path)))
         checks.append(("papers.json", papers_path.exists(), str(papers_path)))
+
+        ok, detail = self_test_run_command(
+            [
+                sys.executable,
+                str(script),
+                "source-check",
+                "--project-dir",
+                str(project_dir),
+                "--source",
+                "web",
+                "--web-source",
+                str(web_page),
+                "--live",
+            ],
+            project_dir,
+        )
+        checks.append(("sample web source-check", ok, detail))
 
         ok, detail = self_test_run_command(
             [
@@ -4053,6 +4377,9 @@ def run(args: argparse.Namespace) -> None:
     elif getattr(args, "source_ris", None):
         papers, source_counts = parse_ris_source(args.source_ris)
         source_label = f"RIS: {args.source_ris}"
+    elif getattr(args, "source_web", None):
+        papers, source_counts = parse_web_source(args.source_web, timeout=args.web_timeout, limit=args.web_limit)
+        source_label = f"Web metadata: {args.source_web}"
     elif getattr(args, "source_rss", None):
         papers, source_counts = parse_rss_source(args.source_rss, timeout=args.rss_timeout, limit=args.rss_limit)
         source_label = f"RSS/Atom: {args.source_rss}"
@@ -4076,6 +4403,7 @@ def run(args: argparse.Namespace) -> None:
         "source_gmail": bool(getattr(args, "source_gmail", False)),
         "source_bibtex": str(args.source_bibtex) if getattr(args, "source_bibtex", None) else "",
         "source_ris": str(args.source_ris) if getattr(args, "source_ris", None) else "",
+        "source_web": str(args.source_web) if getattr(args, "source_web", None) else "",
         "source_rss": str(args.source_rss) if getattr(args, "source_rss", None) else "",
         "source_arxiv_query": str(args.source_arxiv_query) if getattr(args, "source_arxiv_query", None) else "",
         "source_counts": source_counts,
@@ -4112,6 +4440,7 @@ def add_source_profile_args(cmd: argparse.ArgumentParser, default_out_dir: str) 
     source.add_argument("--source-gmail", action="store_true", help="Read Google Scholar Alert messages through Gmail API")
     source.add_argument("--source-bibtex", type=Path, help="Path to a BibTeX .bib file or a directory of .bib files")
     source.add_argument("--source-ris", type=Path, help="Path to an RIS .ris file or a directory of .ris files")
+    source.add_argument("--source-web", help="Scholarly webpage URL, saved HTML file/directory, or text file listing webpage URLs/paths")
     source.add_argument("--source-rss", help="RSS/Atom feed URL, feed file, directory of feed files, or text file listing feed URLs")
     source.add_argument("--source-arxiv-query", help="arXiv API search query, e.g. 'cat:physics.geo-ph AND all:\"receiver function\"'")
     cmd.add_argument("--profile", type=Path, help="JSON research profile")
@@ -4129,6 +4458,8 @@ def add_source_profile_args(cmd: argparse.ArgumentParser, default_out_dir: str) 
     cmd.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
     cmd.add_argument("--rss-limit", type=int, default=0, help="Max RSS/Atom papers to return after dedupe; 0 means no limit")
     cmd.add_argument("--rss-timeout", type=int, default=20, help="RSS/Atom/arXiv HTTP timeout in seconds")
+    cmd.add_argument("--web-limit", type=int, default=0, help="Max webpage metadata papers to return after dedupe; 0 means no limit")
+    cmd.add_argument("--web-timeout", type=int, default=20, help="Webpage metadata HTTP timeout in seconds")
     cmd.add_argument("--arxiv-limit", type=int, default=50, help="Max arXiv results to fetch")
 
 
@@ -4829,7 +5160,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     setup = sub.add_parser("setup", help="Write persistent local project defaults to reader.env")
     setup.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
-    setup.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "rss", "arxiv"], default="auto")
+    setup.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "rss", "arxiv"], default="auto")
     setup.add_argument("--mode", choices=["daily", "foundation", "run"], default="daily")
     setup.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
     setup.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
@@ -4838,6 +5169,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--mbox-path", type=Path, help="Local mbox path. Defaults to project-dir/INBOX.mbox")
     setup.add_argument("--bibtex-path", type=Path, help="BibTeX import path. Defaults to project-dir/import.bib")
     setup.add_argument("--ris-path", type=Path, help="RIS import path. Defaults to project-dir/import.ris")
+    setup.add_argument("--web-source", help="Scholarly webpage URL, saved HTML file/directory, or URL/path list. Defaults to project-dir/web_sources.txt")
     setup.add_argument("--rss-source", help="RSS/Atom URL, feed file, directory, or text file. Defaults to project-dir/feeds.txt")
     setup.add_argument("--arxiv-query", help="arXiv API search query, required with --source arxiv")
     setup.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
@@ -4864,21 +5196,24 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--output", type=Path, help="Write guide markdown to this path instead of stdout")
     guide.set_defaults(func=guide_command)
 
-    source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, BibTeX, RIS, RSS/Atom, arXiv, or auto source readiness")
-    source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "rss", "arxiv"], default="auto")
+    source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, BibTeX, RIS, web metadata, RSS/Atom, arXiv, or auto source readiness")
+    source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "rss", "arxiv"], default="auto")
     source_check.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
     source_check.add_argument("--mbox-path", type=Path, help="mbox path. Defaults to project-dir/INBOX.mbox")
     source_check.add_argument("--bibtex-path", type=Path, help="BibTeX path. Defaults to project-dir/import.bib")
     source_check.add_argument("--ris-path", type=Path, help="RIS path. Defaults to project-dir/import.ris")
+    source_check.add_argument("--web-source", help="Scholarly webpage URL, saved HTML file/directory, or URL/path list. Defaults to project-dir/web_sources.txt")
     source_check.add_argument("--rss-source", help="RSS/Atom URL, feed file, directory, or text file. Defaults to project-dir/feeds.txt")
     source_check.add_argument("--arxiv-query", help="arXiv API search query for source-check --source arxiv")
     source_check.add_argument("--arxiv-limit", type=int, help="Max arXiv results to fetch during --live; defaults to --limit")
+    source_check.add_argument("--web-limit", type=int, help="Max webpage metadata papers to read during --live; defaults to --limit")
+    source_check.add_argument("--web-timeout", type=int, help="Webpage metadata HTTP timeout during --live; defaults to --timeout")
     source_check.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
     source_check.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
     source_check.add_argument("--gmail-query", help="Additional Gmail search query terms")
     source_check.add_argument("--since-days", type=int, help="Only check messages newer than this many days")
     source_check.add_argument("--limit", type=int, default=1, help="Max messages to fetch/export during --live")
-    source_check.add_argument("--timeout", type=int, default=20, help="Mail.app/RSS/arXiv live-check timeout in seconds")
+    source_check.add_argument("--timeout", type=int, default=20, help="Mail.app/web/RSS/arXiv live-check timeout in seconds")
     source_check.add_argument("--live", action="store_true", help="Attempt a real read from the selected source")
     source_check.add_argument("--allow-mail-app", action="store_true", help="Allow auto mode to select macOS Mail.app")
     source_check.add_argument("--strict", action="store_true", help="Exit non-zero if any check warns")

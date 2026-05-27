@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.9 - 2026-05-27
+
+- Add `--source-web` / generated `web_import.sh` for structured scholarly webpage metadata imports from URLs, saved HTML, directories, or URL/path lists.
+- Parse citation meta tags, JSON-LD, Dublin Core, and OpenGraph into the same ranking, feedback, digest, and knowledge-base pipeline as email, bibliography, RSS, and arXiv sources.
+- Add sample webpage data, source-check/self-test coverage, project scaffolding, privacy notes, and user-facing documentation for webpage metadata sources.
+
 ## v0.2.8 - 2026-05-27
 
 - Add `self-test` / generated `self_test.sh` for bundled-data end-to-end install validation.

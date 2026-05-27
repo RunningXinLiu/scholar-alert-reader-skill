@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader architecture</title>
-<desc id="desc">Scholar Alert Reader architecture: connect paper alerts, bibliography exports, feeds, and arXiv to personalized digests, reading queues, research memory, and Obsidian/Zotero exports.</desc>
+<desc id="desc">Scholar Alert Reader architecture: connect paper alerts, bibliography exports, scholarly webpages, feeds, and arXiv to personalized digests, reading queues, research memory, and Obsidian/Zotero exports.</desc>
 <defs>
   <linearGradient id="hero" x1="0" x2="1" y1="0" y2="1">
     <stop offset="0" stop-color="#101827"/>
@@ -44,12 +44,12 @@
 <g font-family="Inter, Arial, sans-serif">
   <rect x="62" y="196" width="302" height="360" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
   <text x="92" y="246" fill="#0f172a" font-size="25" font-weight="850">1. Collect sources</text>
-  <text x="92" y="276" fill="#64748b" font-size="16">Email, bibliography, feeds</text>
+  <text x="92" y="276" fill="#64748b" font-size="16">Email, web, bibliography, feeds</text>
   <rect x="92" y="298" width="216" height="40" rx="12" fill="#dbeafe" stroke="#bfdbfe"/><text x="116" y="323" fill="#1d4ed8" font-size="15" font-weight="800">Gmail API</text><path d="M285 300l32 18 -32 18z" fill="#93c5fd" opacity=".7"/>
   <rect x="114" y="350" width="216" height="40" rx="12" fill="#dcfce7" stroke="#bbf7d0"/><text x="138" y="375" fill="#047857" font-size="15" font-weight="800">Apple Mail</text><path d="M307 352l32 18 -32 18z" fill="#86efac" opacity=".7"/>
   <rect x="92" y="402" width="216" height="40" rx="12" fill="#fef3c7" stroke="#fde68a"/><text x="116" y="427" fill="#92400e" font-size="15" font-weight="800">mbox archives</text><path d="M285 404l32 18 -32 18z" fill="#fcd34d" opacity=".7"/>
   <rect x="114" y="454" width="216" height="40" rx="12" fill="#ede9fe" stroke="#ddd6fe"/><text x="138" y="479" fill="#6d28d9" font-size="15" font-weight="800">BibTeX / RIS</text><path d="M307 456l32 18 -32 18z" fill="#c4b5fd" opacity=".7"/>
-  <rect x="92" y="506" width="216" height="40" rx="12" fill="#e0f2fe" stroke="#bae6fd"/><text x="116" y="531" fill="#075985" font-size="15" font-weight="800">RSS / arXiv</text><path d="M285 508l32 18 -32 18z" fill="#7dd3fc" opacity=".7"/>
+  <rect x="92" y="506" width="216" height="40" rx="12" fill="#e0f2fe" stroke="#bae6fd"/><text x="116" y="531" fill="#075985" font-size="15" font-weight="800">Web / RSS / arXiv</text><path d="M285 508l32 18 -32 18z" fill="#7dd3fc" opacity=".7"/>
 
   <rect x="449" y="188" width="302" height="352" rx="28" fill="#ffffff" stroke="#2563eb" stroke-width="2.5" filter="url(#shadow)"/>
   <rect x="477" y="216" width="246" height="70" rx="18" fill="#eff6ff"/>

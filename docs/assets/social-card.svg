@@ -17,7 +17,7 @@
 <path d="M146 333c42-20 75-16 102 10 27-26 60-30 102-10" fill="none" stroke="#93c5fd" stroke-width="16" stroke-linecap="round"/>
 </g>
 <text x="230" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
-<text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="27">Rank papers from email, feeds, arXiv, Zotero exports,</text>
+<text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="27">Rank papers from email, web pages, feeds, arXiv,</text>
 <text x="136" y="272" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="27">and your own research profile.</text>
 <g font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24">
   <rect x="138" y="318" width="174" height="68" rx="18" fill="#dbeafe"/><text x="174" y="361" fill="#1d4ed8">Sources</text>

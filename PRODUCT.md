@@ -16,7 +16,7 @@ Scholar Alert Reader should feel like a small local literature product, not a pi
 
 ## Core Promise
 
-Turn scattered paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research memory.
+Turn scattered paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research memory.
 
 ## Capability Boundary
 
@@ -28,13 +28,13 @@ Current releases are strongest as a triage and research-memory layer. Ranking, a
 
 For users who do not use Obsidian or Zotero.
 
-- Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, RSS/Atom feeds, or arXiv queries.
+- Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
 - Output: `digest.html`, `digest.md`, `papers.json`, `knowledge_base/`.
 - Main actions: self-test, profile-based ranking, feedback UI, scheduled/manual digest, profile-tune, deep-read, full-text, review-pack, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
-- Gmail API, exported mbox, BibTeX/RIS, RSS/Atom, and arXiv are the portable sources.
+- Gmail API, exported mbox, BibTeX/RIS, structured scholarly webpage metadata, RSS/Atom, and arXiv are the portable sources.
 - Mail.app integration is macOS-only.
 - macOS LaunchAgent scheduling is currently the packaged scheduler; other platforms should use their native scheduler around the same CLI commands.
 - Codex is the intended skill interface, but the repository also exposes a plain Python CLI for users who want to run it outside Codex.
@@ -66,7 +66,7 @@ For users who want citation/PDF management.
 - A new user can run a bundled-data `self-test` before connecting private email, Zotero, Obsidian, or external feeds.
 - A new user can persist local defaults with `setup` / `setup_reader.sh` instead of repeatedly typing source, schedule, Obsidian, or Zotero path environment variables.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
-- A user without Gmail or Zotero can monitor structured web feeds through `feeds.txt` or run targeted arXiv queries.
+- A user without Gmail or Zotero can import structured scholarly webpage metadata through `web_sources.txt`, monitor feeds through `feeds.txt`, or run targeted arXiv queries.
 - A user can tune ranking with focus terms, methods, regions, authors, exclusions, semantic queries, temporary boosts, explicit paper feedback, and generated profile-tuning reports.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.

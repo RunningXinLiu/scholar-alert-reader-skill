@@ -19,6 +19,7 @@ token.json
 import.bib
 import.ris
 zotero.bib
+web_sources.txt
 feeds.txt
 reader.env
 out/
