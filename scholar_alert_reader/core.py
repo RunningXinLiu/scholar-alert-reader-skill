@@ -4505,6 +4505,86 @@ def count_marker(path: Path) -> str:
     return f"{count} {kind}"
 
 
+def source_onboarding_lines() -> list[str]:
+    sources = [
+        {
+            "name": "Gmail API",
+            "best": "Best for unattended daily Scholar Alert automation after one OAuth setup.",
+            "prepare": "Create your own Google Desktop OAuth client, save it as `$HOME/.codex/scholar-alert-reader/gmail_credentials.json`, then run the OAuth flow once.",
+            "check": "./source_check.sh --source gmail --live",
+            "run": "SOURCE=gmail ./run_reader.sh",
+        },
+        {
+            "name": "Apple Mail",
+            "best": "Best for macOS users who already read Scholar Alerts in Mail.app.",
+            "prepare": "Give Terminal/Codex Automation permission to control Mail.app and keep Scholar Alert messages in a searchable mailbox.",
+            "check": "./source_check.sh --source mail-app --live",
+            "run": "SOURCE=mail-app ./run_reader.sh",
+        },
+        {
+            "name": "Exported mbox",
+            "best": "Best for first foundation builds, offline review, or users who do not want live Gmail access.",
+            "prepare": "Export Gmail or Apple Mail to `INBOX.mbox` in this project directory.",
+            "check": "./source_check.sh --source mbox --live",
+            "run": "SOURCE=mbox MODE=foundation ./run_reader.sh",
+        },
+        {
+            "name": "BibTeX",
+            "best": "Best for Zotero, Google Scholar library, publisher, or database exports.",
+            "prepare": "Put a bibliography export at `import.bib`.",
+            "check": "./source_check.sh --source bibtex --live",
+            "run": "./bibtex_import.sh",
+        },
+        {
+            "name": "RIS",
+            "best": "Best for EndNote, Zotero, publisher, or database exports when RIS is easier than BibTeX.",
+            "prepare": "Put a bibliography export at `import.ris`.",
+            "check": "./source_check.sh --source ris --live",
+            "run": "./ris_import.sh",
+        },
+        {
+            "name": "Structured web metadata",
+            "best": "Best for article pages or saved HTML files that expose citation meta tags, JSON-LD, Dublin Core, or OpenGraph metadata.",
+            "prepare": "Put article URLs or saved `.html` paths in `web_sources.txt`; avoid search-result pages when possible.",
+            "check": "./source_check.sh --source web --live",
+            "run": "./web_import.sh",
+        },
+        {
+            "name": "RSS / Atom",
+            "best": "Best for journal alerts, publisher feeds, and saved-search feeds without scraping pages.",
+            "prepare": "Put feed URLs or local feed files in `feeds.txt`.",
+            "check": "./source_check.sh --source rss --live",
+            "run": "./rss_import.sh",
+        },
+        {
+            "name": "arXiv query",
+            "best": "Best for targeted arXiv monitoring such as `cat:physics.geo-ph AND all:tomography`.",
+            "prepare": "Choose a query string and set `ARXIV_QUERY` for one-off runs or in `reader.env` for repeated runs.",
+            "check": "ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./source_check.sh --source arxiv --live",
+            "run": "ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh",
+        },
+    ]
+    lines = [
+        "## Source Setup Matrix",
+        "",
+        "Pick one real source first. Run the live source check before scheduling automation or expecting a non-empty daily digest.",
+        "",
+    ]
+    for source in sources:
+        lines.extend(
+            [
+                f"### {source['name']}",
+                "",
+                f"- Best for: {source['best']}",
+                f"- Prepare: {source['prepare']}",
+                f"- Check: `{source['check']}`",
+                f"- First run: `{source['run']}`",
+                "",
+            ]
+        )
+    return lines
+
+
 def render_project_guide(
     project_dir: Path,
     profile_path: Path,
@@ -4564,6 +4644,7 @@ def render_project_guide(
         "7. Run daily triage with `./run_reader.sh`.",
         "8. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
         "",
+        *source_onboarding_lines(),
         "## Persistent Configuration",
         "",
         *render_env_summary(env_values),

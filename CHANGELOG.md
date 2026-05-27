@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.71 - 2026-05-28
+
+- Add a source setup matrix to `START_HERE.md/html` covering Gmail API, Apple Mail, exported mbox, BibTeX, RIS, structured web metadata, RSS/Atom, and arXiv.
+- For each source, show best-use case, preparation step, live source-check command, and first run command.
+- Document the source matrix in README, SKILL, and product requirements.
+
 ## v0.2.70 - 2026-05-28
 
 - Generate `START_HERE.html` alongside `START_HERE.md` so new local projects have a browser-friendly onboarding screen.
