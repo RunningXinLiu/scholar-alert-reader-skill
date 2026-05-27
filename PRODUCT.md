@@ -78,7 +78,7 @@ For users who want citation/PDF management.
 - A user can generate a browser-friendly next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability; normal knowledge-base-updating runs refresh it automatically.
 - A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
 - A user can build a review pack that automatically includes the section-aware full-text brief and raw text cache when they exist, so downstream assistants get structured evidence before raw text.
-- A user can open `review_queue.md` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
+- A user can open `review_queue.md` or `review_queue.html` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.

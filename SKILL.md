@@ -58,7 +58,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
 - `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief with section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks for a selected paper.
 - `knowledge_base/analysis/<paper-id>_review_pack.md`: LLM-ready context pack for selected-paper review against the user's profile, foundation, interested papers, optional full-text brief, and optional full-text cache.
-- `knowledge_base/analysis/review_queue.md`: batch reading panel with selected review packs, full-text extraction status, section coverage, visual/data/code signals, and next actions.
+- `knowledge_base/analysis/review_queue.md` and `knowledge_base/analysis/review_queue.html`: batch reading panel with selected review packs, full-text extraction status, section coverage, visual/data/code signals, and next actions.
 - `knowledge_base/answers/*.md`: local-library answers to user research questions.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
 - `knowledge_base/reading_status.md`: reading tracker grouped by status.

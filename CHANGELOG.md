@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.32 - 2026-05-27
+
+- Write `review_queue.html` alongside `review_queue.md` by default for browser-friendly batch paper review.
+- Add `--html-output` / `--no-html` to `review-queue`.
+- Add regression coverage for review-queue HTML generation.
+
 ## v0.2.31 - 2026-05-27
 
 - Turn `review_queue.md` into a more actionable batch-reading panel with queue summary counts.

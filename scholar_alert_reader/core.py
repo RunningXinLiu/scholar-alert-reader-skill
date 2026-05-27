@@ -6020,7 +6020,12 @@ def review_queue_command(args: argparse.Namespace) -> None:
         lines.append("")
 
     write_report(output, "\n".join(lines).rstrip() + "\n")
+    html_output = args.html_output or output.with_suffix(".html")
+    if not args.no_html:
+        write_markdown_html(output, html_output, "Scholar Alert Review Queue")
     print(f"Review queue: {output}")
+    if not args.no_html:
+        print(f"Review queue HTML: {html_output}")
     print(f"Selected papers: {len(selected)}")
     print(f"Full-text caches extracted: {extracted_count}")
     print(f"Review packs written: {review_count}")
@@ -6820,6 +6825,8 @@ def build_parser() -> argparse.ArgumentParser:
     review_queue.add_argument("--max-full-text-brief-chars", type=int, default=16000, help="Maximum full-text brief characters to include in each review pack")
     review_queue.add_argument("--related-limit", type=int, default=12, help="Related/interested papers to include in each review pack")
     review_queue.add_argument("--output", type=Path, help="Output queue index. Defaults to kb-dir/analysis/review_queue.md")
+    review_queue.add_argument("--html-output", type=Path, help="Output browser-friendly queue path. Defaults to --output with .html suffix")
+    review_queue.add_argument("--no-html", action="store_true", help="Do not write a browser-friendly HTML queue")
     review_queue.set_defaults(func=review_queue_command)
 
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")

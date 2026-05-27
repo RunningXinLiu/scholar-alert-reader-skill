@@ -1285,6 +1285,7 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             default_analysis_dir.mkdir(parents=True, exist_ok=True)
             (default_analysis_dir / "p1_full_text_brief.md").write_text(full_text_content, encoding="utf-8")
             review_queue = root / "review_queue.md"
+            review_queue_html = root / "review_queue.html"
             subprocess.run(
                 [
                     sys.executable,
@@ -1299,6 +1300,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     "--no-extract",
                     "--output",
                     str(review_queue),
+                    "--html-output",
+                    str(review_queue_html),
                 ],
                 text=True,
                 capture_output=True,
@@ -1313,6 +1316,9 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Signals: Figures, Tables, Data Availability, Code / Software", review_queue_content)
             self.assertIn("Next action: Open the review pack", review_queue_content)
             self.assertIn("p1_review_pack.md", review_queue_content)
+            self.assertTrue(review_queue_html.exists())
+            self.assertIn("<!doctype html>", review_queue_html.read_text(encoding="utf-8"))
+            self.assertIn("Scholar Alert Review Queue", review_queue_html.read_text(encoding="utf-8"))
             queued_pack = (kb / "analysis" / "p1_review_pack.md").read_text(encoding="utf-8")
             self.assertIn("ambient noise tomography", queued_pack)
             self.assertIn("Local Full-Text Brief", queued_pack)
