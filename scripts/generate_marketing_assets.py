@@ -90,10 +90,23 @@ FONT = {
 
 def svg_assets() -> None:
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    logo = """<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">Scholar Alert Reader logo</title>
+<desc id="desc">A paper, alert signal, and reading foundation mark for Scholar Alert Reader.</desc>
+<rect width="512" height="512" rx="112" fill="#0f172a"/>
+<path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/>
+<path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/>
+<path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/>
+<circle cx="364" cy="150" r="42" fill="#10b981"/>
+<path d="M364 100v-30M364 230v-30M314 150h-30M444 150h-30" stroke="#10b981" stroke-width="18" stroke-linecap="round"/>
+<text x="374" y="388" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" opacity=".62">XL</text>
+</svg>
+"""
     architecture = """<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader architecture</title>
 <desc id="desc">Google Scholar Alerts enter the local Codex skill, which writes digests, a knowledge base, and optional Obsidian and Zotero exports.</desc>
 <rect width="1200" height="675" fill="#f8fafc"/>
+<g transform="translate(70 42) scale(.16)"><rect width="512" height="512" rx="112" fill="#0f172a"/><path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/><path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/><path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/><circle cx="364" cy="150" r="42" fill="#10b981"/></g>
 <text x="70" y="84" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="800">Scholar Alert Reader</text>
 <text x="72" y="124" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="21">Local literature triage from noisy Google Scholar Alert emails</text>
 <defs>
@@ -117,6 +130,7 @@ def svg_assets() -> None:
   <path d="M 760 320 C 820 300 835 222 890 208"/><path d="M 760 342 C 820 334 835 306 890 304"/><path d="M 760 368 C 820 380 835 398 890 400"/><path d="M 760 392 C 820 430 835 484 890 496"/>
 </g>
 <text x="72" y="606" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Codex-only works. Obsidian and Zotero are optional. Gmail OAuth is bring-your-own for public sharing.</text>
+<text x="1015" y="606" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="16">by Xin Liu</text>
 </svg>
 """
     social = """<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
@@ -125,7 +139,8 @@ def svg_assets() -> None:
 <rect width="1200" height="630" fill="#0f172a"/>
 <circle cx="1010" cy="90" r="180" fill="#1d4ed8" opacity=".28"/><circle cx="170" cy="530" r="220" fill="#10b981" opacity=".20"/>
 <rect x="80" y="78" width="1040" height="474" rx="34" fill="#f8fafc"/>
-<text x="132" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
+<g transform="translate(132 124) scale(.15)"><rect width="512" height="512" rx="112" fill="#0f172a"/><path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/><path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/><path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/><circle cx="364" cy="150" r="42" fill="#10b981"/></g>
+<text x="230" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
 <text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="27">Turn Google Scholar Alerts into a personal literature copilot.</text>
 <g font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24">
   <rect x="138" y="304" width="180" height="68" rx="18" fill="#dbeafe"/><text x="176" y="347" fill="#1d4ed8">Digest</text>
@@ -134,8 +149,10 @@ def svg_assets() -> None:
   <rect x="794" y="304" width="218" height="68" rx="18" fill="#fef3c7"/><text x="828" y="347" fill="#92400e">Obsidian</text>
 </g>
 <text x="138" y="456" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="750">Local · Private · Codex-only optional · Zotero/Obsidian ready</text>
+<text x="138" y="506" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="650">Created by Xin Liu · RunningXinLiu</text>
 </svg>
 """
+    (ASSET_DIR / "logo.svg").write_text(logo, encoding="utf-8")
     (ASSET_DIR / "architecture.svg").write_text(architecture, encoding="utf-8")
     (ASSET_DIR / "social-card.svg").write_text(social, encoding="utf-8")
 
@@ -144,7 +161,7 @@ def png_assets() -> None:
     sips = shutil.which("sips")
     if not sips:
         return
-    for name in ["architecture", "social-card"]:
+    for name in ["architecture", "social-card", "logo"]:
         subprocess.run(
             [sips, "-s", "format", "png", str(ASSET_DIR / f"{name}.svg"), "--out", str(ASSET_DIR / f"{name}.png")],
             check=True,
@@ -210,11 +227,31 @@ def text(buf: bytearray, width: int, x: int, y: int, value: str, color: int, sca
         cursor += 6 * scale
 
 
+def text_width(value: str, scale: int) -> int:
+    total = 0
+    for char in value.upper():
+        total += (4 if char == " " else 6) * scale
+    return total
+
+
+def fit_scale(value: str, max_width: int, preferred: int = 3, minimum: int = 1) -> int:
+    for scale in range(preferred, minimum - 1, -1):
+        if text_width(value, scale) <= max_width:
+            return scale
+    return minimum
+
+
+def fit_text(buf: bytearray, width: int, x: int, y: int, max_width: int, value: str, color: int, preferred: int = 3) -> None:
+    scale = fit_scale(value, max_width, preferred=preferred)
+    text(buf, width, x, y, value, color, scale)
+
+
 def card(buf: bytearray, width: int, x: int, y: int, w: int, h: int, fill: int, label: str, label_color: int) -> None:
     rect(buf, width, x + 6, y + 6, w, h, PALETTE["line"])
     rect(buf, width, x, y, w, h, fill)
     rect(buf, width, x, y, w, 6, PALETTE["white"])
-    text(buf, width, x + 24, y + h // 2 - 13, label, label_color, 3)
+    scale = fit_scale(label, w - 48, preferred=3)
+    text(buf, width, x + 24, y + h // 2 - (7 * scale) // 2, label, label_color, scale)
 
 
 def gif_pack_codes(codes: list[int], code_size: int) -> bytes:
@@ -293,10 +330,11 @@ def gif_assets() -> None:
         for y, fill, color, label in zip(y_positions, fills, colors, left_labels):
             card(buf, width, 50, y, 210, 58, fill, label, color)
             arrow(buf, width, 270, y + 29, 370, y + 29, PALETTE["line"])
-        card(buf, width, 390, 216, 230, 90, PALETTE["white"], right_label, PALETTE["ink"])
-        arrow(buf, width, 630, 261, 724, 261, PALETTE["line"])
+        card(buf, width, 380, 216, 270, 90, PALETTE["white"], right_label, PALETTE["ink"])
+        arrow(buf, width, 660, 261, 724, 261, PALETTE["line"])
         rect(buf, width, 728, 222, 30, 78, PALETTE["blue"])
         text(buf, width, 706, 324, "OUTPUT", PALETTE["muted"], 2)
+        text(buf, width, 642, 402, "BY XIN LIU", PALETTE["muted"], 2)
         frames.append(buf)
     write_gif(ASSET_DIR / "workflow.gif", frames, width, height, delay_cs=120)
 

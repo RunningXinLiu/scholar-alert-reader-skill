@@ -1,8 +1,14 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Scholar Alert Reader logo" width="104">
+</p>
+
 # Scholar Alert Reader Skill
 
 A Codex skill for turning Google Scholar Alert emails into personalized literature digests and a cumulative reading knowledge base.
 
 Version: `0.1.0`
+
+Created by [Xin Liu](https://github.com/RunningXinLiu).
 
 <p align="center">
   <img src="docs/assets/social-card.svg" alt="Scholar Alert Reader social card" width="900">

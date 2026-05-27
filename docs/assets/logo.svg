@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">Scholar Alert Reader logo</title>
+<desc id="desc">A paper, alert signal, and reading foundation mark for Scholar Alert Reader.</desc>
+<rect width="512" height="512" rx="112" fill="#0f172a"/>
+<path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/>
+<path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/>
+<path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/>
+<circle cx="364" cy="150" r="42" fill="#10b981"/>
+<path d="M364 100v-30M364 230v-30M314 150h-30M444 150h-30" stroke="#10b981" stroke-width="18" stroke-linecap="round"/>
+<text x="374" y="388" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" opacity=".62">XL</text>
+</svg>

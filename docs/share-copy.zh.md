@@ -2,7 +2,7 @@
 
 ## 短版
 
-我做了一个 Codex skill：Scholar Alert Reader。它可以每天从 Google Scholar Alert 邮件里自动筛论文，生成阅读 digest，维护自己的文献 foundation，还能对重点论文做 deep-read、问答、比较和研究建议。Obsidian/Zotero 都是可选增强，不装也能用。
+我做了一个 Codex skill：Scholar Alert Reader。它可以每天从 Google Scholar Alert 邮件里自动筛论文，生成阅读 digest，维护自己的文献 foundation，还能对重点论文做 deep-read、问答、比较和研究建议。Obsidian/Zotero 都是可选增强，不装也能用。项目作者：Xin Liu。
 
 ## 稍长版
 
@@ -21,3 +21,4 @@
 - `docs/assets/social-card.png`: 适合朋友圈首图。
 - `docs/assets/workflow.gif`: 适合展示工作流。
 - `docs/assets/architecture.png`: 适合解释整体架构。
+- `docs/assets/logo.png`: 适合头像、小图标或第二张图。

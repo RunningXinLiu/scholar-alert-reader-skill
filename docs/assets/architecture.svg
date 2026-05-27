@@ -2,6 +2,7 @@
 <title id="title">Scholar Alert Reader architecture</title>
 <desc id="desc">Google Scholar Alerts enter the local Codex skill, which writes digests, a knowledge base, and optional Obsidian and Zotero exports.</desc>
 <rect width="1200" height="675" fill="#f8fafc"/>
+<g transform="translate(70 42) scale(.16)"><rect width="512" height="512" rx="112" fill="#0f172a"/><path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/><path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/><path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/><circle cx="364" cy="150" r="42" fill="#10b981"/></g>
 <text x="70" y="84" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="800">Scholar Alert Reader</text>
 <text x="72" y="124" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="21">Local literature triage from noisy Google Scholar Alert emails</text>
 <defs>
@@ -25,4 +26,5 @@
   <path d="M 760 320 C 820 300 835 222 890 208"/><path d="M 760 342 C 820 334 835 306 890 304"/><path d="M 760 368 C 820 380 835 398 890 400"/><path d="M 760 392 C 820 430 835 484 890 496"/>
 </g>
 <text x="72" y="606" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Codex-only works. Obsidian and Zotero are optional. Gmail OAuth is bring-your-own for public sharing.</text>
+<text x="1015" y="606" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="16">by Xin Liu</text>
 </svg>

@@ -4,7 +4,8 @@
 <rect width="1200" height="630" fill="#0f172a"/>
 <circle cx="1010" cy="90" r="180" fill="#1d4ed8" opacity=".28"/><circle cx="170" cy="530" r="220" fill="#10b981" opacity=".20"/>
 <rect x="80" y="78" width="1040" height="474" rx="34" fill="#f8fafc"/>
-<text x="132" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
+<g transform="translate(132 124) scale(.15)"><rect width="512" height="512" rx="112" fill="#0f172a"/><path d="M128 142c0-22 18-40 40-40h196c22 0 40 18 40 40v228c0 22-18 40-40 40H168c-22 0-40-18-40-40V142z" fill="#f8fafc"/><path d="M168 166h150M168 212h176M168 258h132" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/><path d="M128 365c50-34 96-34 138 0 42-34 88-34 138 0v42c-50-32-96-32-138 0-42-32-88-32-138 0v-42z" fill="#dbeafe"/><circle cx="364" cy="150" r="42" fill="#10b981"/></g>
+<text x="230" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
 <text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="27">Turn Google Scholar Alerts into a personal literature copilot.</text>
 <g font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24">
   <rect x="138" y="304" width="180" height="68" rx="18" fill="#dbeafe"/><text x="176" y="347" fill="#1d4ed8">Digest</text>
@@ -13,4 +14,5 @@
   <rect x="794" y="304" width="218" height="68" rx="18" fill="#fef3c7"/><text x="828" y="347" fill="#92400e">Obsidian</text>
 </g>
 <text x="138" y="456" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="750">Local · Private · Codex-only optional · Zotero/Obsidian ready</text>
+<text x="138" y="506" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="650">Created by Xin Liu · RunningXinLiu</text>
 </svg>

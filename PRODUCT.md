@@ -5,6 +5,7 @@ Scholar Alert Reader should feel like a small local literature product, not a pi
 ## Public Assets
 
 - `docs/assets/social-card.svg` and `docs/assets/social-card.png`: social sharing card.
+- `docs/assets/logo.svg` and `docs/assets/logo.png`: project logo with a subtle author signature.
 - `docs/assets/workflow.gif`: animated workflow overview.
 - `docs/assets/architecture.svg` and `docs/assets/architecture.png`: architecture diagram.
 - `docs/share-copy.zh.md`: short Chinese copy for sharing.
