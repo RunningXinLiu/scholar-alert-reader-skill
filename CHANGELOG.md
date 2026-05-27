@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.47 - 2026-05-28
+
+- Add `semantic-rerank` / `rerank-semantic` plus generated `semantic_rerank.sh` to produce a dependency-free local sparse semantic reranking report.
+- Write `knowledge_base/analysis/semantic_rerank.md` and `semantic_reranked_papers.json` with semantic deltas, profile/interested/archive overlaps, potential rescues, and potential downranks.
+- Surface semantic rerank in the Dashboard, generated guide, README, SKILL guidance, product notes, capabilities, and tests while keeping the boundary clear that this is not a neural embedding service.
+
 ## v0.2.46 - 2026-05-28
 
 - Add `fetch-pdf` / `pdf-fetch` plus generated `fetch_pdf.sh` to download explicit/open PDF URLs from user input, arXiv URLs, structured webpage metadata, or OpenAlex metadata.

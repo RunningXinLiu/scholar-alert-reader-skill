@@ -229,6 +229,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_queue.sh").exists())
             self.assertTrue((project / "explain_ranking.sh").exists())
             self.assertTrue((project / "ranking_eval.sh").exists())
+            self.assertTrue((project / "semantic_rerank.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "reading_plan.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
@@ -253,6 +254,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("./profile_wizard.sh", start_here)
             self.assertIn("./profile_doctor.sh", start_here)
             self.assertIn("./ranking_eval.sh", start_here)
+            self.assertIn("./semantic_rerank.sh", start_here)
             self.assertIn("./fetch_pdf.sh", start_here)
             subprocess.run(
                 [
@@ -383,6 +385,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Profile Health", dashboard)
             self.assertIn("Privacy check", dashboard)
             self.assertIn("Ranking evaluation", dashboard)
+            self.assertIn("Semantic rerank report", dashboard)
             self.assertIn("profile_doctor.md", dashboard)
             self.assertIn("sample_web_article.html", dashboard)
             self.assertTrue((project / "profiles" / "profile_doctor.md").exists())
@@ -1029,6 +1032,104 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=False,
             )
             self.assertNotEqual(strict.returncode, 0)
+
+    def test_semantic_rerank_report_and_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "name": "Semantic rerank test",
+                        "research_questions": ["Which waveform representation learning papers matter for earthquake monitoring?"],
+                        "focus_terms": [{"term": "seismic foundation model", "weight": 8}],
+                        "methods": [{"term": "representation learning", "weight": 6}],
+                        "semantic_queries": [
+                            {"term": "self-supervised waveform representation learning for earthquake monitoring", "weight": 7}
+                        ],
+                        "exclude_terms": [],
+                        "tier_thresholds": {"must_read": 20, "skim": 5},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            kb = root / "kb"
+            kb.mkdir()
+            papers = root / "papers.json"
+            seed = {
+                **sample_paper(),
+                "id": "seed",
+                "title": "Self-supervised seismic waveform representation learning",
+                "snippet": "A foundation model for continuous earthquake monitoring with waveform embeddings.",
+                "score": 25,
+                "tier": "Must read",
+                "matched_terms": ["seismic foundation model"],
+                "tags": ["ai", "waveform"],
+            }
+            rescue = {
+                **sample_paper(),
+                "id": "rescue",
+                "title": "Contrastive waveform representations for event monitoring",
+                "snippet": "Learns reusable earthquake signal representations from continuous seismic waveforms.",
+                "score": 1,
+                "tier": "Archive",
+                "matched_terms": [],
+                "tags": [],
+            }
+            noise = {
+                **sample_paper(),
+                "id": "noise",
+                "title": "Medical ultrasound image segmentation benchmark",
+                "snippet": "A clinical imaging dataset unrelated to earthquake monitoring.",
+                "score": 8,
+                "tier": "Skim",
+                "matched_terms": ["benchmark"],
+                "tags": [],
+            }
+            papers.write_text(json.dumps([noise, rescue, seed]), encoding="utf-8")
+            feedback = {
+                "version": 1,
+                "papers": {
+                    "seed": {"status": "interested", "signals": {"more_like_this": True}},
+                    "noise": {"status": "archive", "signals": {"less_like_this": True}},
+                },
+                "terms": [],
+            }
+            (kb / "feedback.json").write_text(json.dumps(feedback), encoding="utf-8")
+            report = root / "semantic_rerank.md"
+            reranked_json = root / "semantic_reranked.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "semantic-rerank",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--papers-json",
+                    str(papers),
+                    "--output",
+                    str(report),
+                    "--json-output",
+                    str(reranked_json),
+                    "--min-delta",
+                    "1",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Semantic Rerank", content)
+            self.assertIn("local sparse TF-IDF", content)
+            self.assertIn("Potential Semantic Rescues", content)
+            self.assertIn("Contrastive waveform representations", content)
+            reranked = json.loads(reranked_json.read_text(encoding="utf-8"))
+            by_id = {item["id"]: item for item in reranked}
+            self.assertIn("semantic_rerank", by_id["rescue"])
+            self.assertGreater(by_id["rescue"]["semantic_delta"], 0)
+            self.assertLess(by_id["rescue"]["semantic_rerank"]["rank"], by_id["rescue"]["semantic_rerank"]["base_rank"])
 
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

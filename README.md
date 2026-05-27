@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.46`
+Version: `0.2.47`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -43,6 +43,7 @@ Good next prompts:
 - "Run the setup wizard and configure my source/profile/schedule."
 - "Run the profile wizard and turn my current research questions into a ranking profile."
 - "Run the profile doctor and tell me whether my ranking profile is too broad or too sparse."
+- "Run semantic rerank and show me papers that exact keywords may have missed."
 - "Build my first foundation from existing Scholar Alert emails."
 - "Run today's new-paper digest."
 - "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
@@ -128,6 +129,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, adaptive feedback similarity, and temporary boost terms.
 - Explains why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning suggestions.
 - Evaluates ranking quality against your interested/archive feedback, including precision/recall, average precision, false positives, and missed positives.
+- Reranks saved papers with a local sparse semantic layer so weak-keyword papers close to your profile or interested seeds can be inspected before you tune broad terms.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
@@ -149,7 +151,7 @@ python3 -m scholar_alert_reader capabilities
 ./capabilities.sh
 ```
 
-The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, and adaptive similarity to retained/interested papers. It is not a hosted embedding service or autonomous reviewer.
+The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional sparse semantic reranking. It is not a hosted embedding service or autonomous reviewer.
 
 `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, and the retained library. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
@@ -157,7 +159,7 @@ The core ranking layer is local and explainable: profile terms, methods, regions
 
 Scholar Alert Reader is useful without any external note app:
 
-1. **Codex-only**: read alerts or bibliography exports, rank papers, evaluate ranking from feedback, fetch explicit/open PDFs when available, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/review-workflow/Q&A/review-pack/advice commands.
+1. **Codex-only**: read alerts or bibliography exports, rank papers, evaluate ranking from feedback, run semantic rerank, fetch explicit/open PDFs when available, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/review-workflow/Q&A/review-pack/advice commands.
 2. **Codex + Obsidian**: sync generated notes, maps, reading status, answers, comparisons, and deep reads into a generated Obsidian folder.
 3. **Codex + Zotero + Obsidian**: use Zotero for citations/PDFs and Obsidian for durable human-written notes and synthesis.
 
@@ -641,6 +643,17 @@ python3 scripts/scholar_reader.py ranking-eval \
 
 `ranking-eval` writes `knowledge_base/analysis/ranking_evaluation.md` by default. It uses explicit `interested`, `archive`, `more-like-this`, `less-like-this`, and reading-status feedback labels to report precision/recall at K, average precision, tier calibration, high-ranked archive false positives, low-ranked interested missed positives, and concrete tuning recommendations. Run it after several labels; unlabeled papers are ignored for metrics.
 
+Rerank saved papers with a local sparse semantic layer:
+
+```bash
+python3 scripts/scholar_reader.py semantic-rerank \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json reader_out/daily/papers.json
+```
+
+`semantic-rerank` writes `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json` by default. It uses local sparse TF-IDF over titles, snippets, source text, matched terms, tags, profile questions/terms, interested/more-like-this seeds, archive/less-like-this seeds, and optional Must-read tier seeds. Use it to inspect potential semantic rescues before changing broad profile terms. It is dependency-free and local; it is not a neural embedding model.
+
 Open the project dashboard:
 
 ```bash
@@ -671,7 +684,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./fetch_pdf.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./ranking_eval.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./fetch_pdf.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./ranking_eval.sh`, `./semantic_rerank.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 
@@ -794,6 +807,7 @@ The richer knowledge base includes:
 - `reading_plan.md` / `reading_plan.html`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers
+- `analysis/semantic_rerank.md` / `analysis/semantic_reranked_papers.json`: local sparse semantic rerank report and reranked records
 - `pdfs/<paper-id>.pdf`: optional PDF fetched from an explicit/open PDF URL
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_workflow.md`: one-paper workflow report linking extraction status, workup, and review pack

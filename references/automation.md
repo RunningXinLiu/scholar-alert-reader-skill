@@ -145,6 +145,16 @@ After the user has marked several papers as interested/archive or more-like-this
 
 This writes `knowledge_base/profile_tuning.md` and is safe by default. It only edits the active profile when the user passes `--apply`.
 
+## Semantic Rerank
+
+After a few runs or feedback labels, inspect weak-keyword papers before changing broad profile terms:
+
+```bash
+./semantic_rerank.sh
+```
+
+This writes `knowledge_base/analysis/semantic_rerank.md` plus `semantic_reranked_papers.json`. It uses local sparse TF-IDF over profile intents, interested seeds, archived seeds, and saved paper metadata. Treat it as a report-first reranker, not a neural embedding model or automatic profile mutation.
+
 ## Web Metadata, RSS/Atom, And arXiv
 
 Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer structured webpage metadata, RSS/Atom feeds, and the arXiv public Atom API over arbitrary deep crawling.

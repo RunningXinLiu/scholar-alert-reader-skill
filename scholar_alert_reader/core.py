@@ -4149,11 +4149,11 @@ def render_project_guide(
         "",
         "This project can run as a standalone Codex skill. Obsidian and Zotero are optional integrations, not required dependencies.",
         "",
-        "Capability boundary: ranking and deep-read reports use available alert metadata, bibliography fields, snippets, profile terms, local feedback similarity, and retained-library context. They are triage aids until a full paper/PDF has been read.",
+        "Capability boundary: ranking, semantic rerank, deep-read, workup, Q&A, comparison, map, and advice reports use available alert metadata, bibliography fields, snippets, profile terms, feedback signals, and retained-library context. `fetch-pdf` and `full-text` can add local open-PDF/text evidence when you provide or sync a usable file, and `review-pack` prepares that context for another assistant. The tool is an assisted reading workflow, not an autonomous expert reviewer.",
         "",
         "## Product Modes",
         "",
-        "1. Codex-only: read Scholar Alert emails, rank papers, write HTML/Markdown digests, maintain `knowledge_base/`, and use the local copilot commands.",
+        "1. Codex-only: read Scholar Alert emails, Gmail/Mail exports, BibTeX/RIS, RSS/arXiv, or structured webpage metadata; rank papers; write HTML/Markdown digests; maintain `knowledge_base/`; and use the local copilot commands.",
         "2. Codex + Obsidian: sync generated paper notes, maps, reading status, answers, comparisons, and deep reads into an Obsidian vault folder.",
         "3. Codex + Zotero + Obsidian: export BibTeX/RIS for Zotero while Obsidian stores human-written reading notes and synthesis.",
         "",
@@ -4197,6 +4197,7 @@ def render_project_guide(
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./explain_ranking.sh --paper-id <ID>`: explain why one paper was ranked where it was.",
         "- `./ranking_eval.sh`: evaluate ranking quality against interested/archive feedback labels.",
+        "- `./semantic_rerank.sh`: find papers that are semantically close to your profile or interested seeds but weakly matched by exact keywords.",
         "- `./fetch_pdf.sh --paper-id <ID> --extract`: fetch an explicit/open PDF URL, then build a local full-text brief.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
@@ -4417,6 +4418,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- {dashboard_link('Reading plan markdown', kb_dir / 'reading_plan.md', base_dir)}",
             f"- {dashboard_link('Review queue markdown', analysis_dir / 'review_queue.md', base_dir)}",
             f"- {dashboard_link('Ranking evaluation', analysis_dir / 'ranking_evaluation.md', base_dir)}",
+            f"- {dashboard_link('Semantic rerank report', analysis_dir / 'semantic_rerank.md', base_dir)}",
             f"- {dashboard_link('Recent review papers JSON', recent_dir / 'papers.json', base_dir)}",
             f"- {dashboard_link('Daily papers JSON', daily_dir / 'papers.json', base_dir)}",
             "",
@@ -4427,10 +4429,11 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "3. If Zotero has local PDFs, run `./zotero_sync.sh` so review packs can include full-text briefs.",
             "4. Run `./explain_ranking.sh --paper-id ID` if a paper's tier or score needs explanation.",
             "5. Run `./ranking_eval.sh` after several labels to measure whether ranking matches your feedback.",
-            "6. Run `./fetch_pdf.sh --paper-id ID --extract` when a paper has an explicit/open PDF URL but no local file.",
-            "7. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
-            "8. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
-            "9. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "6. Run `./semantic_rerank.sh` to find weak-keyword papers that are close to your profile or interested seeds.",
+            "7. Run `./fetch_pdf.sh --paper-id ID --extract` when a paper has an explicit/open PDF URL but no local file.",
+            "8. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
+            "9. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
+            "10. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
             "",
@@ -4676,6 +4679,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "explain_ranking.sh": 'exec "${SKILL_CMD[@]}" explain-ranking --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ranking_eval.sh": 'exec "${SKILL_CMD[@]}" ranking-eval --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "semantic_rerank.sh": 'exec "${SKILL_CMD[@]}" semantic-rerank --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "reading_plan.sh": 'exec "${SKILL_CMD[@]}" reading-plan --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -4851,6 +4855,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
                     "./explain_ranking.sh --paper-id <ID>",
                     "./ranking_eval.sh",
+                    "./semantic_rerank.sh",
                     "./tune_profile.sh",
                     "./reading_plan.sh",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
@@ -8400,6 +8405,275 @@ def ranking_eval_command(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
 
+def repeat_weighted_text(term: str, weight: int, tags: Iterable[Any] | None = None) -> str:
+    repeat = max(1, min(4, round(max(1, weight) / 3)))
+    tag_text = " ".join(str(tag) for tag in tags or [] if str(tag).strip())
+    return " ".join([term] * repeat + ([tag_text] if tag_text else []))
+
+
+def semantic_profile_seed_texts(profile: dict[str, Any]) -> list[str]:
+    texts: list[str] = []
+    for question in profile.get("research_questions", []) if isinstance(profile.get("research_questions"), list) else []:
+        if str(question).strip():
+            texts.append(str(question))
+    for section, default_weight in [
+        ("semantic_queries", 6),
+        ("focus_terms", 5),
+        ("methods", 4),
+        ("regions", 3),
+        ("watch_authors", 2),
+    ]:
+        for item in coerce_terms(profile.get(section, []), section, default_weight):
+            term = str(item.get("term", "")).strip()
+            if term:
+                texts.append(repeat_weighted_text(term, int(item.get("weight", default_weight)), item.get("tags", [])))
+    return texts
+
+
+def semantic_record_seed_text(record: dict[str, Any], feedback_item: dict[str, Any] | None = None) -> str:
+    feedback_item = feedback_item or {}
+    labels = feedback_item.get("labels", []) if isinstance(feedback_item.get("labels"), list) else []
+    return " ".join(
+        [
+            str(record.get("title", "")),
+            str(record.get("title", "")),
+            str(record.get("snippet", "")),
+            str(record.get("authors_source", "")),
+            " ".join(str(term) for term in record.get("matched_terms", []) if str(term).strip()),
+            " ".join(str(tag) for tag in record.get("tags", []) if str(tag).strip()),
+            " ".join(str(label) for label in labels if str(label).strip()),
+            str(feedback_item.get("note", "")),
+        ]
+    )
+
+
+def feedback_item_label(item: dict[str, Any]) -> str:
+    status = str(item.get("status", "")).lower()
+    reading_status = str(item.get("reading_status", "")).lower()
+    signals = item.get("signals", {}) if isinstance(item.get("signals"), dict) else {}
+    if status == "archive" or reading_status in NEGATIVE_READING_STATUSES or item.get("less_like_this") or signals.get("less_like_this"):
+        return "negative"
+    if status == "interested" or reading_status in POSITIVE_READING_STATUSES or item.get("more_like_this") or signals.get("more_like_this"):
+        return "positive"
+    return ""
+
+
+def semantic_feedback_seed_texts(
+    records: list[dict[str, Any]],
+    feedback: dict[str, Any],
+    seed_tiers: list[str],
+    include_tier_seeds: bool,
+) -> tuple[list[str], list[str], int, int]:
+    positive: list[str] = []
+    negative: list[str] = []
+    positive_count = 0
+    negative_count = 0
+    feedback_papers = feedback.get("papers", {}) if isinstance(feedback.get("papers"), dict) else {}
+    record_ids = {str(record.get("id", "")) for record in records}
+    seed_tier_set = {tier.strip().lower() for tier in seed_tiers if tier.strip()}
+    for record in records:
+        paper_id = str(record.get("id", ""))
+        item = feedback_papers.get(paper_id, {}) if isinstance(feedback_papers.get(paper_id), dict) else {}
+        label, _ = feedback_label(record, feedback)
+        if label == "positive":
+            positive.append(semantic_record_seed_text(record, item))
+            positive_count += 1
+        elif label == "negative":
+            negative.append(semantic_record_seed_text(record, item))
+            negative_count += 1
+        elif include_tier_seeds and str(record.get("tier", "")).lower() in seed_tier_set:
+            positive.append(semantic_record_seed_text(record, item))
+    for paper_id, item in feedback_papers.items():
+        if str(paper_id) in record_ids or not isinstance(item, dict):
+            continue
+        seed_record = {
+            "id": paper_id,
+            "title": item.get("title", paper_id),
+            "snippet": item.get("note", ""),
+            "authors_source": "",
+            "matched_terms": [],
+            "tags": item.get("labels", []),
+        }
+        label = feedback_item_label(item)
+        if label == "positive":
+            positive.append(semantic_record_seed_text(seed_record, item))
+            positive_count += 1
+        elif label == "negative":
+            negative.append(semantic_record_seed_text(seed_record, item))
+            negative_count += 1
+    return positive, negative, positive_count, negative_count
+
+
+def render_semantic_rerank_report(
+    rows: list[Any],
+    profile: dict[str, Any],
+    profile_path: Path,
+    feedback_file: Path,
+    profile_seed_count: int,
+    explicit_positive_count: int,
+    explicit_negative_count: int,
+    seed_tiers: list[str],
+    include_tier_seeds: bool,
+    limit: int,
+    min_delta: int,
+) -> str:
+    rescue_rows = [
+        row
+        for row in rows
+        if row.delta >= min_delta and (str(row.record.get("tier", "")) == "Archive" or row.base_rank - row.rank >= 5)
+    ][:limit]
+    risk_rows = [
+        row
+        for row in rows
+        if row.delta <= -min_delta and row.negative_similarity >= max(row.profile_similarity, row.positive_similarity)
+    ][:limit]
+    lines = [
+        "# Semantic Rerank",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: `{profile_path}`",
+        f"- Feedback: `{feedback_file}`",
+        f"- Backend: local sparse TF-IDF over title/snippet/source/terms/tags",
+        f"- Records considered: {len(rows)}",
+        f"- Profile intent seeds: {profile_seed_count}",
+        f"- Explicit positive feedback seeds: {explicit_positive_count}",
+        f"- Explicit negative feedback seeds: {explicit_negative_count}",
+        f"- Tier seeds included: {include_tier_seeds} ({', '.join(seed_tiers) if seed_tiers else 'none'})",
+        "",
+        "This is a local reranking report, not a neural embedding model or hosted semantic service. It helps surface papers whose wording is close to your profile or interested papers even when exact keyword scoring is weak.",
+        "",
+        "## Top Semantic Ranking",
+        "",
+        "| Semantic rank | Base rank | Delta | Semantic score | Base score/tier | ID | Title | Evidence |",
+        "|---:|---:|---:|---:|---|---|---|---|",
+    ]
+    for row in rows[:limit]:
+        evidence_parts = []
+        if row.profile_overlap:
+            evidence_parts.append("profile: " + ", ".join(row.profile_overlap[:5]))
+        if row.positive_overlap:
+            evidence_parts.append("positive: " + ", ".join(row.positive_overlap[:5]))
+        if row.negative_overlap:
+            evidence_parts.append("negative: " + ", ".join(row.negative_overlap[:5]))
+        evidence = "; ".join(evidence_parts) or "none"
+        lines.append(
+            "| "
+            f"{row.rank} | {row.base_rank} | {row.delta:+d} | {row.semantic_score} | "
+            f"{row.base_score} / {md_cell(row.record.get('tier', ''))} | `{md_cell(row.record.get('id', ''))}` | "
+            f"{md_cell(row.record.get('title', 'Untitled'))} | {md_cell(evidence)} |"
+        )
+
+    lines.extend(["", "## Potential Semantic Rescues", ""])
+    if rescue_rows:
+        lines.extend(["Papers that look semantically close but were low or moved up substantially.", "", "| New rank | Base rank | Delta | ID | Title | Why |", "|---:|---:|---:|---|---|---|"])
+        for row in rescue_rows:
+            why = ", ".join((row.profile_overlap or row.positive_overlap)[:8]) or "semantic similarity"
+            lines.append(
+                f"| {row.rank} | {row.base_rank} | {row.delta:+d} | `{md_cell(row.record.get('id', ''))}` | {md_cell(row.record.get('title', 'Untitled'))} | {md_cell(why)} |"
+            )
+    else:
+        lines.append("- None found at the current threshold.")
+
+    lines.extend(["", "## Potential Semantic Downranks", ""])
+    if risk_rows:
+        lines.extend(["Papers similar to archived/negative seeds.", "", "| New rank | Base rank | Delta | ID | Title | Negative overlap |", "|---:|---:|---:|---|---|---|"])
+        for row in risk_rows:
+            lines.append(
+                f"| {row.rank} | {row.base_rank} | {row.delta:+d} | `{md_cell(row.record.get('id', ''))}` | {md_cell(row.record.get('title', 'Untitled'))} | {md_cell(', '.join(row.negative_overlap[:8]) or 'negative similarity')} |"
+            )
+    else:
+        lines.append("- None found at the current threshold.")
+
+    lines.extend(
+        [
+            "",
+            "## Suggested Use",
+            "",
+            "- Inspect semantic rescues before editing broad profile terms.",
+            "- If a rescue is useful, mark it `interested` or `more-like-this`; if it is noise, mark it `archive` or `less-like-this`.",
+            "- Use the JSON output with `reading-plan --papers-json knowledge_base/analysis/semantic_reranked_papers.json` when you want a semantic-first reading plan.",
+            "- Run `ranking-eval` after several feedback labels to check whether semantic rescues are actually helping.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def semantic_reranked_records(rows: list[Any]) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for row in rows:
+        record = dict(row.record)
+        record["semantic_score"] = row.semantic_score
+        record["semantic_delta"] = row.delta
+        record["semantic_rerank"] = {
+            "rank": row.rank,
+            "base_rank": row.base_rank,
+            "base_score": row.base_score,
+            "semantic_score": row.semantic_score,
+            "delta": row.delta,
+            "profile_similarity": round(row.profile_similarity, 4),
+            "positive_similarity": round(row.positive_similarity, 4),
+            "negative_similarity": round(row.negative_similarity, 4),
+            "profile_overlap": row.profile_overlap,
+            "positive_overlap": row.positive_overlap,
+            "negative_overlap": row.negative_overlap,
+            "backend": "local-sparse-tfidf",
+        }
+        output.append(record)
+    return output
+
+
+def semantic_rerank_command(args: argparse.Namespace) -> None:
+    from .semantic import semantic_rerank_records
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = load_feedback(feedback_file)
+    records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
+    if not records:
+        raise SystemExit("No records available for semantic rerank. Pass --papers-json or run a source/foundation first.")
+    seed_tiers = split_csv(args.seed_tiers)
+    profile_texts = semantic_profile_seed_texts(profile)
+    positive_texts, negative_texts, explicit_positive_count, explicit_negative_count = semantic_feedback_seed_texts(
+        records,
+        feedback,
+        seed_tiers,
+        not args.no_tier_seeds,
+    )
+    rows = semantic_rerank_records(
+        records,
+        profile_texts,
+        positive_texts,
+        negative_texts,
+        profile_weight=args.profile_weight,
+        positive_weight=args.positive_weight,
+        negative_weight=args.negative_weight,
+    )
+    output = args.output or (kb_dir / "analysis" / "semantic_rerank.md")
+    report = render_semantic_rerank_report(
+        rows,
+        profile,
+        args.profile,
+        feedback_file,
+        len(profile_texts),
+        explicit_positive_count,
+        explicit_negative_count,
+        seed_tiers,
+        not args.no_tier_seeds,
+        args.limit,
+        args.min_delta,
+    )
+    write_report(output, report)
+    json_output = args.json_output or (kb_dir / "analysis" / "semantic_reranked_papers.json")
+    if not args.no_json:
+        save_json(json_output, semantic_reranked_records(rows))
+    print(f"Semantic rerank: {output}")
+    if not args.no_json:
+        print(f"Reranked JSON: {json_output}")
+    print(f"Records considered: {len(rows)}")
+
+
 def ask_library_command(args: argparse.Namespace) -> None:
     from .copilot import render_literature_answer
 
@@ -8690,6 +8964,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
         "- Evaluating saved ranking quality against interested/archive labels with precision, recall, average precision, false positives, and missed positives.",
+        "- Reranking saved records with local sparse semantic similarity to profile terms, interested seeds, and archived seeds.",
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
@@ -8699,7 +8974,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "## Capability Boundary",
         "",
         "- `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, and feedback signals.",
-        "- `semantic_queries` and adaptive ranking are lightweight local matching features, not a hosted embedding service or a neural reranker.",
+        "- `semantic_queries`, adaptive ranking, and `semantic-rerank` are lightweight local matching features, not a hosted embedding service or a neural reranker.",
         "- `full-text` works when a local PDF/text path is provided directly or synced from Zotero; it does not automatically bypass publisher access or download paywalled PDFs.",
         "- `fetch-pdf` only uses explicit/open PDF URLs from user input, arXiv, webpage metadata, or OpenAlex metadata. It does not crawl publisher pages or bypass access controls.",
         "- `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant. It does not upload data or claim autonomous expert peer review.",
@@ -8723,7 +8998,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "",
         "## Practical Upgrade Path",
         "",
-        "- For better ranking: run `ranking-eval` after several labels, run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
+        "- For better ranking: run `ranking-eval` after several labels, run `semantic-rerank` to inspect weak-keyword rescues, run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
         "- For closer reading: use Zotero, explicit local PDF paths, or `fetch-pdf` for open PDF URLs with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
         "- For public support: run `privacy-check` first, then `support-bundle`, and review the redacted output before posting a GitHub issue.",
@@ -9377,6 +9652,23 @@ def build_parser() -> argparse.ArgumentParser:
     ranking_eval.add_argument("--strict", action="store_true", help="Exit non-zero unless the result is PASS")
     ranking_eval.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/ranking_evaluation.md")
     ranking_eval.set_defaults(func=ranking_eval_command)
+
+    semantic_rerank = sub.add_parser("semantic-rerank", aliases=["rerank-semantic"], help="Rerank saved papers with local sparse semantic similarity")
+    semantic_rerank.add_argument("--profile", type=Path, required=True)
+    semantic_rerank.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    semantic_rerank.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    semantic_rerank.add_argument("--papers-json", type=Path, help="Optional digest papers.json to include recent papers")
+    semantic_rerank.add_argument("--seed-tiers", default="Must read", help="Comma-separated tiers to use as positive seeds unless --no-tier-seeds is set")
+    semantic_rerank.add_argument("--no-tier-seeds", action="store_true", help="Use explicit feedback/profile texts only; do not use Must read papers as positive seeds")
+    semantic_rerank.add_argument("--profile-weight", type=int, default=16, help="Weight for similarity to profile questions/terms")
+    semantic_rerank.add_argument("--positive-weight", type=int, default=14, help="Weight for similarity to interested/more-like-this seeds")
+    semantic_rerank.add_argument("--negative-weight", type=int, default=18, help="Penalty weight for similarity to archive/less-like-this seeds")
+    semantic_rerank.add_argument("--min-delta", type=int, default=2, help="Minimum semantic delta for rescue/downrank sections")
+    semantic_rerank.add_argument("--limit", type=int, default=20, help="Maximum rows in report sections")
+    semantic_rerank.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/semantic_rerank.md")
+    semantic_rerank.add_argument("--json-output", type=Path, help="Reranked records JSON. Defaults to kb-dir/analysis/semantic_reranked_papers.json")
+    semantic_rerank.add_argument("--no-json", action="store_true", help="Do not write reranked records JSON")
+    semantic_rerank.set_defaults(func=semantic_rerank_command)
 
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
     ask.add_argument("--profile", type=Path, required=True)
