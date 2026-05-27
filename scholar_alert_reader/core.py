@@ -7989,6 +7989,16 @@ def write_deep_read_report(
         full_text_brief_candidate,
         max_full_text_brief_chars,
     )
+    try:
+        evidence_summary = paper_evidence_summary(paper_from_dict(target), kb_dir)
+    except Exception:
+        evidence_summary = {}
+    if full_text_brief or full_text_candidate.exists():
+        evidence_summary = {
+            **evidence_summary,
+            "level": "full-text-backed",
+            "description": "Local full-text cache or full-text brief exists for closer reading.",
+        }
     output_path = output or (kb_dir / "analysis" / f"{target.get('id', 'paper')}_deep_read.md")
     return write_report(
         output_path,
@@ -8002,6 +8012,7 @@ def write_deep_read_report(
             full_text_brief_path=actual_full_text_brief_path,
             has_full_text_cache=full_text_candidate.exists(),
             max_full_text_brief_chars=max_full_text_brief_chars,
+            evidence_summary=evidence_summary,
         ),
     )
 
@@ -9964,7 +9975,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Reranking saved records with local semantic similarity to profile terms, interested seeds, and archived seeds, using sparse TF-IDF by default and optional user-installed sentence-transformers embeddings when requested.",
         "- Checking optional embedding rerank readiness without loading models by default, with an explicit model-load preflight for users who want it.",
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
-        "- Including cached local full-text evidence snapshots in selected-paper deep reads when a full-text brief exists.",
+        "- Including explicit evidence boundaries and cached local full-text evidence snapshots in selected-paper deep reads when a full-text brief exists.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
@@ -9973,6 +9984,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "## Capability Boundary",
         "",
         "- `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, feedback signals, and cached local full-text briefs when available.",
+        "- `deep-read` reports declare their evidence level and boundary so metadata-only triage is not confused with full-text-backed review.",
         "- `semantic_queries` and adaptive ranking are lightweight local matching features. `semantic-rerank` defaults to sparse TF-IDF and can optionally use a user-installed local sentence-transformers model; it is not a hosted embedding service.",
         "- `full-text` works when a local PDF/text path is provided directly or synced from Zotero; it does not automatically bypass publisher access or download paywalled PDFs.",
         "- `fetch-pdf` only uses explicit/open PDF URLs from user input, arXiv, webpage metadata, or OpenAlex metadata. It does not crawl publisher pages or bypass access controls.",

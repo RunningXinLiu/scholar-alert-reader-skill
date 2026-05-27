@@ -2001,6 +2001,11 @@ SCHEDULE_TIME=09:00
             )
             deep_content = deep.read_text(encoding="utf-8")
             self.assertIn("Deep Read", deep_content)
+            self.assertIn("Evidence Boundary", deep_content)
+            self.assertIn("Evidence level: `metadata-enriched`", deep_content)
+            self.assertIn("Current evidence level: `metadata-enriched`", deep_content)
+            self.assertIn("This report can support triage, profile fit, and discussion questions", deep_content)
+            self.assertIn("review-workflow --paper-id p1 --pdf-path /path/to/paper.pdf", deep_content)
             self.assertIn("Your Feedback", deep_content)
             self.assertIn("Useful comparison for the Taiwan manuscript.", deep_content)
 
@@ -2372,6 +2377,9 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 check=True,
             )
             deep_with_full_text_content = deep_with_full_text.read_text(encoding="utf-8")
+            self.assertIn("Evidence level: `full-text-backed`", deep_with_full_text_content)
+            self.assertIn("Current evidence level: `full-text-backed`", deep_with_full_text_content)
+            self.assertIn("cached local full-text evidence", deep_with_full_text_content)
             self.assertIn("Local Full-Text Evidence Snapshot", deep_with_full_text_content)
             self.assertIn("Section coverage:", deep_with_full_text_content)
             self.assertIn("Visual/data/code signals: Figures, Tables, Data Availability, Code / Software", deep_with_full_text_content)
@@ -2495,6 +2503,7 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 check=True,
             )
             deep_with_default_content = deep_with_default_full_text.read_text(encoding="utf-8")
+            self.assertIn("Current evidence level: `full-text-backed`", deep_with_default_content)
             self.assertIn("Local Full-Text Evidence Snapshot", deep_with_default_content)
             self.assertIn("Visual/data/code signals: Figures, Tables, Data Availability, Code / Software", deep_with_default_content)
 

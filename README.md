@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.78`
+Version: `0.2.79`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -155,7 +155,7 @@ python3 -m scholar_alert_reader capabilities
 
 The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional semantic reranking. `semantic-rerank` defaults to sparse TF-IDF with no extra dependencies; `--backend sentence-transformers` uses a user-installed local embedding model. It is not a hosted embedding service or autonomous reviewer.
 
-`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. Digest cards, feedback UI cards, paper notes, and foundation/interested indexes show an evidence level so users can distinguish metadata-only triage from PDF-ready or full-text-backed work. `ask`, `advice`, `compare`, and `map` surface saved notes as evidence, so your own reading judgments become part of the local research memory. These commands are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
+`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. Digest cards, feedback UI cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show an evidence level so users can distinguish metadata-only triage from PDF-ready or full-text-backed work. `deep-read` also includes an Evidence Boundary section with the current basis, what the report can and cannot support, and the command to upgrade a selected paper into the PDF/full-text review workflow. `ask`, `advice`, `compare`, and `map` surface saved notes as evidence, so your own reading judgments become part of the local research memory. These commands are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
 ## Product Modes
 
@@ -560,7 +560,7 @@ python3 scripts/scholar_reader.py deep-read \
   --paper-id <ID>
 ```
 
-If `knowledge_base/analysis/<paper-id>_full_text_brief.md` already exists, `deep-read` includes a full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. Use `--full-text-brief-path` when the brief was written to a custom path.
+Every `deep-read` report starts with an evidence level and Evidence Boundary section. Metadata-only or metadata-enriched reports are suitable for triage, profile fit, and discussion questions; they are not a substitute for verifying methods, datasets, figures, results, or citation-ready claims in the full paper. If `knowledge_base/analysis/<paper-id>_full_text_brief.md` already exists, `deep-read` includes a full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. Use `--full-text-brief-path` when the brief was written to a custom path.
 
 `deep-read` loads `knowledge_base/feedback.json` by default, so saved reading status, labels, and personal notes appear in the report. Use `--feedback-file` to point at a custom feedback file.
 

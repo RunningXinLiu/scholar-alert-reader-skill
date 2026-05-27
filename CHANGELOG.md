@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.79 - 2026-05-28
+
+- Add explicit evidence level, evidence basis, and evidence badges to selected-paper `deep-read` reports.
+- Add an `Evidence Boundary` section to `deep-read` so metadata-only reports state what they can support, what remains unverified, and how to upgrade into `review-workflow` / `full-text` analysis.
+- Cover metadata-enriched and full-text-backed deep-read boundaries in workflow tests.
+
 ## v0.2.78 - 2026-05-28
 
 - Make `QUICKSTART_REPORT.md/html` artifact references clickable relative links for the dashboard, onboarding guide, setup checks, diagnostics, and demo digests.

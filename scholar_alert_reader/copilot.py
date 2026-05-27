@@ -254,6 +254,7 @@ def render_deep_read(
     full_text_brief_path: Path | None = None,
     has_full_text_cache: bool = False,
     max_full_text_brief_chars: int = 7000,
+    evidence_summary: dict[str, Any] | None = None,
 ) -> str:
     related = related_records(target, library, limit)
     matched = [term for term in target.get("matched_terms", []) if str(term).strip()]
@@ -265,6 +266,11 @@ def render_deep_read(
     target_feedback = feedback_record(target, feedback)
     target_labels = reading_labels(target, feedback)
     target_note = feedback_note(target, feedback)
+    evidence_summary = evidence_summary or {}
+    evidence_level = text(evidence_summary.get("level")) or ("full-text-backed" if full_text_brief or has_full_text_cache else "metadata-only")
+    evidence_description = text(evidence_summary.get("description")) or "Uses available metadata, profile terms, feedback signals, and retained-library context."
+    evidence_badges = [text(item) for item in evidence_summary.get("badges", []) if text(item).strip()]
+    evidence_badge_text = ", ".join(evidence_badges[:8]) if evidence_badges else "none"
 
     lines = [
         f"# Deep Read: {text(target.get('title', 'Untitled'))}",
@@ -276,6 +282,9 @@ def render_deep_read(
         f"- Source: {target.get('authors_source', '')}",
         f"- Directions: {', '.join(directions) if directions else 'uncategorized'}",
         f"- Matched terms: {', '.join(matched) if matched else 'none'}",
+        f"- Evidence level: `{evidence_level}`",
+        f"- Evidence basis: {evidence_description}",
+        f"- Evidence badges: {evidence_badge_text}",
         "",
     ]
     if target_feedback or target_labels or target_note:
@@ -298,6 +307,25 @@ def render_deep_read(
             "",
             "This is a retrieval-based reading brief from Scholar Alert metadata, your profile, and your local foundation. It should be treated as a triage and discussion scaffold until the full paper is read.",
             "",
+            "## Evidence Boundary",
+            "",
+            f"- Current evidence level: `{evidence_level}`.",
+            f"- Current basis: {evidence_description}",
+        ]
+    )
+    if evidence_level == "full-text-backed":
+        lines.append("- This report can include cached local full-text evidence, but final citation decisions still require checking the original paper.")
+    elif has_full_text_cache:
+        lines.append("- A local text cache exists, but the section-aware full-text brief is missing; rerun `full-text` or `review-workflow` before treating this as full-paper analysis.")
+    else:
+        lines.append("- This report can support triage, profile fit, and discussion questions; it cannot verify methods, datasets, figures, results, or citation-ready claims from the full paper.")
+        lines.append(
+            f"- To upgrade this paper, run `review-workflow --paper-id {text(target.get('id', 'PAPER_ID'))} --pdf-path /path/to/paper.pdf`, "
+            "or use `fetch-pdf --pdf-url ... --extract` for an explicit/open PDF URL."
+        )
+    lines.append("")
+    lines.extend(
+        [
             "## Why It Matters For Your Library",
             "",
         ]
