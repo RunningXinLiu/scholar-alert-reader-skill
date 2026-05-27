@@ -1601,7 +1601,7 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Paper Workup", content)
             self.assertIn("Decision Snapshot", content)
 
-    def test_feedback_ui_workup_writes_and_serves_report(self) -> None:
+    def test_feedback_ui_report_actions_write_and_serve_reports(self) -> None:
         from scholar_alert_reader.server import ServerConfig, make_handler
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -1635,6 +1635,24 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     report_body = response.read().decode("utf-8")
                 self.assertIn("Paper Workup", report_body)
                 self.assertIn("Decision Snapshot", report_body)
+
+                body = urllib.parse.urlencode({"paper_id": "p1", "action": "review_pack"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    html_body = response.read().decode("utf-8")
+                review_pack = kb / "analysis" / "p1_review_pack.md"
+                self.assertTrue(review_pack.exists())
+                self.assertIn("Saved feedback for p1: review_pack", html_body)
+                self.assertIn("/report?name=p1_review_pack.md", html_body)
+                with urllib.request.urlopen(f"{base_url}/report?name=p1_review_pack.md", timeout=5) as response:
+                    report_body = response.read().decode("utf-8")
+                self.assertIn("Paper Review Context Pack", report_body)
+                self.assertIn("Review Task For The Assistant", report_body)
             finally:
                 server.shutdown()
                 server.server_close()

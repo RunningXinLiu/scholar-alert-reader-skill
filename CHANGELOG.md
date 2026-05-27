@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.38 - 2026-05-28
+
+- Add a `Review pack` action to the local feedback UI so selected papers can become assistant-ready context packs from the browser.
+- Share one report-writing path between the `review-pack` CLI and browser UI action.
+- Extend browser-report regression coverage to workup and review-pack generation plus local report rendering.
+
 ## v0.2.37 - 2026-05-28
 
 - Add a `Workup` action to the local feedback UI so users can generate selected-paper decision briefs from the browser.

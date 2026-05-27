@@ -81,7 +81,7 @@ For users who want citation/PDF management.
 - A user can generate a browser-friendly next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability; normal knowledge-base-updating runs refresh it automatically.
 - A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
-- A user can trigger selected-paper deep-read/workup reports from the local feedback UI and open generated markdown reports from local browser links.
+- A user can trigger selected-paper deep-read/workup/review-pack reports from the local feedback UI and open generated markdown reports from local browser links.
 - A user can build a review pack that automatically includes the section-aware full-text brief and raw text cache when they exist, so downstream assistants get structured evidence before raw text.
 - A user can open `review_queue.md` or `review_queue.html` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
 - Successful generated `run_reader.sh` runs should refresh `DASHBOARD.md` / `DASHBOARD.html` automatically, with an escape hatch for scripted users who set `REFRESH_DASHBOARD=0`.

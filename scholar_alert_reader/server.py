@@ -110,6 +110,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
                     '<button name="action" value="less">Less like this</button>',
                     '<button name="action" value="deep">Deep read</button>',
                     '<button name="action" value="workup">Workup</button>',
+                    '<button name="action" value="review_pack">Review pack</button>',
                     '<button name="action" value="status_reading">Reading</button>',
                     '<button name="action" value="status_read">Read</button>',
                     '<button name="action" value="status_must_cite">Must cite</button>',
@@ -336,6 +337,11 @@ def make_handler(config: ServerConfig):
                 more_like_this = True
                 reading_status = "reading"
                 note = "Queued for workup from feedback UI."
+            elif action == "review_pack":
+                mark = "interested"
+                more_like_this = True
+                reading_status = "reading"
+                note = "Queued for review pack from feedback UI."
             elif action == "status_reading":
                 mark = "interested"
                 reading_status = "reading"
@@ -383,6 +389,7 @@ def make_handler(config: ServerConfig):
             core.write_reading_status_report(config.kb_dir, [core.asdict(paper) for paper in core.load_paper_library(config.kb_dir)], feedback)
             deep_report = None
             workup_report = None
+            review_pack_report = None
             if action == "deep":
                 deep_report = core.write_deep_read_report(
                     profile_path=config.profile_path,
@@ -397,6 +404,13 @@ def make_handler(config: ServerConfig):
                     paper_id=paper_id,
                     papers_json=config.papers_json,
                 )
+            elif action == "review_pack":
+                review_pack_report, _, _ = core.write_review_context_pack_report(
+                    profile_path=config.profile_path,
+                    kb_dir=config.kb_dir,
+                    paper_id=paper_id,
+                    papers_json=config.papers_json,
+                )
 
             papers = core.load_papers_json(config.papers_json)
             message = f"Saved feedback for {paper_id}: {action}"
@@ -404,6 +418,8 @@ def make_handler(config: ServerConfig):
                 message += f"; deep-read report: {deep_report}"
             if workup_report:
                 message += f"; workup report: {workup_report}"
+            if review_pack_report:
+                message += f"; review pack: {review_pack_report}"
             body = render_page(papers, config, message).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
