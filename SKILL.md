@@ -312,6 +312,8 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
+The browser UI can mark papers, generate `Deep read` / `Workup` reports, update reading labels, and open generated markdown reports through local `/report?name=...` links.
+
 Suggest profile updates from accumulated feedback:
 
 ```bash

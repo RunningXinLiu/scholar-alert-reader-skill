@@ -6,7 +6,11 @@ import plistlib
 import subprocess
 import sys
 import tempfile
+import threading
+import urllib.parse
+import urllib.request
 import unittest
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 
@@ -1596,6 +1600,45 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             content = output.read_text(encoding="utf-8")
             self.assertIn("Paper Workup", content)
             self.assertIn("Decision Snapshot", content)
+
+    def test_feedback_ui_workup_writes_and_serves_report(self) -> None:
+        from scholar_alert_reader.server import ServerConfig, make_handler
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = root / "kb"
+            kb.mkdir()
+            papers_json = root / "papers.json"
+            papers_json.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            config = ServerConfig(profile_path=profile, kb_dir=kb, papers_json=papers_json)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(config))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                base_url = f"http://127.0.0.1:{server.server_port}"
+                body = urllib.parse.urlencode({"paper_id": "p1", "action": "workup"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    html_body = response.read().decode("utf-8")
+                workup = kb / "analysis" / "p1_workup.md"
+                self.assertTrue(workup.exists())
+                self.assertIn("Saved feedback for p1: workup", html_body)
+                self.assertIn("/report?name=p1_workup.md", html_body)
+                with urllib.request.urlopen(f"{base_url}/report?name=p1_workup.md", timeout=5) as response:
+                    report_body = response.read().decode("utf-8")
+                self.assertIn("Paper Workup", report_body)
+                self.assertIn("Decision Snapshot", report_body)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
 
 
 if __name__ == "__main__":

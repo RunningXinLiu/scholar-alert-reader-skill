@@ -6464,22 +6464,33 @@ def review_pack_command(args: argparse.Namespace) -> None:
         print("Included full-text cache: none")
 
 
-def paper_workup_command(args: argparse.Namespace) -> None:
+def write_paper_workup_report(
+    profile_path: Path,
+    kb_dir: Path,
+    paper_id: str | None = None,
+    title: str | None = None,
+    papers_json: Path | None = None,
+    output: Path | None = None,
+    feedback_file: Path | None = None,
+    full_text_path: Path | None = None,
+    full_text_brief_path: Path | None = None,
+    limit: int = 10,
+    max_full_text_brief_chars: int = 7000,
+) -> tuple[Path, Path | None, Path | None]:
     from .copilot import render_paper_workup
 
-    profile = load_profile(args.profile)
-    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
-    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
-    records = merged_paper_records(kb_dir, args.papers_json)
-    target = select_paper_record(records, args.paper_id, args.title)
+    profile = load_profile(profile_path)
+    feedback = load_feedback(feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, papers_json)
+    target = select_paper_record(records, paper_id, title)
     library = paper_records_from_library(kb_dir) or records
     stem = str(target.get("id", "paper") or "paper")
-    full_text_path = args.full_text_path or (kb_dir / "full_text" / f"{stem}.txt")
-    full_text_brief_path = args.full_text_brief_path or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
-    full_text_brief, actual_full_text_brief_path = read_context_text(full_text_brief_path, args.max_full_text_brief_chars)
-    output = args.output or (kb_dir / "analysis" / f"{stem}_workup.md")
+    actual_full_text_path = full_text_path or (kb_dir / "full_text" / f"{stem}.txt")
+    actual_full_text_brief_candidate = full_text_brief_path or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
+    full_text_brief, actual_full_text_brief_path = read_context_text(actual_full_text_brief_candidate, max_full_text_brief_chars)
+    output_path = output or (kb_dir / "analysis" / f"{stem}_workup.md")
     write_report(
-        output,
+        output_path,
         render_paper_workup(
             target,
             library,
@@ -6487,18 +6498,36 @@ def paper_workup_command(args: argparse.Namespace) -> None:
             feedback=feedback,
             full_text_brief=full_text_brief,
             full_text_brief_path=actual_full_text_brief_path,
-            has_full_text_cache=full_text_path.exists(),
-            limit=args.limit,
-            max_full_text_brief_chars=args.max_full_text_brief_chars,
+            has_full_text_cache=actual_full_text_path.exists(),
+            limit=limit,
+            max_full_text_brief_chars=max_full_text_brief_chars,
         ),
+    )
+    return output_path, actual_full_text_brief_path, actual_full_text_path if actual_full_text_path.exists() else None
+
+
+def paper_workup_command(args: argparse.Namespace) -> None:
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    output, actual_full_text_brief_path, actual_full_text_path = write_paper_workup_report(
+        profile_path=args.profile,
+        kb_dir=kb_dir,
+        paper_id=args.paper_id,
+        title=args.title,
+        papers_json=args.papers_json,
+        output=args.output,
+        feedback_file=args.feedback_file,
+        full_text_path=args.full_text_path,
+        full_text_brief_path=args.full_text_brief_path,
+        limit=args.limit,
+        max_full_text_brief_chars=args.max_full_text_brief_chars,
     )
     print(f"Paper workup: {output}")
     if actual_full_text_brief_path:
         print(f"Included full-text brief: {actual_full_text_brief_path}")
     else:
         print("Included full-text brief: none")
-    if full_text_path.exists():
-        print(f"Full-text cache: {full_text_path}")
+    if actual_full_text_path:
+        print(f"Full-text cache: {actual_full_text_path}")
     else:
         print("Full-text cache: none")
 

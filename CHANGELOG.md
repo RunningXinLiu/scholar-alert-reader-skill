@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.37 - 2026-05-28
+
+- Add a `Workup` action to the local feedback UI so users can generate selected-paper decision briefs from the browser.
+- Serve generated markdown reports through local `/report?name=...` links for deep-read, workup, full-text brief, and review-pack outputs.
+- Add regression coverage for browser-triggered workup generation and report rendering.
+
 ## v0.2.36 - 2026-05-28
 
 - Add `workup` / generated `workup_paper.sh` for a selected-paper decision brief against the user's foundation, feedback, full-text brief, and possible manuscript role.

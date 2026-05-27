@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote, urlparse
 
 
 @dataclass
@@ -42,6 +42,36 @@ def paper_metadata_summary(paper: Any) -> str:
     return " · ".join(items)
 
 
+def report_links(paper_id: str, config: ServerConfig) -> str:
+    analysis_dir = config.kb_dir / "analysis"
+    reports = [
+        ("Deep read", f"{paper_id}_deep_read.md"),
+        ("Workup", f"{paper_id}_workup.md"),
+        ("Full-text brief", f"{paper_id}_full_text_brief.md"),
+        ("Review pack", f"{paper_id}_review_pack.md"),
+    ]
+    links = []
+    for label, filename in reports:
+        path = analysis_dir / filename
+        if path.exists():
+            links.append(f'<a href="/report?name={quote(filename, safe="")}">{html.escape(label)}</a>')
+    if not links:
+        return ""
+    return '<p class="reports">Reports: ' + " · ".join(links) + "</p>"
+
+
+def safe_report_path(config: ServerConfig, name: str) -> Path | None:
+    if not name or "/" in name or "\\" in name or not name.endswith(".md"):
+        return None
+    analysis_dir = (config.kb_dir / "analysis").resolve()
+    report_path = (analysis_dir / name).resolve()
+    try:
+        report_path.relative_to(analysis_dir)
+    except ValueError:
+        return None
+    return report_path
+
+
 def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> str:
     cards = []
     for paper in papers:
@@ -70,6 +100,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
                     f'<p class="meta">{html.escape(metadata_summary)}</p>' if metadata_summary else "",
                     f'<p>{html.escape(paper.snippet)}</p>',
                     f'<p><a href="{html.escape(paper.url, quote=True)}">Open paper</a></p>' if paper.url else "",
+                    report_links(paper.id, config),
                     f"<ul>{reasons}</ul>" if reasons else "",
                     f'<form method="post" action="/feedback">',
                     f'<input type="hidden" name="paper_id" value="{html.escape(paper.id, quote=True)}">',
@@ -78,6 +109,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
                     '<button name="action" value="more">More like this</button>',
                     '<button name="action" value="less">Less like this</button>',
                     '<button name="action" value="deep">Deep read</button>',
+                    '<button name="action" value="workup">Workup</button>',
                     '<button name="action" value="status_reading">Reading</button>',
                     '<button name="action" value="status_read">Read</button>',
                     '<button name="action" value="status_must_cite">Must cite</button>',
@@ -147,6 +179,11 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
               background: #d9f4ef;
               color: #0f5f59;
             }
+            .reports {
+              color: var(--muted);
+              font-size: 14px;
+            }
+            .reports a { margin-right: 8px; }
             .paper {
               background: var(--panel);
               border: 1px solid var(--line);
@@ -228,6 +265,28 @@ def make_handler(config: ServerConfig):
             return
 
         def do_GET(self) -> None:
+            parsed = urlparse(self.path)
+            if parsed.path == "/report":
+                query = parse_qs(parsed.query)
+                name = (query.get("name") or [""])[0]
+                report_path = safe_report_path(config, name)
+                if report_path is None:
+                    self.send_error(400, "Invalid report name")
+                    return
+                if not report_path.exists():
+                    self.send_error(404, "Report not found")
+                    return
+                content = report_path.read_text(encoding="utf-8", errors="replace")
+                body = core.markdown_to_basic_html(content, f"Scholar Alert Report: {report_path.stem}").encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            if parsed.path != "/":
+                self.send_error(404)
+                return
             papers = core.load_papers_json(config.papers_json)
             body = render_page(papers, config).encode("utf-8")
             self.send_response(200)
@@ -272,6 +331,11 @@ def make_handler(config: ServerConfig):
                 more_like_this = True
                 reading_status = "reading"
                 note = "Queued for deep reading from feedback UI."
+            elif action == "workup":
+                mark = "interested"
+                more_like_this = True
+                reading_status = "reading"
+                note = "Queued for workup from feedback UI."
             elif action == "status_reading":
                 mark = "interested"
                 reading_status = "reading"
@@ -318,8 +382,16 @@ def make_handler(config: ServerConfig):
             )
             core.write_reading_status_report(config.kb_dir, [core.asdict(paper) for paper in core.load_paper_library(config.kb_dir)], feedback)
             deep_report = None
+            workup_report = None
             if action == "deep":
                 deep_report = core.write_deep_read_report(
+                    profile_path=config.profile_path,
+                    kb_dir=config.kb_dir,
+                    paper_id=paper_id,
+                    papers_json=config.papers_json,
+                )
+            elif action == "workup":
+                workup_report, _, _ = core.write_paper_workup_report(
                     profile_path=config.profile_path,
                     kb_dir=config.kb_dir,
                     paper_id=paper_id,
@@ -330,6 +402,8 @@ def make_handler(config: ServerConfig):
             message = f"Saved feedback for {paper_id}: {action}"
             if deep_report:
                 message += f"; deep-read report: {deep_report}"
+            if workup_report:
+                message += f"; workup report: {workup_report}"
             body = render_page(papers, config, message).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
