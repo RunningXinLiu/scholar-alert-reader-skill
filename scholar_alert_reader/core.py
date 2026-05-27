@@ -4170,6 +4170,7 @@ def render_project_guide(
         "- `./profile_doctor.sh`: check whether the active profile is too broad, too sparse, or missing feedback signals.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./explain_ranking.sh --paper-id <ID>`: explain why one paper was ranked where it was.",
+        "- `./ranking_eval.sh`: evaluate ranking quality against interested/archive feedback labels.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
         "- `./review_workflow.sh --paper-id <ID>`: run local full-text extraction when possible, then write a workup and review pack.",
@@ -4388,6 +4389,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "",
             f"- {dashboard_link('Reading plan markdown', kb_dir / 'reading_plan.md', base_dir)}",
             f"- {dashboard_link('Review queue markdown', analysis_dir / 'review_queue.md', base_dir)}",
+            f"- {dashboard_link('Ranking evaluation', analysis_dir / 'ranking_evaluation.md', base_dir)}",
             f"- {dashboard_link('Recent review papers JSON', recent_dir / 'papers.json', base_dir)}",
             f"- {dashboard_link('Daily papers JSON', daily_dir / 'papers.json', base_dir)}",
             "",
@@ -4397,9 +4399,10 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "2. Open the reading plan to choose the next few IDs.",
             "3. If Zotero has local PDFs, run `./zotero_sync.sh` so review packs can include full-text briefs.",
             "4. Run `./explain_ranking.sh --paper-id ID` if a paper's tier or score needs explanation.",
-            "5. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
-            "6. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
-            "7. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "5. Run `./ranking_eval.sh` after several labels to measure whether ranking matches your feedback.",
+            "6. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
+            "7. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
+            "8. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
             "",
@@ -4643,6 +4646,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_workflow.sh": 'exec "${SKILL_CMD[@]}" review-workflow --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "explain_ranking.sh": 'exec "${SKILL_CMD[@]}" explain-ranking --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "ranking_eval.sh": 'exec "${SKILL_CMD[@]}" ranking-eval --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "reading_plan.sh": 'exec "${SKILL_CMD[@]}" reading-plan --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -4816,6 +4820,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./review_workflow.sh --paper-id <ID>",
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
                     "./explain_ranking.sh --paper-id <ID>",
+                    "./ranking_eval.sh",
                     "./tune_profile.sh",
                     "./reading_plan.sh",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
@@ -7935,6 +7940,232 @@ def explain_ranking_command(args: argparse.Namespace) -> None:
     print(f"Explained papers: {len(selected)}")
 
 
+POSITIVE_READING_STATUSES = {"reading", "read", "must-cite", "method-reference"}
+NEGATIVE_READING_STATUSES = {"not-relevant"}
+
+
+def feedback_label(record: dict[str, Any], feedback: dict[str, Any]) -> tuple[str, str]:
+    paper_id = str(record.get("id", ""))
+    item = feedback.get("papers", {}).get(paper_id, {}) if isinstance(feedback.get("papers"), dict) else {}
+    if not isinstance(item, dict) or not item:
+        return "", "unlabeled"
+    status = str(item.get("status", "")).lower()
+    reading_status = str(item.get("reading_status", "")).lower()
+    signals = item.get("signals", {}) if isinstance(item.get("signals"), dict) else {}
+    if status == "archive" or reading_status in NEGATIVE_READING_STATUSES or item.get("less_like_this") or signals.get("less_like_this"):
+        return "negative", explain_feedback_status(record, feedback)
+    if status == "interested" or reading_status in POSITIVE_READING_STATUSES or item.get("more_like_this") or signals.get("more_like_this"):
+        return "positive", explain_feedback_status(record, feedback)
+    return "", explain_feedback_status(record, feedback)
+
+
+def parse_top_k(value: str) -> list[int]:
+    values: list[int] = []
+    for item in split_csv(value):
+        try:
+            number = int(item)
+        except ValueError:
+            continue
+        if number > 0 and number not in values:
+            values.append(number)
+    return values or [5, 10, 20]
+
+
+def average_precision(labeled_rows: list[dict[str, Any]], positive_count: int) -> float:
+    if positive_count <= 0:
+        return 0.0
+    hits = 0
+    total = 0.0
+    for index, row in enumerate(labeled_rows, 1):
+        if row["label"] == "positive":
+            hits += 1
+            total += hits / index
+    return total / positive_count
+
+
+def md_cell(value: Any) -> str:
+    return str(value).replace("\n", " ").replace("|", "\\|")
+
+
+def ranking_eval_rows(records: list[dict[str, Any]], feedback: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    rows: list[dict[str, Any]] = []
+    record_ids = {str(record.get("id", "")) for record in records if str(record.get("id", ""))}
+    feedback_ids = set(feedback.get("papers", {}).keys()) if isinstance(feedback.get("papers"), dict) else set()
+    missing_feedback_ids = len(feedback_ids - record_ids)
+    for rank, record in enumerate(records, 1):
+        label, feedback_status = feedback_label(record, feedback)
+        if not label:
+            continue
+        rows.append(
+            {
+                "rank": rank,
+                "id": str(record.get("id", "")),
+                "title": str(record.get("title", "")),
+                "tier": str(record.get("tier", "")),
+                "score": int(record.get("score", 0) or 0),
+                "label": label,
+                "feedback": feedback_status,
+                "matched_terms": ", ".join(str(term) for term in record.get("matched_terms", [])[:8]),
+            }
+        )
+    return rows, missing_feedback_ids
+
+
+def render_ranking_eval_report(
+    records: list[dict[str, Any]],
+    profile: dict[str, Any],
+    feedback: dict[str, Any],
+    profile_path: Path,
+    feedback_file: Path,
+    top_k: list[int],
+    min_labels: int,
+    min_average_precision: float,
+) -> tuple[str, str]:
+    labeled_rows, missing_feedback_ids = ranking_eval_rows(records, feedback)
+    positive_count = sum(1 for row in labeled_rows if row["label"] == "positive")
+    negative_count = sum(1 for row in labeled_rows if row["label"] == "negative")
+    unlabeled_count = max(0, len(records) - len(labeled_rows))
+    ap = average_precision(labeled_rows, positive_count)
+    thresholds = profile.get("tier_thresholds", {}) if isinstance(profile.get("tier_thresholds"), dict) else {}
+    must_threshold = int(thresholds.get("must_read", 8))
+    skim_threshold = int(thresholds.get("skim", 3))
+    false_positives = [
+        row
+        for row in labeled_rows
+        if row["label"] == "negative" and (row["tier"] == "Must read" or row["score"] >= must_threshold)
+    ]
+    missed_positives = [
+        row
+        for row in labeled_rows
+        if row["label"] == "positive" and (row["tier"] == "Archive" or row["score"] < skim_threshold)
+    ]
+    if len(labeled_rows) < min_labels or positive_count == 0:
+        result = "NEEDS_FEEDBACK"
+    elif false_positives or missed_positives or ap < min_average_precision:
+        result = "WARN"
+    else:
+        result = "PASS"
+
+    precision_rows: list[tuple[int, int, int, float, float]] = []
+    for k in top_k:
+        subset = labeled_rows[: min(k, len(labeled_rows))]
+        denom = len(subset)
+        positives = sum(1 for row in subset if row["label"] == "positive")
+        precision = positives / denom if denom else 0.0
+        recall = positives / positive_count if positive_count else 0.0
+        precision_rows.append((k, positives, denom, precision, recall))
+
+    tier_counts: dict[str, Counter[str]] = {"positive": Counter(), "negative": Counter()}
+    for row in labeled_rows:
+        tier_counts[row["label"]][row["tier"] or "unknown"] += 1
+
+    lines = [
+        "# Ranking Evaluation",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Result: `{result}`",
+        f"- Profile: `{profile_path}`",
+        f"- Feedback: `{feedback_file}`",
+        f"- Records considered: {len(records)}",
+        f"- Labeled records: {len(labeled_rows)}",
+        f"- Positives: {positive_count}",
+        f"- Negatives: {negative_count}",
+        f"- Unlabeled records ignored: {unlabeled_count}",
+        f"- Feedback IDs missing from current records: {missing_feedback_ids}",
+        f"- Average precision: {ap:.3f}",
+        "",
+        "This report evaluates the saved ranking order against explicit local feedback only. Unlabeled papers are ignored for metrics, so results become meaningful after several interested/archive decisions.",
+        "",
+        "## Precision@K",
+        "",
+        "| K | Positives in top K | Labeled considered | Precision | Recall |",
+        "|---:|---:|---:|---:|---:|",
+    ]
+    for k, positives, denom, precision, recall in precision_rows:
+        lines.append(f"| {k} | {positives} | {denom} | {precision:.3f} | {recall:.3f} |")
+
+    lines.extend(
+        [
+            "",
+            "## Tier Calibration",
+            "",
+            "| Label | Must read | Skim | Archive | Other |",
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    for label in ["positive", "negative"]:
+        counts = tier_counts[label]
+        known = counts.get("Must read", 0) + counts.get("Skim", 0) + counts.get("Archive", 0)
+        other = sum(counts.values()) - known
+        lines.append(f"| {label} | {counts.get('Must read', 0)} | {counts.get('Skim', 0)} | {counts.get('Archive', 0)} | {other} |")
+
+    lines.extend(["", "## Potential False Positives", ""])
+    if false_positives:
+        lines.extend(["Archive/less-like-this papers currently ranked too high.", "", "| Rank | Score | Tier | ID | Title | Feedback |", "|---:|---:|---|---|---|---|"])
+        for row in false_positives[:10]:
+            lines.append(
+                f"| {row['rank']} | {row['score']} | {md_cell(row['tier'])} | `{md_cell(row['id'])}` | {md_cell(row['title'])} | {md_cell(row['feedback'])} |"
+            )
+    else:
+        lines.append("- None found among labeled papers.")
+
+    lines.extend(["", "## Potential Missed Positives", ""])
+    if missed_positives:
+        lines.extend(["Interested/more-like-this papers currently ranked too low.", "", "| Rank | Score | Tier | ID | Title | Matched terms |", "|---:|---:|---|---|---|---|"])
+        for row in missed_positives[:10]:
+            lines.append(
+                f"| {row['rank']} | {row['score']} | {md_cell(row['tier'])} | `{md_cell(row['id'])}` | {md_cell(row['title'])} | {md_cell(row['matched_terms'] or 'none')} |"
+            )
+    else:
+        lines.append("- None found among labeled papers.")
+
+    lines.extend(["", "## Recommendations", ""])
+    if result == "NEEDS_FEEDBACK":
+        lines.append(f"- Add at least {max(0, min_labels - len(labeled_rows))} more interested/archive decisions, then rerun `./ranking_eval.sh`.")
+    if false_positives:
+        lines.append("- Inspect the false positives and add exclusions or `less-like-this` feedback for the recurring noise terms.")
+    if missed_positives:
+        lines.append("- Inspect the missed positives and add focus terms, methods, regions, watched authors, or semantic queries for the useful signal.")
+    if ap < min_average_precision and positive_count:
+        lines.append("- Average precision is below the requested threshold; run `./explain_ranking.sh` on confusing papers before changing broad profile terms.")
+    if not false_positives and not missed_positives and result == "PASS":
+        lines.append("- Current labeled feedback is consistent with the saved ranking. Keep collecting labels and rerun after each week of use.")
+    lines.extend(
+        [
+            "- Use `./profile_doctor.sh` for profile-shape checks and `./tune_profile.sh` for concrete suggested terms.",
+            "- Use `./serve_reader.sh` or `./feedback_reader.sh --paper-id ID --mark interested/archive` to add labels.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n", result
+
+
+def ranking_eval_command(args: argparse.Namespace) -> None:
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = load_feedback(feedback_file)
+    records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
+    if not records:
+        raise SystemExit("No records available for ranking evaluation. Pass --papers-json or run a source/foundation first.")
+    output = args.output or (kb_dir / "analysis" / "ranking_evaluation.md")
+    report, result = render_ranking_eval_report(
+        records,
+        profile,
+        feedback,
+        args.profile,
+        feedback_file,
+        parse_top_k(args.top_k),
+        args.min_labels,
+        args.min_average_precision,
+    )
+    write_report(output, report)
+    print(f"Ranking evaluation: {output}")
+    print(f"Result: {result}")
+    if args.strict and result != "PASS":
+        raise SystemExit(1)
+
+
 def ask_library_command(args: argparse.Namespace) -> None:
     from .copilot import render_literature_answer
 
@@ -8224,6 +8455,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, and method-reference labels.",
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
+        "- Evaluating saved ranking quality against interested/archive labels with precision, recall, average precision, false positives, and missed positives.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
@@ -8250,12 +8482,12 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "2. Run `setup-wizard` or `./setup_wizard.sh` to pick source, profile, schedule, and optional integrations.",
         "3. Run `source-check --live` before expecting non-empty daily results.",
         "4. Build an initial `foundation`, then use `daily` for new papers only.",
-        "5. Mark interested/archive papers and rerun `profile-tune` after several feedback rounds.",
+        "5. Mark interested/archive papers and rerun `ranking-eval` plus `profile-tune` after several feedback rounds.",
         "6. Sync Zotero local PDF paths when available, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
         "",
         "## Practical Upgrade Path",
         "",
-        "- For better ranking: run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
+        "- For better ranking: run `ranking-eval` after several labels, run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
         "- For closer reading: use Zotero or explicit local PDF paths with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
         "- For public support: run `privacy-check` first, then `support-bundle`, and review the redacted output before posting a GitHub issue.",
@@ -8876,6 +9108,18 @@ def build_parser() -> argparse.ArgumentParser:
     explain_ranking.add_argument("--limit", type=int, default=10, help="Maximum papers to explain when selecting by tier")
     explain_ranking.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/ranking_explanation.md")
     explain_ranking.set_defaults(func=explain_ranking_command)
+
+    ranking_eval = sub.add_parser("ranking-eval", aliases=["eval-ranking"], help="Evaluate saved ranking quality against interested/archive feedback")
+    ranking_eval.add_argument("--profile", type=Path, required=True)
+    ranking_eval.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    ranking_eval.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    ranking_eval.add_argument("--papers-json", type=Path, help="Optional digest papers.json to include recent papers")
+    ranking_eval.add_argument("--top-k", default="5,10,20", help="Comma-separated K values for precision/recall, e.g. 5,10,20")
+    ranking_eval.add_argument("--min-labels", type=int, default=3, help="Minimum explicit feedback labels before metrics are considered meaningful")
+    ranking_eval.add_argument("--min-average-precision", type=float, default=0.7, help="Warn when average precision falls below this value")
+    ranking_eval.add_argument("--strict", action="store_true", help="Exit non-zero unless the result is PASS")
+    ranking_eval.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/ranking_evaluation.md")
+    ranking_eval.set_defaults(func=ranking_eval_command)
 
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
     ask.add_argument("--profile", type=Path, required=True)

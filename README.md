@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.43`
+Version: `0.2.45`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -126,6 +126,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, adaptive feedback similarity, and temporary boost terms.
 - Explains why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning suggestions.
+- Evaluates ranking quality against your interested/archive feedback, including precision/recall, average precision, false positives, and missed positives.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
@@ -154,7 +155,7 @@ The core ranking layer is local and explainable: profile terms, methods, regions
 
 Scholar Alert Reader is useful without any external note app:
 
-1. **Codex-only**: read alerts or bibliography exports, rank papers, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/review-workflow/Q&A/review-pack/advice commands.
+1. **Codex-only**: read alerts or bibliography exports, rank papers, evaluate ranking from feedback, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/review-workflow/Q&A/review-pack/advice commands.
 2. **Codex + Obsidian**: sync generated notes, maps, reading status, answers, comparisons, and deep reads into a generated Obsidian folder.
 3. **Codex + Zotero + Obsidian**: use Zotero for citations/PDFs and Obsidian for durable human-written notes and synthesis.
 
@@ -614,6 +615,17 @@ python3 scripts/scholar_reader.py explain-ranking \
 
 `explain-ranking` writes `knowledge_base/analysis/ranking_explanation.md` by default. It uses saved `papers.json` or `library.json` ranking fields and reports thresholds, matched terms, tags, feedback status, stored ranking reasons, and concrete tuning moves. Use `--tiers "Must read,Skim" --limit 10` to explain a batch, or `--papers-json reader_out/daily/papers.json` to explain a recent digest.
 
+Evaluate whether the saved ranking matches your feedback:
+
+```bash
+python3 scripts/scholar_reader.py ranking-eval \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json reader_out/daily/papers.json
+```
+
+`ranking-eval` writes `knowledge_base/analysis/ranking_evaluation.md` by default. It uses explicit `interested`, `archive`, `more-like-this`, `less-like-this`, and reading-status feedback labels to report precision/recall at K, average precision, tier calibration, high-ranked archive false positives, low-ranked interested missed positives, and concrete tuning recommendations. Run it after several labels; unlabeled papers are ignored for metrics.
+
 Open the project dashboard:
 
 ```bash
@@ -644,7 +656,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./ranking_eval.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 

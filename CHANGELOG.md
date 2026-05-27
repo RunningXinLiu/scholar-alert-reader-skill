@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.45 - 2026-05-28
+
+- Add `ranking-eval` / `eval-ranking` plus generated `ranking_eval.sh` to evaluate saved ranking quality against explicit interested/archive feedback labels.
+- Write `knowledge_base/analysis/ranking_evaluation.md` with precision/recall at K, average precision, tier calibration, potential false positives, missed positives, and tuning recommendations.
+- Surface ranking evaluation in generated guides, dashboards, capabilities, README, SKILL guidance, product notes, and tests.
+
 ## v0.2.44 - 2026-05-28
 
 - Add `privacy-check` / `privacy-audit` plus generated `privacy_check.sh` to scan local projects for files that should not be published.

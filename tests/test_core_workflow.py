@@ -227,6 +227,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_workflow.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
             self.assertTrue((project / "explain_ranking.sh").exists())
+            self.assertTrue((project / "ranking_eval.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "reading_plan.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
@@ -250,6 +251,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Bundled templates", start_here)
             self.assertIn("./profile_wizard.sh", start_here)
             self.assertIn("./profile_doctor.sh", start_here)
+            self.assertIn("./ranking_eval.sh", start_here)
             subprocess.run(
                 [
                     str(project / "setup_reader.sh"),
@@ -378,6 +380,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Review Workflow", dashboard)
             self.assertIn("Profile Health", dashboard)
             self.assertIn("Privacy check", dashboard)
+            self.assertIn("Ranking evaluation", dashboard)
             self.assertIn("profile_doctor.md", dashboard)
             self.assertIn("sample_web_article.html", dashboard)
             self.assertTrue((project / "profiles" / "profile_doctor.md").exists())
@@ -912,6 +915,118 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Feedback status: status=interested", content)
             self.assertIn("Why It Ranked This Way", content)
             self.assertIn("Next Tuning Moves", content)
+
+    def test_ranking_evaluation_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "name": "Ranking eval test",
+                        "focus_terms": [{"term": "ambient noise", "weight": 7}],
+                        "regions": [{"term": "Taiwan", "weight": 5}],
+                        "methods": [{"term": "tomography", "weight": 5}],
+                        "semantic_queries": [],
+                        "exclude_terms": [],
+                        "tier_thresholds": {"must_read": 20, "skim": 5},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            kb = root / "kb"
+            kb.mkdir()
+            papers = root / "papers.json"
+            positive_high = sample_paper()
+            negative_high = {
+                **sample_paper(),
+                "id": "p2",
+                "title": "Generic medical imaging tomography benchmark",
+                "score": 28,
+                "tier": "Must read",
+                "matched_terms": ["tomography"],
+            }
+            positive_low = {
+                **sample_paper(),
+                "id": "p3",
+                "title": "A useful low-scored dense array catalog",
+                "score": 2,
+                "tier": "Archive",
+                "matched_terms": [],
+            }
+            negative_low = {
+                **sample_paper(),
+                "id": "p4",
+                "title": "Workshop announcement outside the research scope",
+                "score": 1,
+                "tier": "Archive",
+                "matched_terms": [],
+            }
+            papers.write_text(json.dumps([positive_high, negative_high, positive_low, negative_low]), encoding="utf-8")
+            feedback = {
+                "version": 1,
+                "papers": {
+                    "p1": {"status": "interested", "signals": {"more_like_this": True}},
+                    "p2": {"status": "archive", "signals": {"less_like_this": True}},
+                    "p3": {"status": "interested"},
+                    "p4": {"status": "archive"},
+                },
+                "terms": [],
+            }
+            (kb / "feedback.json").write_text(json.dumps(feedback), encoding="utf-8")
+            report = root / "ranking_evaluation.md"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "ranking-eval",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--papers-json",
+                    str(papers),
+                    "--top-k",
+                    "1,3",
+                    "--output",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Result: WARN", result.stdout)
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Ranking Evaluation", content)
+            self.assertIn("Average precision", content)
+            self.assertIn("## Precision@K", content)
+            self.assertIn("Potential False Positives", content)
+            self.assertIn("Generic medical imaging tomography benchmark", content)
+            self.assertIn("Potential Missed Positives", content)
+            self.assertIn("A useful low-scored dense array catalog", content)
+            self.assertIn("Tier Calibration", content)
+
+            strict = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "ranking-eval",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--papers-json",
+                    str(papers),
+                    "--strict",
+                    "--output",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(strict.returncode, 0)
 
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
