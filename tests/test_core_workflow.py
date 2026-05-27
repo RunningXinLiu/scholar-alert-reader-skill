@@ -2465,6 +2465,29 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertIn("feedback none", initial_body)
                 self.assertIn('name="note"', initial_body)
                 self.assertIn("Save note", initial_body)
+                self.assertIn('action="/ask"', initial_body)
+                self.assertIn("Ask library", initial_body)
+
+                ask_body = urllib.parse.urlencode({"question": "Taiwan ambient noise manuscript"}).encode("utf-8")
+                ask_request = urllib.request.Request(
+                    f"{base_url}/ask",
+                    data=ask_body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(ask_request, timeout=5) as response:
+                    ask_html = response.read().decode("utf-8")
+                self.assertIn("Answered library question", ask_html)
+                self.assertIn("/answer?name=", ask_html)
+                answer_files = list((kb / "answers").glob("*.md"))
+                self.assertEqual(len(answer_files), 1)
+                with urllib.request.urlopen(f"{base_url}/answer?name={urllib.parse.quote(answer_files[0].name)}", timeout=5) as response:
+                    answer_body = response.read().decode("utf-8")
+                self.assertIn("Literature Answer", answer_body)
+                self.assertIn("Taiwan ambient noise manuscript", answer_body)
+                with self.assertRaises(urllib.error.HTTPError) as raised_answer:
+                    urllib.request.urlopen(f"{base_url}/answer?name=../feedback.json", timeout=5)
+                raised_answer.exception.close()
 
                 body = urllib.parse.urlencode(
                     {

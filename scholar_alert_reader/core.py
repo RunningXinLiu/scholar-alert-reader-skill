@@ -9118,16 +9118,37 @@ def semantic_rerank_command(args: argparse.Namespace) -> None:
     print(f"Records considered: {len(rows)}")
 
 
-def ask_library_command(args: argparse.Namespace) -> None:
+def write_literature_answer_report(
+    profile_path: Path,
+    kb_dir: Path,
+    question: str,
+    papers_json: Path | None = None,
+    output: Path | None = None,
+    limit: int = 15,
+    feedback_file: Path | None = None,
+) -> Path:
     from .copilot import render_literature_answer
 
-    profile = load_profile(args.profile)
+    profile = load_profile(profile_path)
+    feedback = load_feedback(feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, papers_json) if papers_json else paper_records_from_library(kb_dir)
+    stem = slugify(question)[:70] or "question"
+    output = output or (kb_dir / "answers" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
+    write_report(output, render_literature_answer(question, records, profile, feedback=feedback, limit=limit))
+    return output
+
+
+def ask_library_command(args: argparse.Namespace) -> None:
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
-    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
-    records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
-    stem = slugify(args.question)[:70] or "question"
-    output = args.output or (kb_dir / "answers" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
-    write_report(output, render_literature_answer(args.question, records, profile, feedback=feedback, limit=args.limit))
+    output = write_literature_answer_report(
+        profile_path=args.profile,
+        kb_dir=kb_dir,
+        question=args.question,
+        papers_json=args.papers_json,
+        output=args.output,
+        limit=args.limit,
+        feedback_file=args.feedback_file,
+    )
     print(f"Literature answer: {output}")
 
 

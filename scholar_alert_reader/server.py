@@ -133,6 +133,18 @@ def safe_report_path(config: ServerConfig, name: str) -> Path | None:
     return report_path
 
 
+def safe_answer_path(config: ServerConfig, name: str) -> Path | None:
+    if not name or "/" in name or "\\" in name or not name.endswith(".md"):
+        return None
+    answers_dir = (config.kb_dir / "answers").resolve()
+    answer_path = (answers_dir / name).resolve()
+    try:
+        answer_path.relative_to(answers_dir)
+    except ValueError:
+        return None
+    return answer_path
+
+
 def local_file_targets(config: ServerConfig) -> list[tuple[str, str, Path]]:
     from . import core
 
@@ -168,7 +180,13 @@ def safe_local_file_path(config: ServerConfig, name: str) -> Path | None:
     return None
 
 
-def render_page(papers: list[Any], config: ServerConfig, message: str = "", feedback: dict[str, Any] | None = None) -> str:
+def render_page(
+    papers: list[Any],
+    config: ServerConfig,
+    message: str = "",
+    feedback: dict[str, Any] | None = None,
+    message_html: str = "",
+) -> str:
     cards = []
     for paper in papers:
         reasons = "".join(f"<li>{html.escape(reason)}</li>" for reason in paper.reasons[:3])
@@ -268,6 +286,13 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
               margin-top: 16px;
               max-width: 960px;
             }
+            .ask-form {
+              display: grid;
+              grid-template-columns: minmax(240px, 1fr) auto;
+              gap: 8px;
+              max-width: 960px;
+              margin: 12px 0 0;
+            }
             input, select, textarea {
               border: 1px solid var(--line);
               border-radius: 8px;
@@ -334,6 +359,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
               font-size: 12px;
             }
             form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+            .ask-form { display: grid; }
             .note-input {
               flex: 1 0 100%;
               display: grid;
@@ -360,6 +386,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
             a:hover { text-decoration: underline; }
             @media (max-width: 640px) {
               .toolbar { grid-template-columns: 1fr; }
+              .ask-form { grid-template-columns: 1fr; }
             }
             """,
             "</style>",
@@ -376,7 +403,13 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
             '<select id="tier"><option value="">All tiers</option><option>Must read</option><option>Skim</option><option>Archive</option></select>',
             '<select id="status"><option value="">All statuses</option><option>unread</option><option>reading</option><option>read</option><option>must-cite</option><option>method-reference</option><option>background-only</option><option>not-relevant</option></select>',
             "</div>",
-            f'<div class="message">{html.escape(message)}</div>' if message else "",
+            '<form class="ask-form" method="post" action="/ask">',
+            '<input name="question" type="search" placeholder="Ask your library, e.g. which papers are closest to my current project?">',
+            '<button>Ask library</button>',
+            "</form>",
+            f'<div class="message">{message_html}</div>'
+            if message_html
+            else f'<div class="message">{html.escape(message)}</div>' if message else "",
             "</header>",
             "<main>",
             content,
@@ -436,6 +469,24 @@ def make_handler(config: ServerConfig):
                 self.end_headers()
                 self.wfile.write(body)
                 return
+            if parsed.path == "/answer":
+                query = parse_qs(parsed.query)
+                name = (query.get("name") or [""])[0]
+                answer_path = safe_answer_path(config, name)
+                if answer_path is None:
+                    self.send_error(400, "Invalid answer name")
+                    return
+                if not answer_path.exists():
+                    self.send_error(404, "Answer not found")
+                    return
+                content = answer_path.read_text(encoding="utf-8", errors="replace")
+                body = core.markdown_to_basic_html(content, f"Scholar Alert Answer: {answer_path.stem}").encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
             if parsed.path == "/local":
                 query = parse_qs(parsed.query)
                 name = (query.get("name") or [""])[0]
@@ -470,6 +521,35 @@ def make_handler(config: ServerConfig):
             self.wfile.write(body)
 
         def do_POST(self) -> None:
+            if self.path == "/ask":
+                length = int(self.headers.get("Content-Length", "0") or "0")
+                form = parse_qs(self.rfile.read(length).decode("utf-8", errors="replace"))
+                question = (form.get("question") or [""])[0].strip()
+                if not question:
+                    self.send_error(400, "Question is required")
+                    return
+                output = core.write_literature_answer_report(
+                    profile_path=config.profile_path,
+                    kb_dir=config.kb_dir,
+                    question=question,
+                    papers_json=config.papers_json,
+                    feedback_file=core.default_feedback_file(config.kb_dir),
+                )
+                papers = core.load_papers_json(config.papers_json)
+                feedback = core.load_feedback(core.default_feedback_file(config.kb_dir))
+                answer_link = f'<a href="/answer?name={quote(output.name, safe="")}">{html.escape(output.name)}</a>'
+                body = render_page(
+                    papers,
+                    config,
+                    feedback=feedback,
+                    message_html=f"Answered library question: {html.escape(question)}; answer: {answer_link}",
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
             if self.path != "/feedback":
                 self.send_error(404)
                 return

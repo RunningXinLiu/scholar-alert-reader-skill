@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.64 - 2026-05-28
+
+- Add an `Ask library` form to the browser feedback UI so users can query the retained library plus current digest without leaving the workbench.
+- Share the same literature-answer renderer between the CLI `ask` command and the browser UI.
+- Serve generated answer reports through a safe `/answer?name=...` route and cover path traversal rejection in tests.
+
 ## v0.2.63 - 2026-05-28
 
 - Add allowlisted local navigation links to the browser feedback UI for the refreshed reading plan, dashboard, foundation, interested queue, reading status, weekly review, and generated reports.
