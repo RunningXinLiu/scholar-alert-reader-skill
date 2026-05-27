@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.41 - 2026-05-28
+
+- Add a `Profile Health` section to `DASHBOARD.md/html` with profile-doctor status, link, and refresh command.
+- Refresh `profiles/profile_doctor.md` automatically after successful generated `run_reader.sh` runs unless `REFRESH_PROFILE_DOCTOR=0` is set.
+- Ignore generated profile onboarding/doctor reports in new project scaffolds and cover dashboard visibility in tests.
+
 ## v0.2.40 - 2026-05-28
 
 - Add `profile-doctor` / generated `profile_doctor.sh` to diagnose ranking-profile quality after onboarding or feedback rounds.

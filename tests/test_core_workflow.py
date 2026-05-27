@@ -232,6 +232,8 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("web_sources.txt", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn(".self_test/", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("profiles/profile_onboarding.md", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("profiles/profile_doctor.md", (project / ".gitignore").read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Product Modes", start_here)
             self.assertIn("Capability boundary", start_here)
@@ -366,7 +368,10 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Scholar Alert Reader Dashboard", dashboard)
             self.assertIn("Latest digest HTML", dashboard)
             self.assertIn("Review Workflow", dashboard)
+            self.assertIn("Profile Health", dashboard)
+            self.assertIn("profile_doctor.md", dashboard)
             self.assertIn("sample_web_article.html", dashboard)
+            self.assertTrue((project / "profiles" / "profile_doctor.md").exists())
             source_check = subprocess.run(
                 [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
                 cwd=project,
@@ -1310,6 +1315,8 @@ SCHEDULE_TIME=09:00
             self.assertIn("Scholar Alert Reader Dashboard", dashboard_content)
             self.assertIn("Reading plan HTML", dashboard_content)
             self.assertIn("Retained library: 1 records", dashboard_content)
+            self.assertIn("Profile Health", dashboard_content)
+            self.assertIn("Run `./profile_doctor.sh`", dashboard_content)
             self.assertTrue(dashboard_html.exists())
             self.assertIn("<!doctype html>", dashboard_html.read_text(encoding="utf-8"))
 

@@ -29,7 +29,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, knowledge base, and diagnostics.
+12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, profile health, knowledge base, and diagnostics.
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
 14. Use `reading-plan`, `deep-read`, `workup`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
@@ -48,7 +48,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `summary.json`: run metadata, source counts, seen-state filtering counts, and `empty_run_diagnosis` when no papers are written.
 - `deep_read_queue.md`: top papers for actual reading.
 - `seen_papers.json`: dedupe state; can include every alert item.
-- `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, library files, setup reports, and next actions.
+- `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, profile health, library files, setup reports, and next actions.
 - `SCHEDULE.md` and `LaunchAgents/*.plist`: local schedule report and macOS LaunchAgent plist generated from `reader.env`.
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
 - `knowledge_base/profile_tuning.md`: suggested profile updates from interested/archive feedback patterns.
@@ -170,7 +170,7 @@ python3 scripts/scholar_reader.py dashboard \
   --open
 ```
 
-Initialized projects provide `./dashboard_reader.sh --open`. Successful `./run_reader.sh` runs refresh `DASHBOARD.md` and `DASHBOARD.html` automatically unless `REFRESH_DASHBOARD=0` is set.
+Initialized projects provide `./dashboard_reader.sh --open`. Successful `./run_reader.sh` runs refresh `profiles/profile_doctor.md`, `DASHBOARD.md`, and `DASHBOARD.html` automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
 
 Render or install the local schedule:
 

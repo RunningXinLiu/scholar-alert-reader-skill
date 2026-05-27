@@ -29,7 +29,7 @@ Current releases are strongest as a triage and research-memory layer. Ranking, a
 For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
-- Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `knowledge_base/`.
+- Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `profiles/profile_doctor.md`, `knowledge_base/`.
 - Main actions: self-test, profile-based ranking, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, full-text, review-pack, review-queue, ask-library, advice, compare, map.
 
 ## Platform Boundaries
@@ -63,7 +63,7 @@ For users who want citation/PDF management.
 
 - A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
 - A new user can run one `quickstart` command that creates the local project, runs private-data-free checks/demos, and writes a next-step report.
-- A new user can open `DASHBOARD.html` as the project home page for the current digest, reading plan, review queue, retained library, and setup diagnostics.
+- A new user can open `DASHBOARD.html` as the project home page for the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - A user who gets zero papers can tell whether the run found no source items, parsed source items but no paper records, or filtered all papers as already seen.
 - A terminal-only user can install the project with `pip`, run `scholar-alert-reader`, and use generated helper scripts without depending on Codex.
 - A new user can run `capabilities` / `capabilities.sh` to understand the product boundary before connecting private data or expecting full-paper review.
@@ -86,7 +86,7 @@ For users who want citation/PDF management.
 - A user can trigger selected-paper deep-read/workup/review-pack reports from the local feedback UI and open generated markdown reports from local browser links.
 - A user can build a review pack that automatically includes the section-aware full-text brief and raw text cache when they exist, so downstream assistants get structured evidence before raw text.
 - A user can open `review_queue.md` or `review_queue.html` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
-- Successful generated `run_reader.sh` runs should refresh `DASHBOARD.md` / `DASHBOARD.html` automatically, with an escape hatch for scripted users who set `REFRESH_DASHBOARD=0`.
+- Successful generated `run_reader.sh` runs should refresh `profiles/profile_doctor.md` and `DASHBOARD.md` / `DASHBOARD.html` automatically, with escape hatches for scripted users who set `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0`.
 - Zero-paper explanations should appear in terminal output, `summary.json`, `digest.md/html`, and the Dashboard, not only in logs.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.

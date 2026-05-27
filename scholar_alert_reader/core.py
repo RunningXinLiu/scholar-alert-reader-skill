@@ -3902,6 +3902,20 @@ def dashboard_latest_summary(summary_path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def dashboard_profile_doctor_summary(report_path: Path) -> tuple[str, str]:
+    if not report_path.exists():
+        return "missing", "Run `./profile_doctor.sh` to diagnose profile quality."
+    try:
+        content = report_path.read_text(encoding="utf-8", errors="replace")
+    except Exception as exc:
+        return "unreadable", f"Could not read profile doctor report: {exc}"
+    result_match = re.search(r"^- Result:\s*([A-Z]+)\s*$", content, flags=re.MULTILINE)
+    records_match = re.search(r"^- Records considered:\s*([^\n]+)$", content, flags=re.MULTILINE)
+    result = result_match.group(1) if result_match else "unknown"
+    records = records_match.group(1).strip() if records_match else "unknown"
+    return result, f"{records} records considered"
+
+
 def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path, out_dir: Path) -> str:
     base_dir = project_dir
     profile_name = "unknown"
@@ -3918,6 +3932,8 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
     daily_dir = project_dir / "reader_out" / "daily"
     recent_dir = project_dir / "reader_out" / "recent"
     analysis_dir = kb_dir / "analysis"
+    profile_doctor_path = profile_path.parent / "profile_doctor.md"
+    profile_doctor_result, profile_doctor_note = dashboard_profile_doctor_summary(profile_doctor_path)
 
     lines = [
         "# Scholar Alert Reader Dashboard",
@@ -3989,6 +4005,13 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- Full-text caches: {file_count(kb_dir / 'full_text', '*.txt')}",
             f"- Analysis reports: {file_count(analysis_dir, '*.md')}",
             "",
+            "## Profile Health",
+            "",
+            f"- Profile doctor: {dashboard_link('profile_doctor.md', profile_doctor_path, base_dir)}",
+            f"- Result: `{profile_doctor_result}`",
+            f"- Detail: {profile_doctor_note}",
+            "- Refresh: `./profile_doctor.sh`",
+            "",
             "## Library Files",
             "",
             f"- {dashboard_link('Foundation library', kb_dir / 'foundation.md', base_dir)}",
@@ -4021,11 +4044,12 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- {dashboard_link('Start Here guide', project_dir / 'START_HERE.md', base_dir)}",
             f"- {dashboard_link('Source check', project_dir / 'SOURCE_CHECK.md', base_dir)}",
             f"- {dashboard_link('Doctor report', project_dir / 'DOCTOR.md', base_dir)}",
+            f"- {dashboard_link('Profile doctor', profile_doctor_path, base_dir)}",
             f"- {dashboard_link('Schedule report', project_dir / 'SCHEDULE.md', base_dir)}",
             f"- {dashboard_link('Capabilities report', project_dir / 'CAPABILITIES.md', base_dir)}",
             f"- {dashboard_link('Troubleshooting guide', project_dir / 'TROUBLESHOOTING.md', base_dir)}",
             "",
-            "Refresh this page with `./dashboard_reader.sh`. Successful `./run_reader.sh` runs refresh it automatically unless `REFRESH_DASHBOARD=0` is set.",
+            "Refresh this page with `./dashboard_reader.sh`. Successful `./run_reader.sh` runs refresh profile health and this dashboard automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.",
             "",
         ]
     )
@@ -4206,6 +4230,9 @@ if [[ "$MODE" == "run" && "${NO_KB_UPDATE:-0}" == "1" ]]; then cmd+=(--no-kb-upd
 
 "${cmd[@]}"
 run_status=$?
+if [[ "$run_status" -eq 0 && "${REFRESH_PROFILE_DOCTOR:-1}" == "1" ]]; then
+  "${SKILL_CMD[@]}" profile-doctor --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "$OUT_DIR/papers.json" >/dev/null || true
+fi
 if [[ "$run_status" -eq 0 && "${REFRESH_DASHBOARD:-1}" == "1" ]]; then
   "${SKILL_CMD[@]}" dashboard --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$OUT_DIR" >/dev/null || true
 fi
@@ -4299,6 +4326,8 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "client_secret*.json",
                     "reader.env",
                     "profiles/*.bak",
+                    "profiles/profile_onboarding.md",
+                    "profiles/profile_doctor.md",
                     ".self_test/",
                     "seen_papers.json",
                     "knowledge_base/feedback.json",

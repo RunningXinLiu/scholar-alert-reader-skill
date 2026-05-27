@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.40`
+Version: `0.2.41`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -122,7 +122,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, adaptive feedback similarity, and temporary boost terms.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
-- Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, retained library, and setup diagnostics.
+- Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, and trigger deep-read/workup/review-pack reports from the browser UI, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
@@ -594,7 +594,7 @@ python3 scripts/scholar_reader.py dashboard \
   --open
 ```
 
-Initialized projects also provide `./dashboard_reader.sh --open`. The dashboard writes `DASHBOARD.md` and `DASHBOARD.html`, then links the current digest, `reading_plan.html`, `review_queue.html`, foundation/interested files, source check, doctor report, and next commands. Successful `./run_reader.sh` runs refresh it automatically unless `REFRESH_DASHBOARD=0` is set.
+Initialized projects also provide `./dashboard_reader.sh --open`. The dashboard writes `DASHBOARD.md` and `DASHBOARD.html`, then links the current digest, `reading_plan.html`, `review_queue.html`, profile doctor report, foundation/interested files, source check, doctor report, and next commands. Successful `./run_reader.sh` runs refresh both `profiles/profile_doctor.md` and the dashboard automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
 
 When a run produces zero papers, check the `No-paper diagnosis` section in the digest or Dashboard. The same structured reason appears in `summary.json` as `empty_run_diagnosis`, with one of the common reasons: `all_seen`, `source_no_items`, `parsed_no_papers`, or `empty_unknown`.
 
