@@ -103,6 +103,14 @@ After `deep-read` or `full-text`, create a context pack that can be pasted into 
 
 The pack includes the selected paper, research profile, feedback status, closest foundation papers, active interested papers, and any cached local full text. Treat the generated review pack as private because it can contain extracted full text and personal research notes.
 
+For a batch of top papers, build a review queue:
+
+```bash
+./review_queue.sh --tiers "Must read" --limit 5
+```
+
+The queue attempts local full-text extraction for each selected paper when Zotero PDF/text paths are present, then writes `knowledge_base/analysis/review_queue.md` and one review pack per paper. Use `--no-extract` when caches already exist, or `--strict-full-text` when missing local text should fail the run.
+
 ## Profile Tuning
 
 After the user has marked several papers as interested/archive or more-like-this/less-like-this, generate a tuning report:

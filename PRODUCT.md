@@ -55,7 +55,7 @@ For users who want citation/PDF management.
 
 - Export: BibTeX and RIS from retained papers.
 - Read-back: Better BibTeX/BibTeX exports can add citation keys, Zotero item keys, and local PDF paths back into retained papers.
-- Full-text scaffold: local PDF/text paths can be extracted into text caches and brief reports.
+- Full-text scaffold: local PDF/text paths can be extracted into text caches, brief reports, and batch review queues.
 - Obsidian paper notes include citation-oriented frontmatter such as `citation_key`, `doi`, `year`, and `journal`.
 - Future direction: add stronger section-aware parsing and optional LLM review over extracted local text.
 

@@ -3573,6 +3573,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "deep_read_paper.sh": 'exec "${SKILL_CMD[@]}" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "full_text_paper.sh": 'exec "${SKILL_CMD[@]}" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_paper.sh": 'exec "${SKILL_CMD[@]}" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "advice_reader.sh": 'exec "${SKILL_CMD[@]}" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
@@ -3713,6 +3714,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./deep_read_paper.sh --paper-id <ID>",
                     "./full_text_paper.sh --paper-id <ID>",
                     "./review_paper.sh --paper-id <ID>",
+                    "./review_queue.sh --tiers \"Must read\" --limit 5",
                     "./tune_profile.sh",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
                     "./advice_reader.sh",
@@ -5306,6 +5308,130 @@ def review_pack_command(args: argparse.Namespace) -> None:
         print("Included full-text cache: none")
 
 
+def review_queue_command(args: argparse.Namespace) -> None:
+    from .copilot import render_review_context_pack
+    from .fulltext import extract_local_text, first_full_text_path, render_full_text_brief
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    if args.paper_id or args.title:
+        selected = select_paper_records(records, args.paper_id, args.title)
+    else:
+        selected = filter_records_for_export(records, split_csv(args.tiers), args.limit)
+    if not selected:
+        raise SystemExit("No papers selected for review queue. Adjust --tiers, --limit, --paper-id, or --title.")
+
+    library = paper_records_from_library(kb_dir) or records
+    output = args.output or (kb_dir / "analysis" / "review_queue.md")
+    rows: list[dict[str, str]] = []
+    failures: list[str] = []
+    extracted_count = 0
+    review_count = 0
+
+    for target in selected:
+        stem = str(target.get("id", "paper") or "paper")
+        text_output = kb_dir / "full_text" / f"{stem}.txt"
+        brief_output = kb_dir / "analysis" / f"{stem}_full_text_brief.md"
+        review_output = kb_dir / "analysis" / f"{stem}_review_pack.md"
+        extract_status = "skipped"
+        source_path = ""
+
+        if not args.no_extract:
+            try:
+                if text_output.exists() and not args.force_extract:
+                    extract_status = "cached"
+                else:
+                    resolved_source = first_full_text_path(target, None)
+                    source_path = str(resolved_source)
+                    extracted = extract_local_text(resolved_source, max_chars=args.max_chars, timeout=args.timeout)
+                    write_report(text_output, extracted.text)
+                    write_report(brief_output, render_full_text_brief(target, extracted, profile, text_output))
+                    extract_status = f"extracted ({extracted.method})"
+                    extracted_count += 1
+            except Exception as exc:
+                extract_status = f"unavailable: {exc}"
+                if args.strict_full_text:
+                    failures.append(f"{stem}: {exc}")
+
+        full_text, actual_full_text_path = read_context_text(text_output, args.max_full_text_chars)
+        if args.strict_full_text and not actual_full_text_path:
+            failures.append(f"{stem}: no full-text cache available")
+
+        write_report(
+            review_output,
+            render_review_context_pack(
+                target,
+                library,
+                profile,
+                feedback=feedback,
+                full_text=full_text,
+                full_text_path=actual_full_text_path,
+                limit=args.related_limit,
+                max_full_text_chars=args.max_full_text_chars,
+            ),
+        )
+        review_count += 1
+        rows.append(
+            {
+                "id": stem,
+                "title": str(target.get("title", "")),
+                "tier": str(target.get("tier", "")),
+                "score": str(target.get("score", 0)),
+                "source": source_path,
+                "full_text": str(actual_full_text_path or ""),
+                "extract_status": extract_status,
+                "brief": str(brief_output) if brief_output.exists() else "",
+                "review_pack": str(review_output),
+            }
+        )
+
+    lines = [
+        "# Review Queue",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: {profile.get('name', 'unnamed')}",
+        f"- Selected papers: {len(selected)}",
+        f"- Full-text caches extracted: {extracted_count}",
+        f"- Review packs written: {review_count}",
+        "",
+        "This queue is local-first. Full-text extraction uses local Zotero/PDF/text paths when available; review packs remain markdown files you can paste into Codex, Claude, ChatGPT, or another assistant.",
+        "",
+        "## Papers",
+        "",
+    ]
+    for index, row in enumerate(rows, 1):
+        title = row["title"] or row["id"]
+        lines.extend(
+            [
+                f"### {index}. {title}",
+                "",
+                f"- ID: `{row['id']}`",
+                f"- Tier/score: {row['tier']} / {row['score']}",
+                f"- Full-text status: {row['extract_status']}",
+                f"- Source path: `{row['source']}`" if row["source"] else "- Source path: not linked",
+                f"- Text cache: `{row['full_text']}`" if row["full_text"] else "- Text cache: not available",
+                f"- Full-text brief: `{row['brief']}`" if row["brief"] else "- Full-text brief: not written",
+                f"- Review pack: `{row['review_pack']}`",
+                "",
+            ]
+        )
+    if failures:
+        lines.extend(["## Strict Full-Text Failures", ""])
+        lines.extend(f"- {failure}" for failure in failures)
+        lines.append("")
+
+    write_report(output, "\n".join(lines).rstrip() + "\n")
+    print(f"Review queue: {output}")
+    print(f"Selected papers: {len(selected)}")
+    print(f"Full-text caches extracted: {extracted_count}")
+    print(f"Review packs written: {review_count}")
+    if failures:
+        print("Full-text failures: " + str(len(failures)))
+        raise SystemExit(1)
+
+
 def ask_library_command(args: argparse.Namespace) -> None:
     from .copilot import render_literature_answer
 
@@ -5943,6 +6069,25 @@ def build_parser() -> argparse.ArgumentParser:
     review_pack.add_argument("--limit", type=int, default=12, help="Related/interested papers to include")
     review_pack.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_review_pack.md")
     review_pack.set_defaults(func=review_pack_command)
+
+    review_queue = sub.add_parser("review-queue", help="Build review packs for a queue of selected papers")
+    review_queue.add_argument("--profile", type=Path, required=True)
+    review_queue.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    review_queue.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    review_queue.add_argument("--papers-json", type=Path, help="Optional digest papers.json to include recent papers")
+    review_queue.add_argument("--paper-id", help="Comma-separated paper IDs; when omitted, papers are selected by --tiers")
+    review_queue.add_argument("--title", help="Comma-separated case-insensitive title substrings")
+    review_queue.add_argument("--tiers", default="Must read", help="Comma-separated tiers to queue when --paper-id/--title are omitted")
+    review_queue.add_argument("--limit", type=int, default=5, help="Maximum papers to queue when selecting by tier")
+    review_queue.add_argument("--no-extract", action="store_true", help="Do not attempt local PDF/text extraction; use existing caches only")
+    review_queue.add_argument("--force-extract", action="store_true", help="Regenerate full-text caches even when they already exist")
+    review_queue.add_argument("--strict-full-text", action="store_true", help="Exit non-zero if any selected paper has no usable local full-text cache")
+    review_queue.add_argument("--max-chars", type=int, default=120000, help="Maximum extracted text characters to cache per paper")
+    review_queue.add_argument("--timeout", type=int, default=30, help="PDF extraction timeout in seconds per paper")
+    review_queue.add_argument("--max-full-text-chars", type=int, default=40000, help="Maximum cached text characters to include in each review pack")
+    review_queue.add_argument("--related-limit", type=int, default=12, help="Related/interested papers to include in each review pack")
+    review_queue.add_argument("--output", type=Path, help="Output queue index. Defaults to kb-dir/analysis/review_queue.md")
+    review_queue.set_defaults(func=review_queue_command)
 
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
     ask.add_argument("--profile", type=Path, required=True)

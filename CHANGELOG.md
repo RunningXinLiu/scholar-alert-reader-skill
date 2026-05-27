@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.21 - 2026-05-27
+
+- Add `review-queue` / generated `review_queue.sh` to batch-build review packs for selected papers.
+- Let review queues attempt local full-text extraction from Zotero/PDF/text paths before writing each review pack.
+- Write `knowledge_base/analysis/review_queue.md` with extraction status, cache paths, brief paths, and review-pack paths.
+- Document the batch review workflow in README, SKILL guidance, automation reference, and product requirements.
+
 ## v0.2.20 - 2026-05-27
 
 - Add adaptive local feedback-similarity ranking from retained/interested papers and archive / less-like-this feedback seeds.

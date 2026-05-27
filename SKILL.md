@@ -28,7 +28,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-12. Use `deep-read`, `full-text`, `review-pack`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+12. Use `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 13. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 14. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
 
@@ -57,6 +57,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
 - `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief for a selected paper.
 - `knowledge_base/analysis/<paper-id>_review_pack.md`: LLM-ready context pack for selected-paper review against the user's profile, foundation, interested papers, and optional full-text cache.
+- `knowledge_base/analysis/review_queue.md`: batch index for selected review packs and full-text extraction status.
 - `knowledge_base/answers/*.md`: local-library answers to user research questions.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
 - `knowledge_base/reading_status.md`: reading tracker grouped by status.
@@ -309,6 +310,16 @@ python3 scripts/scholar_reader.py review-pack \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \
   --paper-id <ID>
+```
+
+Build review packs for the top reading queue:
+
+```bash
+python3 scripts/scholar_reader.py review-queue \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --tiers "Must read" \
+  --limit 5
 ```
 
 Ask the retained literature base a question:

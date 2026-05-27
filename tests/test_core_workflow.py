@@ -148,6 +148,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "zotero_sync.sh").exists())
             self.assertTrue((project / "full_text_paper.sh").exists())
             self.assertTrue((project / "review_paper.sh").exists())
+            self.assertTrue((project / "review_queue.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertTrue((project / "TROUBLESHOOTING.md").exists())
@@ -1102,6 +1103,35 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Review Task For The Assistant", review_pack_content)
             self.assertIn("Local Full Text", review_pack_content)
             self.assertIn("ambient noise tomography", review_pack_content)
+
+            default_full_text_dir = kb / "full_text"
+            default_full_text_dir.mkdir(parents=True, exist_ok=True)
+            (default_full_text_dir / "p1.txt").write_text(full_text_cache.read_text(encoding="utf-8"), encoding="utf-8")
+            review_queue = root / "review_queue.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "review-queue",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--no-extract",
+                    "--output",
+                    str(review_queue),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            review_queue_content = review_queue.read_text(encoding="utf-8")
+            self.assertIn("Review Queue", review_queue_content)
+            self.assertIn("Review packs written: 1", review_queue_content)
+            self.assertIn("p1_review_pack.md", review_queue_content)
+            self.assertIn("ambient noise tomography", (kb / "analysis" / "p1_review_pack.md").read_text(encoding="utf-8"))
 
             obsidian_dir = root / "obsidian"
             subprocess.run(

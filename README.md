@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.20`
+Version: `0.2.21`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -477,6 +477,18 @@ python3 scripts/scholar_reader.py review-pack \
 
 `review-pack` writes `knowledge_base/analysis/<paper-id>_review_pack.md`. It combines the selected paper, your research profile, feedback status, closest foundation papers, interested/active-reading papers, and any cached `knowledge_base/full_text/<paper-id>.txt`. Paste that file into your assistant when you want a more careful discussion of one paper without uploading your whole mailbox or knowledge base.
 
+Build a batch review queue for the top papers. When Zotero has synced local PDF paths, the command attempts local full-text extraction first, then writes one review pack per paper plus an index:
+
+```bash
+python3 scripts/scholar_reader.py review-queue \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --tiers "Must read" \
+  --limit 5
+```
+
+`review-queue` writes `knowledge_base/analysis/review_queue.md`, `knowledge_base/full_text/<paper-id>.txt` when extraction succeeds, and `knowledge_base/analysis/<paper-id>_review_pack.md` for each selected paper. Use `--no-extract` to rely only on existing caches, or `--strict-full-text` when every selected paper must have a local text cache.
+
 Ask a question against the local literature base:
 
 ```bash
@@ -494,7 +506,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_queue.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 
@@ -615,6 +627,7 @@ The richer knowledge base includes:
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_pack.md`: selected-paper review context for an assistant
+- `analysis/review_queue.md`: batch index for review packs and full-text extraction status
 
 ## Export And Diagnostics
 
