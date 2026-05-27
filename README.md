@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.13`
+Version: `0.2.14`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -39,6 +39,7 @@ Use the scholar-alert-reader skill to initialize a Scholar Alert project for me.
 Good next prompts:
 
 - "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS/web/RSS/arXiv source is ready."
+- "Run the setup wizard and configure my source/profile/schedule."
 - "Build my first foundation from existing Scholar Alert emails."
 - "Run today's new-paper digest."
 - "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
@@ -59,7 +60,7 @@ git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
 python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
-./setup_reader.sh --source auto --profile-template ai-seismology
+./setup_wizard.sh
 open QUICKSTART_REPORT.md
 ```
 
@@ -275,6 +276,12 @@ open reader_out/demo/digest.html
 Persist your local defaults:
 
 ```bash
+./setup_wizard.sh
+```
+
+Or configure non-interactively:
+
+```bash
 ./setup_reader.sh \
   --source auto \
   --profile-template ai-seismology \
@@ -282,7 +289,7 @@ Persist your local defaults:
   --schedule-days weekdays
 ```
 
-This writes `reader.env`, which is automatically read by generated helper scripts. Explicit one-off command variables still win, so `SOURCE=mbox ./run_reader.sh`, `WEB_SOURCE=... ./web_import.sh`, or `RSS_SOURCE=... ./rss_import.sh` can override the saved defaults.
+Both setup paths write `reader.env`, which is automatically read by generated helper scripts. Explicit one-off command variables still win, so `SOURCE=mbox ./run_reader.sh`, `WEB_SOURCE=... ./web_import.sh`, or `RSS_SOURCE=... ./rss_import.sh` can override the saved defaults.
 
 Choose a starting research profile:
 

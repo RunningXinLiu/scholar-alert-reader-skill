@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.14 - 2026-05-27
+
+- Add `setup-wizard` / generated `setup_wizard.sh` for guided first-time configuration of source, profile template, schedule, and optional Obsidian/Zotero paths.
+- Let `setup-wizard --defaults` initialize a new project and write `reader.env` non-interactively for scripted install checks.
+- Refresh project onboarding and README guidance so new users can use the wizard before learning setup flags.
+
 ## v0.2.13 - 2026-05-27
 
 - Add standard Python packaging metadata with `python -m scholar_alert_reader` plus `scholar-alert-reader` and `scholar-reader` console scripts.

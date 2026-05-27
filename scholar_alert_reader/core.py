@@ -58,6 +58,8 @@ PROJECT_ENV_NAME = "reader.env"
 DEFAULT_PRIVATE_DIR = Path.home() / ".codex" / "scholar-alert-reader"
 DEFAULT_GMAIL_CREDENTIALS = DEFAULT_PRIVATE_DIR / "gmail_credentials.json"
 DEFAULT_GMAIL_TOKEN = DEFAULT_PRIVATE_DIR / "gmail_token.json"
+SOURCE_CHOICES = ["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "rss", "arxiv"]
+MODE_CHOICES = ["daily", "foundation", "run"]
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 FEEDBACK_VERSION = 1
 
@@ -3138,7 +3140,7 @@ def render_project_guide(
         "0. Verify the install with bundled sample data: `./self_test.sh`.",
         "1. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
         "   - To test every bundled non-private source path, run `./demo_sources.sh`.",
-        "2. Configure your local defaults once with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
+        "2. Configure your local defaults once with `./setup_wizard.sh`, or non-interactively with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
         "3. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
         f"   - Current profile: `{profile_name}`.",
         f"   - Bundled templates copied to `profiles/templates/`: {template_line}.",
@@ -3396,6 +3398,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "source_check.sh": 'exec "${SKILL_CMD[@]}" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --web-source "${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
         "self_test.sh": 'exec "${SKILL_CMD[@]}" self-test --project-dir "${SELF_TEST_PROJECT_DIR:-$PROJECT_DIR/.self_test}" --force "$@"\n',
         "setup_reader.sh": 'exec "${SKILL_CMD[@]}" setup --project-dir "$PROJECT_DIR" "$@"\n',
+        "setup_wizard.sh": 'exec "${SKILL_CMD[@]}" setup-wizard --project-dir "$PROJECT_DIR" "$@"\n',
         "copy_profile_template.sh": 'exec "${SKILL_CMD[@]}" init-profile --profile "$PROFILE_PATH" "$@"\n',
         "feedback_reader.sh": 'exec "${SKILL_CMD[@]}" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
@@ -3480,12 +3483,13 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./self_test.sh",
                     "./demo_reader.sh",
                     "./demo_sources.sh",
+                    "./setup_wizard.sh",
                     "./setup_reader.sh --source auto --profile-template ai-seismology",
                     "./source_check.sh --source auto",
                     "./run_reader.sh",
                     "```",
                     "",
-                    "The setup command writes `reader.env`, which is read automatically by the generated shell scripts.",
+                    "`setup_wizard.sh` and `setup_reader.sh` write `reader.env`, which is read automatically by the generated shell scripts.",
                     "",
                     "If a source returns no papers or setup fails, read [TROUBLESHOOTING.md](TROUBLESHOOTING.md).",
                     "",
@@ -3593,6 +3597,187 @@ def default_schedule_values(profile: dict[str, Any]) -> tuple[str, str, str]:
         days or "Monday,Tuesday,Wednesday,Thursday,Friday",
         str(schedule.get("timezone", "Asia/Shanghai")),
     )
+
+
+def prompt_text(label: str, default: str = "", assume_default: bool = False) -> str:
+    if assume_default:
+        return default
+    suffix = f" [{default}]" if default else ""
+    try:
+        answer = input(f"{label}{suffix}: ").strip()
+    except EOFError as exc:
+        raise SystemExit("setup-wizard needs an interactive terminal. Pass --defaults or use the non-interactive setup command.") from exc
+    return answer or default
+
+
+def prompt_choice(label: str, choices: list[str], default: str, assume_default: bool = False) -> str:
+    if assume_default:
+        return default
+    print(label)
+    for index, choice in enumerate(choices, start=1):
+        marker = " default" if choice == default else ""
+        print(f"  {index}. {choice}{marker}")
+    while True:
+        answer = prompt_text("Choose number or value", default)
+        if answer in choices:
+            return answer
+        if answer.isdigit():
+            index = int(answer)
+            if 1 <= index <= len(choices):
+                return choices[index - 1]
+        print(f"Please choose one of: {', '.join(choices)}")
+
+
+def prompt_yes_no(label: str, default: bool = False, assume_default: bool = False) -> bool:
+    if assume_default:
+        return default
+    while True:
+        suffix = " [Y/n]" if default else " [y/N]"
+        try:
+            answer = input(f"{label}{suffix}: ").strip().lower()
+        except EOFError as exc:
+            raise SystemExit("setup-wizard needs an interactive terminal. Pass --defaults or use the non-interactive setup command.") from exc
+        if not answer:
+            return default
+        if answer in {"y", "yes", "1", "true"}:
+            return True
+        if answer in {"n", "no", "0", "false"}:
+            return False
+        print("Please answer yes or no.")
+
+
+def optional_path(value: str | Path | None) -> Path | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return Path(text).expanduser() if text else None
+
+
+def optional_int(value: str | int | None, label: str) -> int | None:
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise SystemExit(f"{label} must be an integer.") from exc
+
+
+def setup_wizard(args: argparse.Namespace) -> None:
+    assume_default = args.defaults
+    if not assume_default and not sys.stdin.isatty():
+        raise SystemExit("setup-wizard needs an interactive terminal. Pass --defaults or use the non-interactive setup command.")
+
+    project_dir = args.project_dir.expanduser().resolve()
+    env_values = read_project_env(project_env_path(project_dir)) if project_dir.exists() else {}
+    templates = available_profile_templates()
+    default_template = args.profile_template or DEFAULT_PROFILE_TEMPLATE
+    if args.profile_template:
+        profile_template = args.profile_template
+    else:
+        profile_template = prompt_choice("Research profile template", templates, default_template, assume_default) if templates else default_template
+
+    initialized = False
+    needs_init = not project_dir.exists() or not (project_dir / "run_reader.sh").exists()
+    if needs_init:
+        if args.no_init:
+            raise SystemExit(f"Project is not initialized: {project_dir}. Run init-project first or omit --no-init.")
+        init_project(
+            argparse.Namespace(
+                project_dir=project_dir,
+                profile_template=profile_template,
+                force=args.force_init,
+                quiet=True,
+            )
+        )
+        initialized = True
+
+    profile_path = project_relative_path(project_dir, args.profile, "profiles/research_profile.json")
+    if profile_path.exists():
+        try:
+            profile = load_profile(profile_path)
+        except SystemExit:
+            profile = load_json(resolve_profile_template(profile_template))
+    else:
+        profile = load_json(resolve_profile_template(profile_template))
+    default_time, default_days, default_timezone = default_schedule_values(profile)
+
+    default_source = args.source or env_values.get("SOURCE", "auto")
+    if default_source not in SOURCE_CHOICES:
+        default_source = "auto"
+    source = args.source or prompt_choice("Input source", SOURCE_CHOICES, default_source, assume_default)
+    default_mode = args.mode or env_values.get("MODE", "daily")
+    if default_mode not in MODE_CHOICES:
+        default_mode = "daily"
+    mode = args.mode or prompt_choice("Run mode", MODE_CHOICES, default_mode, assume_default)
+
+    mbox_path = args.mbox_path
+    bibtex_path = args.bibtex_path
+    ris_path = args.ris_path
+    web_source = args.web_source
+    rss_source = args.rss_source
+    arxiv_query = args.arxiv_query
+
+    if source == "mbox":
+        mbox_path = optional_path(prompt_text("mbox path", str(mbox_path or env_values.get("MBOX_PATH", project_dir / "INBOX.mbox")), assume_default))
+    elif source == "bibtex":
+        bibtex_path = optional_path(prompt_text("BibTeX import path", str(bibtex_path or env_values.get("BIBTEX_PATH", project_dir / "import.bib")), assume_default))
+    elif source == "ris":
+        ris_path = optional_path(prompt_text("RIS import path", str(ris_path or env_values.get("RIS_PATH", project_dir / "import.ris")), assume_default))
+    elif source == "web":
+        web_source = prompt_text("Web URL, saved HTML, directory, or source list", str(web_source or env_values.get("WEB_SOURCE", project_dir / "web_sources.txt")), assume_default)
+    elif source == "rss":
+        rss_source = prompt_text("RSS/Atom URL, file, directory, or feed list", str(rss_source or env_values.get("RSS_SOURCE", project_dir / "feeds.txt")), assume_default)
+    elif source == "arxiv":
+        arxiv_query = prompt_text("arXiv query", str(arxiv_query or env_values.get("ARXIV_QUERY", "cat:physics.geo-ph")), assume_default)
+
+    allow_mail_app = bool(args.auto_allow_mail_app or source == "mail-app")
+    if source == "auto" and not args.auto_allow_mail_app:
+        allow_mail_app = prompt_yes_no("Allow Mail.app fallback on macOS", False, assume_default)
+
+    schedule_time = args.schedule_time or prompt_text("Preferred run time", env_values.get("SCHEDULE_TIME", default_time), assume_default)
+    schedule_days = args.schedule_days or prompt_text("Preferred run days", env_values.get("SCHEDULE_DAYS", default_days), assume_default)
+    timezone = args.timezone or prompt_text("Timezone", env_values.get("SCHEDULE_TIMEZONE", default_timezone), assume_default)
+    since_days = args.since_days
+    if since_days is None:
+        since_days = optional_int(prompt_text("Recent-window days for manual/recent runs (blank to skip)", env_values.get("SINCE_DAYS", ""), assume_default), "since-days")
+    boost = args.boost or prompt_text("Temporary boost terms, comma-separated (blank to skip)", env_values.get("BOOST", ""), assume_default)
+    obsidian_dir = args.obsidian_dir
+    if obsidian_dir is None:
+        obsidian_dir = optional_path(prompt_text("Generated Obsidian export folder (blank to skip)", env_values.get("OBSIDIAN_EXPORT_DIR", ""), assume_default))
+    zotero_dir = args.zotero_dir
+    if zotero_dir is None:
+        zotero_dir = optional_path(prompt_text("Zotero export folder (blank to skip)", env_values.get("ZOTERO_OUTPUT_DIR", ""), assume_default))
+
+    setup_args = argparse.Namespace(
+        project_dir=project_dir,
+        source=source,
+        mode=mode,
+        profile=args.profile,
+        kb_dir=args.kb_dir,
+        profile_template=None if initialized else profile_template,
+        force_profile=args.force_profile,
+        mbox_path=mbox_path,
+        bibtex_path=bibtex_path,
+        ris_path=ris_path,
+        web_source=web_source,
+        rss_source=rss_source,
+        arxiv_query=arxiv_query,
+        gmail_credentials=args.gmail_credentials,
+        gmail_token=args.gmail_token,
+        auto_allow_mail_app=allow_mail_app,
+        obsidian_dir=obsidian_dir,
+        zotero_dir=zotero_dir,
+        schedule_time=schedule_time,
+        schedule_days=schedule_days,
+        timezone=timezone,
+        since_days=since_days,
+        boost=boost,
+        output=args.output,
+        no_guide=args.no_guide,
+    )
+    setup_project(setup_args)
+    print("Wizard complete.")
+    print("Next: ./source_check.sh --source auto --live")
 
 
 def setup_project(args: argparse.Namespace) -> None:
@@ -5257,7 +5442,7 @@ def quickstart_command(args: argparse.Namespace) -> None:
             "## Next Steps",
             "",
             "1. Edit `profiles/research_profile.json` to match your research directions.",
-            "2. Run `./setup_reader.sh --source auto --profile-template <template>` to persist local defaults.",
+            "2. Run `./setup_wizard.sh` for guided configuration, or `./setup_reader.sh --source auto --profile-template <template>` for non-interactive setup.",
             "3. Configure one real source: Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS, or arXiv.",
             "4. Run `./source_check.sh --source auto --live` before expecting daily digests.",
             "5. See project `TROUBLESHOOTING.md` if a source returns no papers.",
@@ -5317,8 +5502,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     setup = sub.add_parser("setup", help="Write persistent local project defaults to reader.env")
     setup.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
-    setup.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "rss", "arxiv"], default="auto")
-    setup.add_argument("--mode", choices=["daily", "foundation", "run"], default="daily")
+    setup.add_argument("--source", choices=SOURCE_CHOICES, default="auto")
+    setup.add_argument("--mode", choices=MODE_CHOICES, default="daily")
     setup.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
     setup.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
     setup.add_argument("--profile-template", help="Bundled profile template slug or JSON path to copy into the active profile")
@@ -5342,6 +5527,37 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--output", type=Path, help="Config output path. Defaults to project-dir/reader.env")
     setup.add_argument("--no-guide", action="store_true", help="Do not refresh START_HERE.md after writing config")
     setup.set_defaults(func=setup_project)
+
+    wizard = sub.add_parser("setup-wizard", aliases=["wizard"], help="Interactively configure a local project and write reader.env")
+    wizard.add_argument("--project-dir", type=Path, default=Path("~/scholar_alerts"), help="Local Scholar Alert Reader project directory")
+    wizard.add_argument("--source", choices=SOURCE_CHOICES, help="Input source. If omitted, prompt or use reader.env/default.")
+    wizard.add_argument("--mode", choices=MODE_CHOICES, help="Run mode. If omitted, prompt or use reader.env/default.")
+    wizard.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
+    wizard.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
+    wizard.add_argument("--profile-template", help="Bundled profile template slug or JSON path")
+    wizard.add_argument("--force-profile", action="store_true", help="Overwrite the active profile without creating a .bak copy")
+    wizard.add_argument("--force-init", action="store_true", help="Allow initializing or refreshing a non-empty project directory")
+    wizard.add_argument("--no-init", action="store_true", help="Require an already initialized project")
+    wizard.add_argument("--mbox-path", type=Path, help="Local mbox path")
+    wizard.add_argument("--bibtex-path", type=Path, help="BibTeX import path")
+    wizard.add_argument("--ris-path", type=Path, help="RIS import path")
+    wizard.add_argument("--web-source", help="Scholarly webpage URL, saved HTML file/directory, or URL/path list")
+    wizard.add_argument("--rss-source", help="RSS/Atom URL, feed file, directory, or text file")
+    wizard.add_argument("--arxiv-query", help="arXiv API search query")
+    wizard.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
+    wizard.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
+    wizard.add_argument("--auto-allow-mail-app", action="store_true", help="Allow auto source selection to fall back to Mail.app on macOS")
+    wizard.add_argument("--obsidian-dir", type=Path, help="Generated Obsidian export folder")
+    wizard.add_argument("--zotero-dir", type=Path, help="Zotero BibTeX/RIS export folder")
+    wizard.add_argument("--schedule-time", help="Preferred wall-clock run time, e.g. 09:00")
+    wizard.add_argument("--schedule-days", help="Preferred schedule days, e.g. Monday,Wednesday,Friday or weekdays")
+    wizard.add_argument("--timezone", help="Preferred schedule timezone")
+    wizard.add_argument("--since-days", type=int, help="Default recent-window days for manual/recent runs")
+    wizard.add_argument("--boost", help="Comma-separated temporary priority terms")
+    wizard.add_argument("--output", type=Path, help="Config output path. Defaults to project-dir/reader.env")
+    wizard.add_argument("--no-guide", action="store_true", help="Do not refresh START_HERE.md after writing config")
+    wizard.add_argument("--defaults", action="store_true", help="Accept defaults and skip prompts; useful for CI or scripted setup")
+    wizard.set_defaults(func=setup_wizard)
 
     guide = sub.add_parser("guide", help="Render a product-oriented setup and status guide for a local project")
     guide.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")

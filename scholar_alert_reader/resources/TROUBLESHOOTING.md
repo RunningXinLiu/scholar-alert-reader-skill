@@ -8,11 +8,14 @@ python3 -m scholar_alert_reader init-project --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
 ./self_test.sh
 ./demo_sources.sh
+./setup_wizard.sh --defaults
 ```
 
 When running from a source checkout, `python3 scripts/scholar_reader.py ...` is still supported. When installed with `pip`, use `scholar-alert-reader ...`, `scholar-reader ...`, or `python3 -m scholar_alert_reader ...`.
 
 If these fail, the problem is the local Python/project setup. If these pass but your real run fails, the problem is probably the chosen input source, OAuth setup, local file path, or state filtering.
+
+Use `./setup_wizard.sh` for guided configuration. Use `./setup_reader.sh ...` or `scholar-alert-reader setup ...` when you need a non-interactive scriptable setup path.
 
 ## Fast Checks
 
