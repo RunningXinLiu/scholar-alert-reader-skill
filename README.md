@@ -113,7 +113,7 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 ## Architecture
 
-![Scholar Alert Reader architecture](https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/architecture.png)
+![Scholar Alert Reader architecture](https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/architecture-showcase.png)
 
 ## Platform Support
 

@@ -110,33 +110,86 @@ def svg_assets() -> None:
 """
     architecture = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader architecture</title>
-<desc id="desc">Google Scholar Alerts enter the local Codex skill, which writes digests, a knowledge base, and optional Obsidian and Zotero exports.</desc>
-<rect width="1200" height="675" fill="#f8fafc"/>
-<g transform="translate(70 42) scale(.14)">{logo_mark}</g>
-<text x="160" y="84" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="800">Scholar Alert Reader</text>
-<text x="162" y="124" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="21">Local literature triage from noisy Google Scholar Alert emails</text>
+<desc id="desc">Scholar Alert Reader 中文宣传架构图：从 Scholar Alert 邮件到每日简报、重点阅读、个人知识库、深读问答和 Obsidian/Zotero 导出。</desc>
 <defs>
-  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
-  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0f172a" flood-opacity=".12"/></filter>
+  <linearGradient id="hero" x1="0" x2="1" y1="0" y2="1">
+    <stop offset="0" stop-color="#101827"/>
+    <stop offset=".58" stop-color="#12343b"/>
+    <stop offset="1" stop-color="#0f766e"/>
+  </linearGradient>
+  <linearGradient id="panel" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset="1" stop-color="#f8fafc"/>
+  </linearGradient>
+  <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+    <path d="M 28 0 H 0 V 28" fill="none" stroke="#dbe4ee" stroke-width="1" opacity=".45"/>
+  </pattern>
+  <filter id="shadow" x="-20%" y="-25%" width="140%" height="150%">
+    <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#0f172a" flood-opacity=".14"/>
+  </filter>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+  </marker>
 </defs>
-<g font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">
-  <rect x="70" y="210" width="220" height="86" rx="18" fill="#dbeafe" filter="url(#shadow)"/><text x="104" y="262" fill="#1d4ed8">Gmail API</text>
-  <rect x="70" y="318" width="220" height="86" rx="18" fill="#dcfce7" filter="url(#shadow)"/><text x="104" y="370" fill="#047857">.mbox / .eml</text>
-  <rect x="70" y="426" width="220" height="86" rx="18" fill="#fef3c7" filter="url(#shadow)"/><text x="104" y="478" fill="#92400e">Mail.app</text>
-  <rect x="430" y="270" width="330" height="170" rx="24" fill="#ffffff" stroke="#1d4ed8" stroke-width="3" filter="url(#shadow)"/>
-  <text x="486" y="334" fill="#111827" font-size="30" font-weight="800">Codex Skill</text>
-  <text x="486" y="372" fill="#475569" font-size="18" font-weight="500">dedupe · score · feedback · copilot</text>
-  <rect x="890" y="172" width="230" height="72" rx="18" fill="#e0f2fe" filter="url(#shadow)"/><text x="926" y="216" fill="#075985">HTML Digest</text>
-  <rect x="890" y="268" width="230" height="72" rx="18" fill="#ede9fe" filter="url(#shadow)"/><text x="924" y="312" fill="#6d28d9">Foundation KB</text>
-  <rect x="890" y="364" width="230" height="72" rx="18" fill="#dcfce7" filter="url(#shadow)"/><text x="920" y="408" fill="#047857">Deep Read / Q&amp;A</text>
-  <rect x="890" y="460" width="230" height="72" rx="18" fill="#fff7ed" filter="url(#shadow)"/><text x="930" y="504" fill="#c2410c">Obsidian / Zotero</text>
+<rect width="1200" height="675" fill="#f6f8fb"/>
+<rect width="1200" height="675" fill="url(#grid)"/>
+<rect x="48" y="38" width="1104" height="126" rx="28" fill="url(#hero)" filter="url(#shadow)"/>
+<g transform="translate(82 66) scale(.13)">{logo_mark}</g>
+<text x="168" y="94" fill="#ffffff" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="34" font-weight="850">Scholar Alert Reader</text>
+<text x="168" y="128" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="20" font-weight="600">把 Scholar Alert 邮件变成个人文献知识库</text>
+<text x="835" y="92" fill="#ffffff" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="17" font-weight="750">本地优先 · 隐私友好 · Agent 可用</text>
+<text x="835" y="123" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="14">Codex / Claude / 终端 / Obsidian / Zotero</text>
+
+<g font-family="PingFang SC, Inter, Arial, sans-serif">
+  <rect x="62" y="205" width="302" height="318" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
+  <text x="92" y="246" fill="#0f172a" font-size="25" font-weight="850">1. 接入提醒</text>
+  <text x="92" y="276" fill="#64748b" font-size="16">从邮件里抽取论文信息</text>
+  <rect x="92" y="314" width="216" height="58" rx="14" fill="#dbeafe" stroke="#bfdbfe"/>
+  <text x="116" y="350" fill="#1d4ed8" font-size="18" font-weight="800">Gmail API</text>
+  <rect x="114" y="394" width="216" height="58" rx="14" fill="#dcfce7" stroke="#bbf7d0"/>
+  <text x="138" y="430" fill="#047857" font-size="18" font-weight="800">.mbox / .eml</text>
+  <rect x="92" y="474" width="216" height="58" rx="14" fill="#fef3c7" stroke="#fde68a"/>
+  <text x="116" y="510" fill="#92400e" font-size="18" font-weight="800">Mail.app</text>
+  <path d="M285 318l32 18 -32 18z" fill="#93c5fd" opacity=".7"/>
+  <path d="M307 398l32 18 -32 18z" fill="#86efac" opacity=".7"/>
+  <path d="M285 478l32 18 -32 18z" fill="#fcd34d" opacity=".7"/>
+
+  <rect x="449" y="188" width="302" height="352" rx="28" fill="#ffffff" stroke="#2563eb" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="477" y="216" width="246" height="70" rx="18" fill="#eff6ff"/>
+  <text x="508" y="246" fill="#1e3a8a" font-size="18" font-weight="800">本地文献分诊引擎</text>
+  <text x="508" y="270" fill="#475569" font-size="14">Python CLI + 可选 Agent</text>
+  <g font-size="15" font-weight="760">
+    <rect x="489" y="318" width="94" height="42" rx="12" fill="#dbeafe"/><text x="520" y="344" fill="#1d4ed8">抽取</text>
+    <rect x="607" y="318" width="94" height="42" rx="12" fill="#dcfce7"/><text x="638" y="344" fill="#047857">去重</text>
+    <rect x="489" y="380" width="94" height="42" rx="12" fill="#ede9fe"/><text x="520" y="406" fill="#6d28d9">评分</text>
+    <rect x="607" y="380" width="94" height="42" rx="12" fill="#fef3c7"/><text x="638" y="406" fill="#92400e">学习</text>
+  </g>
+  <path d="M536 457h128" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="536" cy="457" r="5" fill="#2563eb"/><circle cx="664" cy="457" r="5" fill="#10b981"/>
+  <text x="491" y="492" fill="#0f172a" font-size="17" font-weight="800">研究方向 + 阅读反馈</text>
+  <text x="491" y="518" fill="#64748b" font-size="14">每次选择都会影响下次排序</text>
+
+  <rect x="836" y="205" width="302" height="318" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
+  <text x="866" y="246" fill="#0f172a" font-size="25" font-weight="850">3. 沉淀价值</text>
+  <text x="866" y="276" fill="#64748b" font-size="16">只保留真正值得读的内容</text>
+  <g font-size="16" font-weight="800">
+    <rect x="866" y="313" width="104" height="48" rx="14" fill="#e0f2fe" stroke="#bae6fd"/><text x="886" y="343" fill="#075985">每日简报</text>
+    <rect x="990" y="313" width="116" height="48" rx="14" fill="#d1fae5" stroke="#a7f3d0"/><text x="1014" y="343" fill="#047857">重点阅读</text>
+    <rect x="866" y="381" width="142" height="48" rx="14" fill="#ede9fe" stroke="#ddd6fe"/><text x="893" y="411" fill="#6d28d9">Foundation</text>
+    <rect x="1028" y="381" width="78" height="48" rx="14" fill="#fef3c7" stroke="#fde68a"/><text x="1045" y="411" fill="#92400e">深读</text>
+    <rect x="866" y="449" width="240" height="48" rx="14" fill="#fff7ed" stroke="#fed7aa"/><text x="899" y="479" fill="#c2410c">Obsidian + Zotero</text>
+  </g>
 </g>
+
 <g stroke="#64748b" stroke-width="4" fill="none" marker-end="url(#arrow)">
-  <path d="M 290 253 C 355 253 365 315 430 315"/><path d="M 290 361 C 360 361 360 356 430 356"/><path d="M 290 469 C 355 469 365 405 430 405"/>
-  <path d="M 760 320 C 820 300 835 222 890 208"/><path d="M 760 342 C 820 334 835 306 890 304"/><path d="M 760 368 C 820 380 835 398 890 400"/><path d="M 760 392 C 820 430 835 484 890 496"/>
+  <path d="M364 364 C398 364 412 364 449 364"/>
+  <path d="M751 364 C790 364 800 364 836 364"/>
 </g>
-<text x="72" y="606" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Codex-only works. Obsidian and Zotero are optional. Gmail OAuth is bring-your-own for public sharing.</text>
-<text x="1015" y="606" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="16">by Xin Liu</text>
+<g font-family="PingFang SC, Inter, Arial, sans-serif">
+  <rect x="190" y="570" width="820" height="56" rx="18" fill="#ffffff" stroke="#d8e0ea"/>
+  <text x="224" y="604" fill="#475569" font-size="17" font-weight="650">Archive 噪音默认不进 Foundation · Gmail OAuth 用户自带</text>
+  <text x="1035" y="606" fill="#64748b" font-size="15" font-weight="650">作者 Xin Liu</text>
+</g>
 </svg>
 """
     social = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
@@ -160,6 +213,7 @@ def svg_assets() -> None:
 """
     (ASSET_DIR / "logo.svg").write_text(logo, encoding="utf-8")
     (ASSET_DIR / "architecture.svg").write_text(architecture, encoding="utf-8")
+    (ASSET_DIR / "architecture-showcase.svg").write_text(architecture, encoding="utf-8")
     (ASSET_DIR / "social-card.svg").write_text(social, encoding="utf-8")
 
 
@@ -167,7 +221,7 @@ def png_assets() -> None:
     sips = shutil.which("sips")
     if not sips:
         return
-    for name in ["architecture", "social-card", "logo"]:
+    for name in ["architecture", "architecture-showcase", "social-card", "logo"]:
         subprocess.run(
             [sips, "-s", "format", "png", str(ASSET_DIR / f"{name}.svg"), "--out", str(ASSET_DIR / f"{name}.png")],
             check=True,
