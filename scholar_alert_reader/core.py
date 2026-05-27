@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -32,7 +33,8 @@ from email.message import Message
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
+from urllib.request import Request, urlopen
 
 from . import __version__
 
@@ -982,6 +984,261 @@ def parse_ris_source(ris_path: Path) -> tuple[list[Paper], dict[str, int]]:
     return list(papers_by_key.values()), dict(counts)
 
 
+def local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
+
+
+def child_text(element: ET.Element, name: str) -> str:
+    for child in list(element):
+        if local_name(child.tag) == name:
+            return clean_html("".join(child.itertext()))
+    return ""
+
+
+def children_named(element: ET.Element, name: str) -> list[ET.Element]:
+    return [child for child in list(element) if local_name(child.tag) == name]
+
+
+def feed_date(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return datetime.now().date().isoformat()
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.date().isoformat()
+    except ValueError:
+        pass
+    parsed_email_date = parse_message_date(value)
+    if parsed_email_date:
+        return parsed_email_date.date().isoformat()
+    match = re.search(r"\b(18|19|20|21)\d{2}-\d{2}-\d{2}\b", value)
+    if match:
+        return match.group(0)
+    return datetime.now().date().isoformat()
+
+
+def is_url(value: str) -> bool:
+    return urlparse(value).scheme in {"http", "https"}
+
+
+def read_feed_text(source: str, timeout: int) -> str:
+    source = source.strip()
+    if is_url(source):
+        request = Request(source, headers={"User-Agent": f"ScholarAlertReader/{__version__}"})
+        with urlopen(request, timeout=timeout) as response:
+            charset = response.headers.get_content_charset() or "utf-8"
+            return response.read().decode(charset, errors="replace")
+    return Path(source).expanduser().read_text(encoding="utf-8", errors="replace")
+
+
+def rss_sources(source: str) -> list[str]:
+    source = source.strip()
+    if not source:
+        raise SystemExit("RSS/Atom source is empty.")
+    path = Path(source).expanduser()
+    if path.exists():
+        if path.is_dir():
+            files = sorted(
+                item
+                for item in path.iterdir()
+                if item.is_file() and item.suffix.lower() in {".xml", ".rss", ".atom"}
+            )
+            if not files:
+                raise SystemExit(f"No .xml/.rss/.atom feed files found in directory: {path}")
+            return [str(item) for item in files]
+        if path.suffix.lower() in {".txt", ".list"}:
+            lines: list[str] = []
+            for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = raw_line.strip()
+                if not line or line.lstrip().startswith("#"):
+                    continue
+                line_path = Path(line).expanduser()
+                if not is_url(line) and not line_path.is_absolute():
+                    line = str(path.parent / line_path)
+                lines.append(line)
+            if not lines:
+                raise SystemExit(f"No feed URLs or paths found in: {path}")
+            return lines
+        return [str(path)]
+    return split_csv(source) or [source]
+
+
+def atom_link(entry: ET.Element) -> str:
+    fallback = ""
+    for link in children_named(entry, "link"):
+        href = link.attrib.get("href", "").strip()
+        rel = link.attrib.get("rel", "alternate")
+        if href and rel == "alternate":
+            return href
+        if href and not fallback:
+            fallback = href
+    return fallback or child_text(entry, "id")
+
+
+def feed_authors(entry: ET.Element) -> list[str]:
+    authors: list[str] = []
+    for author in children_named(entry, "author"):
+        name = child_text(author, "name") or clean_html("".join(author.itertext()))
+        if name and name not in authors:
+            authors.append(name)
+    creator = child_text(entry, "creator")
+    if creator:
+        for part in re.split(r"\s*;\s*|\s*,\s*", creator):
+            if part and part not in authors:
+                authors.append(part)
+    return authors
+
+
+def paper_from_atom_entry(entry: ET.Element, feed_title: str, source_name: str) -> Paper | None:
+    title = child_text(entry, "title")
+    if not title:
+        return None
+    authors = feed_authors(entry)
+    summary = child_text(entry, "summary") or child_text(entry, "content")
+    published = child_text(entry, "published") or child_text(entry, "updated")
+    date = feed_date(published)
+    url = atom_link(entry)
+    categories = [
+        category.attrib.get("term", "").strip()
+        for category in children_named(entry, "category")
+        if category.attrib.get("term", "").strip()
+    ]
+    arxiv_id = ""
+    if "arxiv.org" in url:
+        arxiv_id = re.sub(r"^https?://arxiv\.org/(abs|pdf)/", "", url).replace(".pdf", "")
+    source = feed_title or source_name
+    metadata_key = "arxiv" if arxiv_id else "feed"
+    metadata = {
+        metadata_key: {
+            "id": arxiv_id or child_text(entry, "id"),
+            "published": published,
+            "updated": child_text(entry, "updated"),
+            "source": source,
+            "categories": categories,
+            "authors": authors,
+        }
+    }
+    return Paper(
+        id=stable_id(title),
+        title=title,
+        authors_source=bibliography_authors_source(authors, source, date[:4]),
+        snippet=summary or "Imported from Atom/RSS feed.",
+        url=url,
+        scholar_url="",
+        first_seen=date,
+        last_seen=date,
+        alerts=[source, "Atom/RSS import"],
+        occurrences=1,
+        metadata=metadata,
+    )
+
+
+def paper_from_rss_item(item: ET.Element, feed_title: str, source_name: str) -> Paper | None:
+    title = child_text(item, "title")
+    if not title:
+        return None
+    link = child_text(item, "link") or child_text(item, "guid")
+    summary = child_text(item, "description") or child_text(item, "summary") or child_text(item, "encoded")
+    published = child_text(item, "pubDate") or child_text(item, "date") or child_text(item, "updated")
+    date = feed_date(published)
+    authors = coerce_list(child_text(item, "author") or child_text(item, "creator"))
+    categories = [clean_html("".join(category.itertext())) for category in children_named(item, "category")]
+    source = feed_title or source_name
+    metadata = {
+        "feed": {
+            "id": child_text(item, "guid") or link,
+            "published": published,
+            "source": source,
+            "categories": [category for category in categories if category],
+            "authors": authors,
+        }
+    }
+    return Paper(
+        id=stable_id(title),
+        title=title,
+        authors_source=bibliography_authors_source(authors, source, date[:4]),
+        snippet=summary or "Imported from RSS feed.",
+        url=link,
+        scholar_url="",
+        first_seen=date,
+        last_seen=date,
+        alerts=[source, "RSS import"],
+        occurrences=1,
+        metadata=metadata,
+    )
+
+
+def parse_feed_xml(text: str, source_name: str) -> tuple[list[Paper], dict[str, int]]:
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise SystemExit(f"Cannot parse RSS/Atom feed {source_name}: {exc}") from exc
+    papers_by_key: dict[str, Paper] = {}
+    counts = Counter()
+    root_name = local_name(root.tag).lower()
+    if root_name == "feed":
+        feed_title = child_text(root, "title") or source_name
+        entries = children_named(root, "entry")
+        counts["feed_entries"] = len(entries)
+        for entry in entries:
+            paper = paper_from_atom_entry(entry, feed_title, source_name)
+            if paper is None:
+                counts["feed_skipped_no_title"] += 1
+                continue
+            merge_bibliography_paper(papers_by_key, paper)
+    else:
+        channel = next((child for child in children_named(root, "channel")), root)
+        feed_title = child_text(channel, "title") or source_name
+        items = children_named(channel, "item") or [item for item in root.iter() if local_name(item.tag) == "item"]
+        counts["feed_entries"] = len(items)
+        for item in items:
+            paper = paper_from_rss_item(item, feed_title, source_name)
+            if paper is None:
+                counts["feed_skipped_no_title"] += 1
+                continue
+            merge_bibliography_paper(papers_by_key, paper)
+    counts["feed_unique_papers"] = len(papers_by_key)
+    return list(papers_by_key.values()), dict(counts)
+
+
+def parse_rss_source(source: str, timeout: int = 20, limit: int = 0) -> tuple[list[Paper], dict[str, int]]:
+    papers_by_key: dict[str, Paper] = {}
+    counts = Counter()
+    for feed_source in rss_sources(source):
+        counts["feed_sources"] += 1
+        text = read_feed_text(feed_source, timeout)
+        papers, feed_counts = parse_feed_xml(text, feed_source)
+        counts.update(feed_counts)
+        for paper in papers:
+            merge_bibliography_paper(papers_by_key, paper)
+    papers = list(papers_by_key.values())
+    papers.sort(key=lambda paper: (paper.last_seen, paper.title.lower()), reverse=True)
+    if limit > 0:
+        papers = papers[:limit]
+    counts["feed_unique_papers"] = len(papers_by_key)
+    counts["feed_returned_papers"] = len(papers)
+    return papers, dict(counts)
+
+
+def arxiv_api_url(query: str, limit: int, sort_by: str = "submittedDate", sort_order: str = "descending") -> str:
+    params = {
+        "search_query": query,
+        "start": "0",
+        "max_results": str(max(1, int(limit or 50))),
+        "sortBy": sort_by,
+        "sortOrder": sort_order,
+    }
+    return "https://export.arxiv.org/api/query?" + urlencode(params)
+
+
+def parse_arxiv_source(query: str, limit: int = 50, timeout: int = 20) -> tuple[list[Paper], dict[str, int]]:
+    url = arxiv_api_url(query, limit)
+    papers, counts = parse_rss_source(url, timeout=timeout, limit=limit)
+    counts["arxiv_query"] = query
+    counts["arxiv_api_url"] = url
+    return papers, counts
+
+
 def apple_script_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -1296,6 +1553,7 @@ def source_item_count(summary: dict[str, Any]) -> int:
     for key in [
         "scholar_messages",
         "bibliography_entries",
+        "feed_entries",
         "gmail_raw_messages",
         "mail_app_exported",
         "messages",
@@ -2266,6 +2524,7 @@ def render_project_guide(
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
         "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
         "   - Bibliography import: place `import.bib` or `import.ris` in this project, then run `./bibtex_import.sh` or `./ris_import.sh`.",
+        "   - Structured web sources: place feed URLs in `feeds.txt` and run `./rss_import.sh`, or set `ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh`.",
         "3. Build the baseline with `MODE=foundation ./run_reader.sh`.",
         "4. Run daily triage with `./run_reader.sh`.",
         "5. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
@@ -2273,7 +2532,7 @@ def render_project_guide(
         "## Daily Loop",
         "",
         "- `./run_reader.sh`: fetch and rank new alert papers.",
-        "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, or optional Mail.app source readiness.",
+        "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, RSS/arXiv, or optional Mail.app source readiness.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
@@ -2294,6 +2553,7 @@ def render_project_guide(
         f"- Local mbox: {status_marker(project_dir / 'INBOX.mbox')}",
         f"- BibTeX import: {status_marker(project_dir / 'import.bib')}",
         f"- RIS import: {status_marker(project_dir / 'import.ris')}",
+        f"- RSS/Atom feed list: {status_marker(project_dir / 'feeds.txt')}",
         f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
         f"- Daily papers JSON: {count_marker(daily_dir / 'papers.json')}",
         f"- Foundation digest HTML: {status_marker(foundation_dir / 'digest.html')}",
@@ -2354,7 +2614,7 @@ def init_project(args: argparse.Namespace) -> None:
         sample_target = project_dir / "examples" / "sample_scholar_alerts.mbox"
         if not sample_target.exists() or args.force:
             shutil.copyfile(sample_mbox, sample_target)
-    for sample_name in ["sample_import.bib", "sample_import.ris"]:
+    for sample_name in ["sample_import.bib", "sample_import.ris", "sample_feed.atom", "feeds.example.txt"]:
         sample_source = SCRIPT_DIR.parent / "examples" / sample_name
         if sample_source.exists():
             sample_target = project_dir / "examples" / sample_name
@@ -2367,6 +2627,8 @@ SOURCE="${SOURCE:-auto}"
 MBOX_PATH="${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}"
 BIBTEX_PATH="${BIBTEX_PATH:-$PROJECT_DIR/import.bib}"
 RIS_PATH="${RIS_PATH:-$PROJECT_DIR/import.ris}"
+RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}"
+ARXIV_QUERY="${ARXIV_QUERY:-}"
 GMAIL_CREDENTIALS="${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}"
 GMAIL_TOKEN="${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}"
 
@@ -2379,11 +2641,15 @@ if [[ "$SOURCE" == "auto" ]]; then
     SOURCE="bibtex"
   elif [[ -f "$RIS_PATH" || -d "$RIS_PATH" ]]; then
     SOURCE="ris"
+  elif [[ -f "$RSS_SOURCE" || -d "$RSS_SOURCE" ]]; then
+    SOURCE="rss"
+  elif [[ -n "$ARXIV_QUERY" ]]; then
+    SOURCE="arxiv"
   elif [[ "${AUTO_ALLOW_MAIL_APP:-0}" == "1" && "$(uname -s)" == "Darwin" && -x "/usr/bin/osascript" ]]; then
     SOURCE="mail-app"
   else
     echo "No Scholar Alert source is ready." >&2
-    echo "Set up Gmail OAuth, place INBOX.mbox/import.bib/import.ris in this project, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2
+    echo "Set up Gmail OAuth, place INBOX.mbox/import.bib/import.ris/feeds.txt in this project, set ARXIV_QUERY, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2
     exit 2
   fi
 fi
@@ -2409,6 +2675,14 @@ elif [[ "$SOURCE" == "bibtex" ]]; then
   cmd+=(--source-bibtex "$BIBTEX_PATH")
 elif [[ "$SOURCE" == "ris" ]]; then
   cmd+=(--source-ris "$RIS_PATH")
+elif [[ "$SOURCE" == "rss" ]]; then
+  cmd+=(--source-rss "$RSS_SOURCE")
+elif [[ "$SOURCE" == "arxiv" ]]; then
+  if [[ -z "$ARXIV_QUERY" ]]; then
+    echo "Set ARXIV_QUERY before using SOURCE=arxiv." >&2
+    exit 2
+  fi
+  cmd+=(--source-arxiv-query "$ARXIV_QUERY")
 else
   cmd+=(--source-mbox "$MBOX_PATH")
 fi
@@ -2416,6 +2690,9 @@ fi
 if [[ -n "${BOOST:-}" ]]; then cmd+=(--boost "$BOOST"); fi
 if [[ -n "${GMAIL_LIMIT:-}" ]]; then cmd+=(--gmail-limit "$GMAIL_LIMIT"); fi
 if [[ -n "${GMAIL_QUERY:-}" ]]; then cmd+=(--gmail-query "$GMAIL_QUERY"); fi
+if [[ -n "${RSS_LIMIT:-}" ]]; then cmd+=(--rss-limit "$RSS_LIMIT"); fi
+if [[ -n "${RSS_TIMEOUT:-}" ]]; then cmd+=(--rss-timeout "$RSS_TIMEOUT"); fi
+if [[ -n "${ARXIV_LIMIT:-}" ]]; then cmd+=(--arxiv-limit "$ARXIV_LIMIT"); fi
 if [[ "$MODE" != "foundation" && -n "${SINCE_DAYS:-}" ]]; then cmd+=(--since-days "$SINCE_DAYS"); fi
 if [[ "$MODE" == "run" && "${ONLY_NEW:-0}" == "1" ]]; then cmd+=(--only-new); fi
 if [[ "$MODE" == "run" && "${UPDATE_STATE:-0}" == "1" ]]; then cmd+=(--update-state); fi
@@ -2429,7 +2706,9 @@ exec "${cmd[@]}"
         "demo_reader.sh": 'SOURCE=mbox MBOX_PATH="$PROJECT_DIR/examples/sample_scholar_alerts.mbox" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"\n',
         "bibtex_import.sh": 'SOURCE=bibtex BIBTEX_PATH="${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/bibtex}" "$PROJECT_DIR/run_reader.sh"\n',
         "ris_import.sh": 'SOURCE=ris RIS_PATH="${RIS_PATH:-$PROJECT_DIR/import.ris}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/ris}" "$PROJECT_DIR/run_reader.sh"\n',
-        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
+        "rss_import.sh": 'SOURCE=rss RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/rss}" "$PROJECT_DIR/run_reader.sh"\n',
+        "arxiv_search.sh": 'if [[ -z "${ARXIV_QUERY:-}" ]]; then echo "Set ARXIV_QUERY before running arxiv_search.sh" >&2; exit 2; fi\nSOURCE=arxiv MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/arxiv}" "$PROJECT_DIR/run_reader.sh"\n',
+        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
         "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
@@ -2469,6 +2748,7 @@ exec "${cmd[@]}"
                     "*.eml",
                     "import.bib",
                     "import.ris",
+                    "feeds.txt",
                     "gmail_credentials.json",
                     "gmail_token.json",
                     "client_secret*.json",
@@ -2514,6 +2794,15 @@ exec "${cmd[@]}"
                     "./ris_import.sh",
                     "BIBTEX_PATH=examples/sample_import.bib ./bibtex_import.sh",
                     "RIS_PATH=examples/sample_import.ris ./ris_import.sh",
+                    "```",
+                    "",
+                    "## Import from RSS/Atom or arXiv",
+                    "",
+                    "Place feed URLs in `feeds.txt` or point `RSS_SOURCE` at a feed file:",
+                    "",
+                    "```bash",
+                    "RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh",
+                    "ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh",
                     "```",
                     "",
                     "## Review recent alerts",
@@ -2912,6 +3201,8 @@ def choose_auto_source(
     mbox_path: Path,
     bibtex_path: Path,
     ris_path: Path,
+    rss_source: str,
+    arxiv_query: str | None,
     gmail_token: Path,
     allow_mail_app: bool,
 ) -> tuple[str, str]:
@@ -2923,12 +3214,17 @@ def choose_auto_source(
         return "bibtex", f"BibTeX file or directory found at {bibtex_path}"
     if ris_path.exists():
         return "ris", f"RIS file or directory found at {ris_path}"
+    rss_path = Path(rss_source).expanduser()
+    if is_url(rss_source) or rss_path.exists():
+        return "rss", f"RSS/Atom source found at {rss_source}"
+    if arxiv_query:
+        return "arxiv", "ARXIV_QUERY is configured"
     if allow_mail_app and mail_app_available():
         return "mail-app", "Mail.app fallback allowed and osascript is available"
     if gmail_token.exists() and not gmail_dependencies_available():
         return "gmail", "Gmail token exists but Python Gmail dependencies are missing"
     return "none", (
-        "No automatic source is ready. Configure Gmail OAuth, place an INBOX.mbox/import.bib/import.ris "
+        "No automatic source is ready. Configure Gmail OAuth, place an INBOX.mbox/import.bib/import.ris/feeds.txt "
         "in the project, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 on macOS after granting Mail Automation permission."
     )
 
@@ -2939,6 +3235,7 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
     mbox_path = (args.mbox_path or (project_dir / "INBOX.mbox")).expanduser()
     bibtex_path = (args.bibtex_path or (project_dir / "import.bib")).expanduser()
     ris_path = (args.ris_path or (project_dir / "import.ris")).expanduser()
+    rss_source = args.rss_source or str(project_dir / "feeds.txt")
     gmail_credentials = args.gmail_credentials.expanduser()
     gmail_token = args.gmail_token.expanduser()
     checks: list[tuple[str, bool, str]] = []
@@ -2948,7 +3245,16 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
         return str(exc) or exc.__class__.__name__
 
     if source == "auto":
-        source, reason = choose_auto_source(project_dir, mbox_path, bibtex_path, ris_path, gmail_token, args.allow_mail_app)
+        source, reason = choose_auto_source(
+            project_dir,
+            mbox_path,
+            bibtex_path,
+            ris_path,
+            rss_source,
+            args.arxiv_query,
+            gmail_token,
+            args.allow_mail_app,
+        )
         notes.append(f"Auto selected `{source}`: {reason}")
 
     if source == "gmail":
@@ -3009,6 +3315,26 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
             except (SystemExit, Exception) as exc:
                 checks.append(("RIS parse", False, exc_detail(exc)))
         notes.append("RIS import is useful for Zotero, EndNote, publisher exports, and many academic databases.")
+    elif source == "rss":
+        rss_path = Path(rss_source).expanduser()
+        checks.append(("RSS/Atom source", is_url(rss_source) or rss_path.exists(), rss_source))
+        if args.live and (is_url(rss_source) or rss_path.exists()):
+            try:
+                papers, counts = parse_rss_source(rss_source, timeout=args.timeout, limit=args.limit)
+                checks.append(("RSS/Atom live read", True, f"{len(papers)} papers from {counts.get('feed_entries', 0)} entries"))
+            except (SystemExit, Exception) as exc:
+                checks.append(("RSS/Atom live read", False, exc_detail(exc)))
+        notes.append("RSS/Atom import is best for journal feeds, saved search feeds, and other structured web sources.")
+    elif source == "arxiv":
+        checks.append(("arXiv query", bool(args.arxiv_query), args.arxiv_query or "missing --arxiv-query"))
+        if args.live and args.arxiv_query:
+            try:
+                papers, counts = parse_arxiv_source(args.arxiv_query, limit=args.arxiv_limit or args.limit, timeout=args.timeout)
+                checks.append(("arXiv live read", True, f"{len(papers)} papers from {counts.get('feed_entries', 0)} entries"))
+                notes.append(f"arXiv API URL: `{counts.get('arxiv_api_url', '')}`")
+            except (SystemExit, Exception) as exc:
+                checks.append(("arXiv live read", False, exc_detail(exc)))
+        notes.append("arXiv import uses the public arXiv Atom API; use precise category/topic queries for better ranking.")
     else:
         checks.append(("source selection", False, "No source could be selected automatically."))
 
@@ -3073,6 +3399,12 @@ def run(args: argparse.Namespace) -> None:
     elif getattr(args, "source_ris", None):
         papers, source_counts = parse_ris_source(args.source_ris)
         source_label = f"RIS: {args.source_ris}"
+    elif getattr(args, "source_rss", None):
+        papers, source_counts = parse_rss_source(args.source_rss, timeout=args.rss_timeout, limit=args.rss_limit)
+        source_label = f"RSS/Atom: {args.source_rss}"
+    elif getattr(args, "source_arxiv_query", None):
+        papers, source_counts = parse_arxiv_source(args.source_arxiv_query, limit=args.arxiv_limit, timeout=args.rss_timeout)
+        source_label = f"arXiv: {args.source_arxiv_query}"
     else:
         papers, source_counts = parse_mbox(args.source_mbox, args.since_days)
         source_label = str(args.source_mbox)
@@ -3090,6 +3422,8 @@ def run(args: argparse.Namespace) -> None:
         "source_gmail": bool(getattr(args, "source_gmail", False)),
         "source_bibtex": str(args.source_bibtex) if getattr(args, "source_bibtex", None) else "",
         "source_ris": str(args.source_ris) if getattr(args, "source_ris", None) else "",
+        "source_rss": str(args.source_rss) if getattr(args, "source_rss", None) else "",
+        "source_arxiv_query": str(args.source_arxiv_query) if getattr(args, "source_arxiv_query", None) else "",
         "source_counts": source_counts,
         "unique_papers_before_state_filter": total_unique,
         "papers_in_digest": len(papers),
@@ -3124,6 +3458,8 @@ def add_source_profile_args(cmd: argparse.ArgumentParser, default_out_dir: str) 
     source.add_argument("--source-gmail", action="store_true", help="Read Google Scholar Alert messages through Gmail API")
     source.add_argument("--source-bibtex", type=Path, help="Path to a BibTeX .bib file or a directory of .bib files")
     source.add_argument("--source-ris", type=Path, help="Path to an RIS .ris file or a directory of .ris files")
+    source.add_argument("--source-rss", help="RSS/Atom feed URL, feed file, directory of feed files, or text file listing feed URLs")
+    source.add_argument("--source-arxiv-query", help="arXiv API search query, e.g. 'cat:physics.geo-ph AND all:\"receiver function\"'")
     cmd.add_argument("--profile", type=Path, help="JSON research profile")
     cmd.add_argument("--out-dir", type=Path, default=Path(default_out_dir))
     cmd.add_argument("--boost", help="Comma-separated temporary priority terms, e.g. 'Taiwan,receiver function'")
@@ -3137,6 +3473,9 @@ def add_source_profile_args(cmd: argparse.ArgumentParser, default_out_dir: str) 
     cmd.add_argument("--gmail-query", help="Additional Gmail search query terms")
     cmd.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
     cmd.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
+    cmd.add_argument("--rss-limit", type=int, default=0, help="Max RSS/Atom papers to return after dedupe; 0 means no limit")
+    cmd.add_argument("--rss-timeout", type=int, default=20, help="RSS/Atom/arXiv HTTP timeout in seconds")
+    cmd.add_argument("--arxiv-limit", type=int, default=50, help="Max arXiv results to fetch")
 
 
 def run_foundation(args: argparse.Namespace) -> None:
@@ -3654,18 +3993,21 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--output", type=Path, help="Write guide markdown to this path instead of stdout")
     guide.set_defaults(func=guide_command)
 
-    source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, BibTeX, RIS, or auto source readiness")
-    source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris"], default="auto")
+    source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, BibTeX, RIS, RSS/Atom, arXiv, or auto source readiness")
+    source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "rss", "arxiv"], default="auto")
     source_check.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
     source_check.add_argument("--mbox-path", type=Path, help="mbox path. Defaults to project-dir/INBOX.mbox")
     source_check.add_argument("--bibtex-path", type=Path, help="BibTeX path. Defaults to project-dir/import.bib")
     source_check.add_argument("--ris-path", type=Path, help="RIS path. Defaults to project-dir/import.ris")
+    source_check.add_argument("--rss-source", help="RSS/Atom URL, feed file, directory, or text file. Defaults to project-dir/feeds.txt")
+    source_check.add_argument("--arxiv-query", help="arXiv API search query for source-check --source arxiv")
+    source_check.add_argument("--arxiv-limit", type=int, help="Max arXiv results to fetch during --live; defaults to --limit")
     source_check.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
     source_check.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
     source_check.add_argument("--gmail-query", help="Additional Gmail search query terms")
     source_check.add_argument("--since-days", type=int, help="Only check messages newer than this many days")
     source_check.add_argument("--limit", type=int, default=1, help="Max messages to fetch/export during --live")
-    source_check.add_argument("--timeout", type=int, default=20, help="Mail.app live-check timeout in seconds")
+    source_check.add_argument("--timeout", type=int, default=20, help="Mail.app/RSS/arXiv live-check timeout in seconds")
     source_check.add_argument("--live", action="store_true", help="Attempt a real read from the selected source")
     source_check.add_argument("--allow-mail-app", action="store_true", help="Allow auto mode to select macOS Mail.app")
     source_check.add_argument("--strict", action="store_true", help="Exit non-zero if any check warns")

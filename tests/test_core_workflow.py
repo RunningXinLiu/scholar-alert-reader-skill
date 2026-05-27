@@ -72,11 +72,15 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "examples" / "sample_scholar_alerts.mbox").exists())
             self.assertTrue((project / "examples" / "sample_import.bib").exists())
             self.assertTrue((project / "examples" / "sample_import.ris").exists())
+            self.assertTrue((project / "examples" / "sample_feed.atom").exists())
+            self.assertTrue((project / "examples" / "feeds.example.txt").exists())
             self.assertTrue((project / "demo_reader.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "bibtex_import.sh").exists())
             self.assertTrue((project / "ris_import.sh").exists())
+            self.assertTrue((project / "rss_import.sh").exists())
+            self.assertTrue((project / "arxiv_search.sh").exists())
             self.assertTrue((project / "doctor_reader.sh").exists())
             self.assertTrue((project / "guide_reader.sh").exists())
             self.assertTrue((project / "compare_papers.sh").exists())
@@ -100,6 +104,15 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("mbox parse", source_check.stdout)
+
+            rss_check = subprocess.run(
+                [str(project / "source_check.sh"), "--source", "rss", "--rss-source", str(project / "examples" / "sample_feed.atom"), "--live"],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("RSS/Atom live read", rss_check.stdout)
 
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -192,6 +205,40 @@ ER  -
             self.assertEqual(papers[0]["title"], "Receiver functions across the Tibetan Plateau")
             self.assertEqual(papers[0]["metadata"]["ris"]["doi"], "10.0000/tibet-rf")
             self.assertTrue((root / "out" / "digest.html").exists())
+
+    def test_rss_source_runs_full_workflow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "run",
+                    "--source-rss",
+                    str(ROOT / "examples" / "feeds.example.txt"),
+                    "--profile",
+                    str(profile),
+                    "--out-dir",
+                    str(root / "out"),
+                    "--kb-dir",
+                    str(root / "kb"),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            papers = json.loads((root / "out" / "papers.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(papers), 2)
+            self.assertEqual(papers[0]["metadata"]["feed"]["source"], "Demo Geophysics Feed")
+            self.assertTrue((root / "out" / "digest.html").exists())
+
+    def test_arxiv_url_builder(self) -> None:
+        url = core.arxiv_api_url('cat:physics.geo-ph AND all:"receiver function"', 25)
+        self.assertIn("https://export.arxiv.org/api/query?", url)
+        self.assertIn("max_results=25", url)
+        self.assertIn("cat%3Aphysics.geo-ph", url)
 
     def test_feedback_updates_knowledge_base(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -19,6 +19,7 @@ Do not commit or print sensitive user data:
 
 - raw `.mbox` or `.eml` mailbox exports
 - personal `import.bib` or `import.ris` bibliography files
+- personal `feeds.txt` source lists
 - Gmail OAuth credentials or token files
 - `seen_papers.json`
 - `feedback.json`
@@ -52,6 +53,7 @@ Check input sources:
 ./source_check.sh --source mbox --mbox-path examples/sample_scholar_alerts.mbox --live
 ./source_check.sh --source bibtex --bibtex-path import.bib --live
 ./source_check.sh --source ris --ris-path import.ris --live
+./source_check.sh --source rss --rss-source examples/sample_feed.atom --live
 ```
 
 Run a daily workflow after setup:
@@ -68,6 +70,13 @@ cp ~/Downloads/export.bib import.bib
 ./bibtex_import.sh
 cp ~/Downloads/export.ris import.ris
 ./ris_import.sh
+```
+
+Import structured web sources:
+
+```bash
+RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
+ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh
 ```
 
 Use literature-copilot commands:

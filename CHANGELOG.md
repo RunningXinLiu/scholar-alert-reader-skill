@@ -5,7 +5,8 @@
 - Add a product-oriented `guide` command and generated `START_HERE.md` for local projects.
 - Add a sanitized demo mailbox and `demo_reader.sh` so users can test without Gmail, Obsidian, or Zotero.
 - Add BibTeX/RIS as first-class input sources for Zotero, publisher, database, and Google Scholar library exports.
-- Add `source-check` / `source_check.sh` for Gmail, Mail.app, mbox, BibTeX/RIS, and auto source diagnostics.
+- Add RSS/Atom and arXiv as structured web input sources without arbitrary web scraping.
+- Add `source-check` / `source_check.sh` for Gmail, Mail.app, mbox, BibTeX/RIS, RSS/arXiv, and auto source diagnostics.
 - Add checked-in GitHub/朋友圈 marketing assets: social card, architecture diagram, workflow GIF, and Chinese share copy.
 - Add CodeGraph/source-of-truth documentation while keeping `.codegraph/` ignored as generated local state.
 - Add literature-copilot commands for deep reads, local-library Q&A, research advice, reading status, comparisons, and research maps.

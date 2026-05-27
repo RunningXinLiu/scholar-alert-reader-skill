@@ -38,10 +38,11 @@ Use the scholar-alert-reader skill to initialize a Scholar Alert project for me.
 
 Good next prompts:
 
-- "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS source is ready."
+- "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS/RSS/arXiv source is ready."
 - "Build my first foundation from existing Scholar Alert emails."
 - "Run today's new-paper digest."
 - "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
+- "Pull papers from this RSS feed or arXiv query and rank them against my profile."
 - "Open the feedback UI so I can mark interested papers."
 - "Deep-read this paper against my foundation."
 - "Export my retained library to Obsidian and Zotero."
@@ -92,7 +93,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 
 ## What It Does
 
-- Reads Google Scholar Alert emails from Gmail API, Mail.app, exported `.mbox`, or bibliography files (`.bib` / `.ris`).
+- Reads Google Scholar Alert emails from Gmail API, Mail.app, exported `.mbox`, bibliography files (`.bib` / `.ris`), RSS/Atom feeds, or arXiv queries.
 - Extracts paper title, author/source line, snippet, alert source, and link.
 - Deduplicates papers across alerts.
 - Scores papers against a JSON research profile.
@@ -121,6 +122,7 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 - Gmail API source: macOS, Linux, and Windows, as long as Python can open the OAuth browser flow once and store the token.
 - Exported `.mbox` source: macOS, Linux, and Windows.
 - BibTeX/RIS source: macOS, Linux, and Windows. Useful when the user has Zotero, EndNote, publisher exports, Google Scholar library exports, or no Gmail access.
+- RSS/Atom and arXiv sources: macOS, Linux, and Windows. Useful for journal feeds, saved-search feeds, and structured web monitoring without scraping arbitrary pages.
 - Mail.app source: macOS only, because it uses AppleScript and requires Automation permission.
 - LaunchAgent scheduling: macOS only. Other platforms can use cron, systemd timers, or Task Scheduler around `run_reader.sh` / the Python CLI.
 - Codex skill mode is the intended UX, but the Python CLI can also be run directly from this repository.
@@ -244,6 +246,18 @@ BIBTEX_PATH=examples/sample_import.bib ./bibtex_import.sh
 RIS_PATH=examples/sample_import.ris ./ris_import.sh
 ```
 
+Import from RSS/Atom or arXiv:
+
+```bash
+RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
+open reader_out/rss/digest.html
+```
+
+```bash
+ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh
+open reader_out/arxiv/digest.html
+```
+
 Open the feedback UI:
 
 ```bash
@@ -268,6 +282,13 @@ Direct BibTeX/RIS imports use the same ranking and knowledge-base pipeline:
 ```bash
 python3 scripts/scholar_reader.py run --source-bibtex ~/Downloads/export.bib --profile profiles/research_profile.json --out-dir out/bibtex --kb-dir knowledge_base
 python3 scripts/scholar_reader.py run --source-ris ~/Downloads/export.ris --profile profiles/research_profile.json --out-dir out/ris --kb-dir knowledge_base
+```
+
+Direct RSS/arXiv imports use the same pipeline:
+
+```bash
+python3 scripts/scholar_reader.py run --source-rss ~/scholar_alerts/feeds.txt --profile profiles/research_profile.json --out-dir out/rss --kb-dir knowledge_base
+python3 scripts/scholar_reader.py run --source-arxiv-query 'cat:physics.geo-ph AND all:tomography' --profile profiles/research_profile.json --out-dir out/arxiv --kb-dir knowledge_base
 ```
 
 ## Feedback Loop
@@ -398,6 +419,8 @@ Check input-source readiness without running the full workflow:
 ./source_check.sh --source mbox --mbox-path examples/sample_scholar_alerts.mbox --live
 ./source_check.sh --source bibtex --bibtex-path import.bib --live
 ./source_check.sh --source ris --ris-path import.ris --live
+./source_check.sh --source rss --rss-source examples/sample_feed.atom --live
+./source_check.sh --source arxiv --arxiv-query 'cat:physics.geo-ph AND all:tomography' --live
 ```
 
 `mail-app` is intentionally explicit because it can trigger macOS Automation permission prompts.
@@ -483,6 +506,7 @@ Do not commit:
 - Gmail OAuth credentials or token files
 - raw mailbox exports
 - personal `import.bib` / `import.ris` files
+- personal `feeds.txt` source lists
 - `seen_papers.json`
 - `feedback.json`
 - generated `out/`

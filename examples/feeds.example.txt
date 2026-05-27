@@ -1,0 +1,3 @@
+# One RSS/Atom URL or local feed file per line.
+# Relative paths are resolved from this list file's directory.
+sample_feed.atom

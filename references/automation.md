@@ -1,6 +1,6 @@
 # Automation Notes
 
-Use the local mbox or BibTeX/RIS path for the first reliable version. For a true daily pipeline, choose one source connector:
+Use the local mbox, BibTeX/RIS, RSS/Atom, or arXiv path for the first reliable version. For a true daily pipeline, choose one source connector:
 
 For a new workspace, initialize the local project first:
 
@@ -20,7 +20,7 @@ Suggested flow:
 3. Fetch messages since last run.
 4. Save only extracted paper metadata, not raw emails.
 
-The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token exists; otherwise it checks `INBOX.mbox`, `import.bib`, `import.ris`, and then optional Mail.app fallback.
+The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token exists; otherwise it checks `INBOX.mbox`, `import.bib`, `import.ris`, `feeds.txt`, `ARXIV_QUERY`, and then optional Mail.app fallback.
 
 If the workflow uses `--kb-dir knowledge_base`, saved paper feedback is read from `knowledge_base/feedback.json` automatically. Pass `--no-feedback` only for a diagnostic run that should ignore personal ranking signals.
 
@@ -60,6 +60,17 @@ SOURCE=ris RIS_PATH=~/Downloads/export.ris MODE=run ./run_reader.sh
 ```
 
 Project scaffolds also include `./bibtex_import.sh` and `./ris_import.sh`, which default to `import.bib` and `import.ris` inside the project directory.
+
+## RSS/Atom And arXiv
+
+Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer RSS/Atom feeds and the arXiv public Atom API over arbitrary webpage scraping.
+
+```bash
+SOURCE=rss RSS_SOURCE=~/scholar_alerts/feeds.txt MODE=run ./run_reader.sh
+SOURCE=arxiv ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' MODE=run ./run_reader.sh
+```
+
+Project scaffolds include `./rss_import.sh` and `./arxiv_search.sh`.
 
 ## Codex Automation
 
