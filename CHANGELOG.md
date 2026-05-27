@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.40 - 2026-05-28
+
+- Add `profile-doctor` / generated `profile_doctor.sh` to diagnose ranking-profile quality after onboarding or feedback rounds.
+- Report sparse or overbroad profile shape, missing semantic queries/exclusions, duplicate terms, threshold issues, feedback history, and recent/library ranking behavior.
+- Include profile-doctor in quickstart checks, generated project guides, README, SKILL, product notes, and profile schema docs.
+
 ## v0.2.39 - 2026-05-28
 
 - Add `profile-wizard` / generated `profile_wizard.sh` so users can turn current research questions and interests into profile terms without editing JSON by hand.

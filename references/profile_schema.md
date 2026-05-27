@@ -30,6 +30,14 @@ python3 scripts/scholar_reader.py profile-wizard \
   --semantic-query "machine learning for dense array earthquake monitoring"
 ```
 
+Check profile quality after edits or feedback rounds:
+
+```bash
+python3 scripts/scholar_reader.py profile-doctor \
+  --project-dir ~/scholar_alerts \
+  --papers-json ~/scholar_alerts/reader_out/daily/papers.json
+```
+
 `init-project` also accepts `--profile-template`. Bundled templates live in `assets/profile_templates/` and are copied into each generated project under `profiles/templates/` for local editing.
 
 ## Fields

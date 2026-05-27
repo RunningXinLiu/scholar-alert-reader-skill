@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.39`
+Version: `0.2.40`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -42,6 +42,7 @@ Good next prompts:
 - "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS/web/RSS/arXiv source is ready."
 - "Run the setup wizard and configure my source/profile/schedule."
 - "Run the profile wizard and turn my current research questions into a ranking profile."
+- "Run the profile doctor and tell me whether my ranking profile is too broad or too sparse."
 - "Build my first foundation from existing Scholar Alert emails."
 - "Run today's new-paper digest."
 - "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
@@ -353,6 +354,7 @@ Choose a starting research profile:
 python3 -m scholar_alert_reader list-profile-templates
 ./copy_profile_template.sh --template ai-seismology --force
 ./profile_wizard.sh
+./profile_doctor.sh
 ```
 
 Bundled templates include:
@@ -374,6 +376,14 @@ The template is only the starting point. Use `./profile_wizard.sh` to add your o
 ```
 
 You can still edit `profiles/research_profile.json` directly when you want full control over adaptive ranking settings, tier thresholds, and temporary boost terms.
+
+After editing or after a few days of feedback, run:
+
+```bash
+./profile_doctor.sh
+```
+
+It writes `profiles/profile_doctor.md` with checks for sparse profiles, overly broad high-weight terms, missing semantic queries, missing exclusions, overlapping thresholds, feedback history, and recent/library ranking behavior.
 
 `semantic_queries` are short natural-language descriptions of things you care about. They use local token-overlap matching, not a hosted embedding service, so they can rescue papers whose wording differs from your exact keywords while keeping the score explainable.
 

@@ -3788,6 +3788,7 @@ def render_project_guide(
         f"   - Current profile: `{profile_name}`.",
         f"   - Bundled templates copied to `profiles/templates/`: {template_line}.",
         "   - Non-interactive example: `./profile_wizard.sh --focus \"surface wave tomography, ambient noise\" --region \"Tibet, Sichuan Basin\" --method \"uncertainty quantification\"`.",
+        "   - Check profile quality with `./profile_doctor.sh` after editing or after several feedback rounds.",
         "   - To reset from a template, run for example: `./copy_profile_template.sh --template ai-seismology --force`.",
         "5. Choose an input source:",
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
@@ -3809,6 +3810,7 @@ def render_project_guide(
         "- `./dashboard_reader.sh --open`: open the project dashboard with links to current outputs.",
         "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, or optional Mail.app source readiness.",
         "- `./profile_wizard.sh`: refine your research profile without editing JSON by hand.",
+        "- `./profile_doctor.sh`: check whether the active profile is too broad, too sparse, or missing feedback signals.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
@@ -4239,6 +4241,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "schedule_reader.sh": 'exec "${SKILL_CMD[@]}" schedule --project-dir "$PROJECT_DIR" "$@"\n',
         "copy_profile_template.sh": 'exec "${SKILL_CMD[@]}" init-profile --profile "$PROFILE_PATH" "$@"\n',
         "profile_wizard.sh": 'exec "${SKILL_CMD[@]}" profile-wizard --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" "$@"\n',
+        "profile_doctor.sh": 'exec "${SKILL_CMD[@]}" profile-doctor --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "feedback_reader.sh": 'exec "${SKILL_CMD[@]}" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
@@ -4353,6 +4356,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "```bash",
                     "./profile_wizard.sh",
                     "./profile_wizard.sh --focus \"surface wave tomography, ambient noise\" --region \"Tibet, Sichuan Basin\" --method \"uncertainty quantification\"",
+                    "./profile_doctor.sh",
                     "```",
                     "",
                     "You can still reset the active profile directly from a bundled template:",
@@ -4775,6 +4779,269 @@ def profile_wizard_command(args: argparse.Namespace) -> None:
         print(f"Backup: {backup_path}")
     if args.dry_run:
         print(report)
+
+
+PROFILE_DIAGNOSTIC_SECTIONS = [
+    "focus_terms",
+    "methods",
+    "regions",
+    "watch_authors",
+    "exclude_terms",
+    "semantic_queries",
+]
+
+BROAD_PROFILE_TERMS = {
+    "analysis",
+    "data",
+    "dataset",
+    "deep learning",
+    "earthquake",
+    "fault",
+    "inversion",
+    "machine learning",
+    "mantle",
+    "method",
+    "model",
+    "monitoring",
+    "seismic",
+    "seismology",
+    "study",
+    "tomography",
+}
+
+
+def profile_entry_term(item: Any) -> str:
+    if isinstance(item, dict):
+        return str(item.get("term", "")).strip()
+    return str(item).strip()
+
+
+def profile_entry_weight(item: Any, default: int = 1) -> int:
+    if isinstance(item, dict):
+        try:
+            return int(item.get("weight", default))
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def profile_section_entries(profile: dict[str, Any], section: str) -> list[tuple[str, int]]:
+    entries: list[tuple[str, int]] = []
+    for item in profile.get(section, []) or []:
+        term = profile_entry_term(item)
+        if term:
+            entries.append((term, profile_entry_weight(item)))
+    return entries
+
+
+def profile_section_counts(profile: dict[str, Any]) -> dict[str, int]:
+    return {section: len(profile_section_entries(profile, section)) for section in PROFILE_DIAGNOSTIC_SECTIONS}
+
+
+def duplicate_profile_terms(profile: dict[str, Any]) -> tuple[list[str], list[str]]:
+    within_section: list[str] = []
+    cross_section_map: dict[str, set[str]] = {}
+    canonical: dict[str, str] = {}
+    for section in PROFILE_DIAGNOSTIC_SECTIONS:
+        seen: set[str] = set()
+        for term, _ in profile_section_entries(profile, section):
+            key = term.lower()
+            canonical.setdefault(key, term)
+            if key in seen:
+                within_section.append(f"{term} in {section}")
+            seen.add(key)
+            cross_section_map.setdefault(key, set()).add(section)
+    cross_section = [
+        f"{canonical[key]} ({', '.join(sorted(sections))})"
+        for key, sections in sorted(cross_section_map.items())
+        if len(sections) > 1
+    ]
+    return within_section, cross_section
+
+
+def profile_doctor_findings(
+    profile: dict[str, Any],
+    feedback: dict[str, Any],
+    records: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    findings: list[dict[str, str]] = []
+
+    def add(status: str, title: str, detail: str, action: str = "") -> None:
+        findings.append({"status": status, "title": title, "detail": detail, "action": action})
+
+    counts = profile_section_counts(profile)
+    question_count = len([q for q in profile.get("research_questions", []) if str(q).strip()])
+    if question_count == 0:
+        add("ACTION", "No research questions", "Research questions make digests and copilot reports easier to interpret.", "Run `./profile_wizard.sh --question \"...\"`.")
+    elif question_count > 6:
+        add("WARN", "Many research questions", f"{question_count} questions can make the profile feel broad.", "Keep the active profile focused on the next manuscript/project.")
+    else:
+        add("OK", "Research questions present", f"{question_count} active question(s) are configured.")
+
+    if counts["focus_terms"] < 5:
+        add("ACTION", "Too few focus terms", f"Only {counts['focus_terms']} focus terms are configured.", "Add 8-15 precise project terms with `./profile_wizard.sh --focus \"...\"`.")
+    elif counts["focus_terms"] > 45:
+        add("WARN", "Many focus terms", f"{counts['focus_terms']} focus terms may flatten ranking.", "Split broad interests into separate profiles or lower old-term weights.")
+    else:
+        add("OK", "Focus term count looks usable", f"{counts['focus_terms']} focus terms are configured.")
+
+    if counts["semantic_queries"] == 0:
+        add("WARN", "No semantic queries", "Exact keyword matching may miss papers whose wording differs from your terms.", "Add 2-5 plain-language intents with `./profile_wizard.sh --semantic-query \"...\"`.")
+    elif counts["semantic_queries"] > 12:
+        add("WARN", "Many semantic queries", f"{counts['semantic_queries']} semantic queries can make intent matching diffuse.", "Keep only the current high-value intents.")
+    else:
+        add("OK", "Semantic queries present", f"{counts['semantic_queries']} local semantic intent(s) are configured.")
+
+    if counts["exclude_terms"] < 3:
+        add("WARN", "Few exclusions", f"Only {counts['exclude_terms']} noise terms are configured.", "Add common false positives such as unrelated domains, jobs, courses, or conference notices.")
+    else:
+        add("OK", "Exclusions present", f"{counts['exclude_terms']} exclusion terms help suppress noise.")
+
+    adaptive = profile.get("adaptive_ranking", {})
+    if isinstance(adaptive, dict) and adaptive.get("enabled", True):
+        add("OK", "Adaptive ranking enabled", "Future runs can use interested/archive feedback and retained papers as local ranking seeds.")
+    else:
+        add("WARN", "Adaptive ranking disabled", "The profile will not learn from interested/archive patterns.", "Set `adaptive_ranking.enabled` to true unless you need fully static scoring.")
+
+    within_dups, cross_dups = duplicate_profile_terms(profile)
+    if within_dups:
+        add("WARN", "Duplicate terms inside sections", "; ".join(within_dups[:8]), "Remove duplicates or keep only the highest intended weight.")
+    else:
+        add("OK", "No within-section duplicates", "Repeated exact terms were not found inside a single section.")
+    if cross_dups:
+        add("WARN", "Terms appear in multiple sections", "; ".join(cross_dups[:8]), "This can be intentional, but check whether duplicate boosts are making a term dominate.")
+
+    broad_hits = [
+        f"{term} ({weight})"
+        for section in ["focus_terms", "methods", "regions", "semantic_queries"]
+        for term, weight in profile_section_entries(profile, section)
+        if term.lower() in BROAD_PROFILE_TERMS and weight >= 5
+    ]
+    if broad_hits:
+        add("WARN", "High-weight broad terms", "; ".join(broad_hits[:10]), "Pair broad terms with specific methods, regions, datasets, or active project phrases.")
+
+    thresholds = profile.get("tier_thresholds", {}) if isinstance(profile.get("tier_thresholds", {}), dict) else {}
+    must_threshold = int(thresholds.get("must_read", 18))
+    skim_threshold = int(thresholds.get("skim", 6))
+    if must_threshold <= skim_threshold:
+        add("ACTION", "Tier thresholds overlap", f"must_read={must_threshold}, skim={skim_threshold}.", "Set must_read higher than skim.")
+    elif must_threshold > 35:
+        add("WARN", "Must-read threshold may be too strict", f"must_read={must_threshold}.", "Lower it if daily digests rarely produce Must read papers.")
+    else:
+        add("OK", "Tier thresholds look coherent", f"must_read={must_threshold}, skim={skim_threshold}.")
+
+    limit_config = profile.get("limits", {}) if isinstance(profile.get("limits", {}), dict) else {}
+    must_limit = int(limit_config.get("must_read", 8))
+    deep_limit = int(limit_config.get("deep_read", 5))
+    if must_limit > 15:
+        add("WARN", "Must-read display limit is high", f"limits.must_read={must_limit}.", "A daily queue above 15 papers can become unreadable.")
+    if deep_limit > must_limit:
+        add("WARN", "Deep-read limit exceeds must-read limit", f"deep_read={deep_limit}, must_read={must_limit}.", "Keep deep_read no larger than the active Must read queue.")
+
+    feedback_papers = feedback.get("papers", {}) if isinstance(feedback.get("papers", {}), dict) else {}
+    feedback_terms = feedback.get("terms", []) if isinstance(feedback.get("terms", []), list) else []
+    if not feedback_papers and not feedback_terms:
+        add("WARN", "No feedback history yet", "Ranking is still using the initial profile only.", "After a run, use the feedback UI to mark interested/archive and more-like-this/less-like-this.")
+    else:
+        add("OK", "Feedback history present", f"{len(feedback_papers)} paper mark(s), {len(feedback_terms)} reusable term signal(s).")
+
+    if records:
+        tier_counts = Counter(str(record.get("tier", "Unknown")) for record in records)
+        retained = tier_counts.get("Must read", 0) + tier_counts.get("Skim", 0)
+        archive = tier_counts.get("Archive", 0)
+        if retained == 0 and archive:
+            add("ACTION", "Recent/library records are all archived", f"{archive} Archive records and no retained papers.", "Lower thresholds or add more precise positive terms.")
+        elif retained > 0:
+            add("OK", "Retained records available", f"{retained} retained record(s) can support foundation/adaptive ranking.")
+        must_ratio = tier_counts.get("Must read", 0) / max(1, len(records))
+        if must_ratio > 0.6 and len(records) >= 10:
+            add("WARN", "Many papers become Must read", f"{tier_counts.get('Must read', 0)} of {len(records)} records are Must read.", "Raise the must_read threshold or add exclusions to reduce noise.")
+    else:
+        add("WARN", "No run/library records for calibration", "The profile itself can be checked, but ranking behavior cannot be judged yet.", "Run a demo, foundation, daily, BibTeX/RIS import, RSS, web, or arXiv source and rerun profile-doctor.")
+
+    return findings
+
+
+def render_profile_doctor_report(
+    profile: dict[str, Any],
+    profile_path: Path,
+    feedback: dict[str, Any],
+    records: list[dict[str, Any]],
+    kb_dir: Path,
+) -> str:
+    findings = profile_doctor_findings(profile, feedback, records)
+    counts = profile_section_counts(profile)
+    action_count = sum(1 for finding in findings if finding["status"] == "ACTION")
+    warn_count = sum(1 for finding in findings if finding["status"] == "WARN")
+    result = "ACTION" if action_count else "WARN" if warn_count else "OK"
+    lines = [
+        "# Research Profile Doctor",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Result: {result}",
+        f"- Profile: `{profile_path}`",
+        f"- Profile name: {profile.get('name', 'unnamed')}",
+        f"- Knowledge base: `{kb_dir}`",
+        f"- Records considered: {len(records)}",
+        "",
+        "## Profile Shape",
+        "",
+    ]
+    for section in PROFILE_DIAGNOSTIC_SECTIONS:
+        lines.append(f"- {section}: {counts[section]}")
+    limits_config = profile.get("limits", {}) if isinstance(profile.get("limits", {}), dict) else {}
+    thresholds = profile.get("tier_thresholds", {}) if isinstance(profile.get("tier_thresholds", {}), dict) else {}
+    lines.extend(
+        [
+            f"- limits.must_read: {limits_config.get('must_read', '')}",
+            f"- limits.deep_read: {limits_config.get('deep_read', '')}",
+            f"- tier_thresholds.must_read: {thresholds.get('must_read', '')}",
+            f"- tier_thresholds.skim: {thresholds.get('skim', '')}",
+            "",
+            "## Findings",
+            "",
+        ]
+    )
+    for finding in findings:
+        lines.extend(
+            [
+                f"### [{finding['status']}] {finding['title']}",
+                "",
+                finding["detail"],
+                "",
+            ]
+        )
+        if finding.get("action"):
+            lines.extend(["Recommended action:", "", f"- {finding['action']}", ""])
+
+    lines.extend(
+        [
+            "## Recommended Actions",
+            "",
+            "1. Use `./profile_wizard.sh` for manual additions without editing JSON.",
+            "2. Use `./serve_reader.sh` after a digest to mark interested/archive examples.",
+            "3. Use `./tune_profile.sh` after several feedback rounds to discover recurring missing terms.",
+            "4. Rerun `./profile_doctor.sh` after changing the profile or after a few days of feedback.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def profile_doctor_command(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    profile_path = project_relative_path(project_dir, args.profile, "profiles/research_profile.json")
+    profile = load_profile(profile_path)
+    kb_dir = project_relative_path(project_dir, args.kb_dir, "knowledge_base")
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = load_feedback(feedback_file)
+    records = merged_paper_records(kb_dir, args.papers_json)
+    output = args.output.expanduser() if args.output else profile_path.parent / "profile_doctor.md"
+    report = render_profile_doctor_report(profile, profile_path, feedback, records, kb_dir)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(report, encoding="utf-8")
+    print(f"Profile doctor: {output}")
+    print(f"Records considered: {len(records)}")
 
 
 def setup_wizard(args: argparse.Namespace) -> None:
@@ -7409,6 +7676,13 @@ def quickstart_command(args: argparse.Namespace) -> None:
     )
     checks.append(
         run_quickstart_step(
+            "profile doctor",
+            [str(project_dir / "profile_doctor.sh"), "--output", str(project_dir / "profiles" / "profile_doctor.md")],
+            project_dir,
+        )
+    )
+    checks.append(
+        run_quickstart_step(
             "guide",
             [str(project_dir / "guide_reader.sh"), "--output", str(project_dir / "START_HERE.md")],
             project_dir,
@@ -7446,6 +7720,7 @@ def quickstart_command(args: argparse.Namespace) -> None:
             f"- Onboarding guide: `{project_dir / 'START_HERE.md'}`",
             f"- Source check: `{project_dir / 'SOURCE_CHECK.md'}`",
             f"- Doctor report: `{project_dir / 'DOCTOR.md'}`",
+            f"- Profile doctor: `{project_dir / 'profiles' / 'profile_doctor.md'}`",
             f"- mbox demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'mbox' / 'digest.html'}`",
             f"- BibTeX demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'bibtex' / 'digest.html'}`",
             f"- RIS demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'ris' / 'digest.html'}`",
@@ -7454,11 +7729,12 @@ def quickstart_command(args: argparse.Namespace) -> None:
             "",
             "## Next Steps",
             "",
-            "1. Edit `profiles/research_profile.json` to match your research directions.",
-            "2. Run `./setup_wizard.sh` for guided configuration, or `./setup_reader.sh --source auto --profile-template <template>` for non-interactive setup.",
-            "3. Configure one real source: Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS, or arXiv.",
-            "4. Run `./source_check.sh --source auto --live` before expecting daily digests.",
-            "5. See project `TROUBLESHOOTING.md` if a source returns no papers.",
+            "1. Run `./profile_wizard.sh` or edit `profiles/research_profile.json` to match your research directions.",
+            "2. Run `./profile_doctor.sh` to check whether the profile is too broad, too sparse, or missing feedback signals.",
+            "3. Run `./setup_wizard.sh` for guided configuration, or `./setup_reader.sh --source auto --profile-template <template>` for non-interactive setup.",
+            "4. Configure one real source: Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS, or arXiv.",
+            "5. Run `./source_check.sh --source auto --live` before expecting daily digests.",
+            "6. See project `TROUBLESHOOTING.md` if a source returns no papers.",
             "",
         ]
     )
@@ -7520,6 +7796,15 @@ def build_parser() -> argparse.ArgumentParser:
     profile_wizard.add_argument("--dry-run", action="store_true", help="Print the generated report without writing files")
     profile_wizard.add_argument("--defaults", action="store_true", help="Accept the selected template/existing profile without prompting")
     profile_wizard.set_defaults(func=profile_wizard_command)
+
+    profile_doctor = sub.add_parser("profile-doctor", help="Diagnose whether the active research profile is useful for ranking")
+    profile_doctor.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
+    profile_doctor.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
+    profile_doctor.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
+    profile_doctor.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    profile_doctor.add_argument("--papers-json", type=Path, help="Optional digest papers.json for recent ranking behavior")
+    profile_doctor.add_argument("--output", type=Path, help="Output markdown path. Defaults to profile directory/profile_doctor.md")
+    profile_doctor.set_defaults(func=profile_doctor_command)
 
     init_project_cmd = sub.add_parser("init-project", help="Create a runnable local Scholar Alert Reader project")
     init_project_cmd.add_argument("--project-dir", type=Path, required=True)

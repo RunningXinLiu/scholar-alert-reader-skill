@@ -1,5 +1,5 @@
 """Scholar Alert Reader package."""
 
-__version__ = "0.2.39"
+__version__ = "0.2.40"
 
 __all__ = ["__version__", "core"]

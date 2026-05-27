@@ -148,6 +148,28 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue(any(item["term"] == "machine learning for dense array earthquake monitoring" for item in data["semantic_queries"]))
             self.assertIn("Research Profile Onboarding", report.read_text(encoding="utf-8"))
 
+            doctor = Path(tmp) / "profile_doctor.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "profile-doctor",
+                    "--project-dir",
+                    str(Path(tmp)),
+                    "--profile",
+                    str(profile),
+                    "--output",
+                    str(doctor),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            doctor_content = doctor.read_text(encoding="utf-8")
+            self.assertIn("Research Profile Doctor", doctor_content)
+            self.assertIn("Recommended Actions", doctor_content)
+            self.assertIn("Focus term", doctor_content)
+
     def test_init_project_creates_scripts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "reader"
@@ -183,6 +205,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "self_test.sh").exists())
             self.assertTrue((project / "profile_wizard.sh").exists())
+            self.assertTrue((project / "profile_doctor.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "bibtex_import.sh").exists())
             self.assertTrue((project / "ris_import.sh").exists())
@@ -216,6 +239,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("DASHBOARD.html", start_here)
             self.assertIn("Bundled templates", start_here)
             self.assertIn("./profile_wizard.sh", start_here)
+            self.assertIn("./profile_doctor.sh", start_here)
             subprocess.run(
                 [
                     str(project / "setup_reader.sh"),

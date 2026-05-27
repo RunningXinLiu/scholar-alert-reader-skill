@@ -22,7 +22,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
    - BibTeX/RIS: works from Zotero, EndNote, Google Scholar library, publisher, and database exports.
    - Structured webpage metadata: works from publisher/article URLs, saved HTML files, or URL/path lists with citation meta tags, JSON-LD, Dublin Core, or OpenGraph.
    - RSS/Atom or arXiv: works for structured web monitoring without deep crawling arbitrary pages.
-6. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then run `profile-wizard` / `./profile_wizard.sh` to add current questions, focus terms, methods, regions, authors, exclusions, and semantic intents before editing advanced JSON settings by hand.
+6. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then run `profile-wizard` / `./profile_wizard.sh` to add current questions, focus terms, methods, regions, authors, exclusions, and semantic intents before editing advanced JSON settings by hand. Use `profile-doctor` / `./profile_doctor.sh` after edits or feedback rounds to check whether the profile is too broad, too sparse, missing semantic queries/exclusions, or producing noisy ranking behavior.
 7. First run: use `foundation` to build the seen-paper baseline.
 8. Later runs: use `daily` so only papers not already in the state file are reported.
    - If the digest has zero papers, inspect `empty_run_diagnosis` in `summary.json` or the `No-paper diagnosis` section in `digest.md/html` / `DASHBOARD.html` before assuming Gmail/Mail parsing failed.
@@ -143,6 +143,14 @@ python3 scripts/scholar_reader.py profile-wizard \
   --method "uncertainty quantification" \
   --region "Tibet, Sichuan Basin" \
   --question "Which new papers are worth reading for my current manuscript?"
+```
+
+Diagnose profile quality:
+
+```bash
+python3 scripts/scholar_reader.py profile-doctor \
+  --project-dir ~/scholar_alerts \
+  --papers-json ~/scholar_alerts/reader_out/daily/papers.json
 ```
 
 Render or refresh the local onboarding guide:
