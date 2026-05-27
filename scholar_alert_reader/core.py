@@ -3812,6 +3812,7 @@ def render_project_guide(
         "- `./profile_wizard.sh`: refine your research profile without editing JSON by hand.",
         "- `./profile_doctor.sh`: check whether the active profile is too broad, too sparse, or missing feedback signals.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
+        "- `./explain_ranking.sh --paper-id <ID>`: explain why one paper was ranked where it was.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
         "- `./review_workflow.sh --paper-id <ID>`: run local full-text extraction when possible, then write a workup and review pack.",
@@ -4036,9 +4037,10 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "1. Open the latest digest and mark obvious interested/archive papers in `./serve_reader.sh`.",
             "2. Open the reading plan to choose the next few IDs.",
             "3. If Zotero has local PDFs, run `./zotero_sync.sh` so review packs can include full-text briefs.",
-            "4. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
-            "5. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
-            "6. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "4. Run `./explain_ranking.sh --paper-id ID` if a paper's tier or score needs explanation.",
+            "5. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
+            "6. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
+            "7. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
             "",
@@ -4280,6 +4282,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_paper.sh": 'exec "${SKILL_CMD[@]}" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_workflow.sh": 'exec "${SKILL_CMD[@]}" review-workflow --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "explain_ranking.sh": 'exec "${SKILL_CMD[@]}" explain-ranking --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "reading_plan.sh": 'exec "${SKILL_CMD[@]}" reading-plan --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -4445,6 +4448,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./review_paper.sh --paper-id <ID>",
                     "./review_workflow.sh --paper-id <ID>",
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
+                    "./explain_ranking.sh --paper-id <ID>",
                     "./tune_profile.sh",
                     "./reading_plan.sh",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
@@ -7416,6 +7420,153 @@ def review_queue_command(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
 
+def explain_feedback_status(record: dict[str, Any], feedback: dict[str, Any]) -> str:
+    item = feedback.get("papers", {}).get(str(record.get("id", "")), {}) if isinstance(feedback, dict) else {}
+    if not isinstance(item, dict) or not item:
+        return "none"
+    parts: list[str] = []
+    if item.get("status"):
+        parts.append(f"status={item.get('status')}")
+    signals = item.get("signals", {}) if isinstance(item.get("signals"), dict) else {}
+    if item.get("more_like_this") or signals.get("more_like_this"):
+        parts.append("more-like-this")
+    if item.get("less_like_this") or signals.get("less_like_this"):
+        parts.append("less-like-this")
+    for key in ["reading_status", "label", "note"]:
+        if item.get(key):
+            parts.append(f"{key}={item.get(key)}")
+    return ", ".join(parts) if parts else "recorded"
+
+
+def ranking_tuning_moves(
+    record: dict[str, Any],
+    profile: dict[str, Any],
+    feedback_status: str,
+    must_threshold: int,
+    skim_threshold: int,
+) -> list[str]:
+    score = int(record.get("score", 0) or 0)
+    tier = str(record.get("tier", ""))
+    matched = [str(term) for term in record.get("matched_terms", []) if str(term).strip()]
+    tags = {str(tag).lower() for tag in record.get("tags", []) if str(tag).strip()}
+    semantic_queries = profile.get("semantic_queries", [])
+    moves: list[str] = []
+    if tier == "Must read":
+        moves.append("Keep or mark `interested` if the paper matches your current project; this preserves a positive seed for future adaptive ranking.")
+    elif tier == "Skim":
+        moves.append("Skim first. Mark `more-like-this` only if the abstract/method is genuinely aligned; otherwise leave it neutral.")
+    else:
+        moves.append("Leave archived unless the title/snippet hides a method or dataset you care about; use `more-like-this` to rescue similar future papers.")
+    if score >= must_threshold - 2 and score < must_threshold:
+        moves.append("This paper is near the Must read threshold; one focused term, method, region, or semantic query could promote similar papers.")
+    if score >= skim_threshold - 2 and score < skim_threshold:
+        moves.append("This paper is near the Skim threshold; add an exclusion if this is noise, or add a semantic query if this is a missed direction.")
+    if not matched:
+        moves.append("No matched terms are recorded. Run `profile-wizard` to add current questions, focus terms, methods, regions, and exclusions.")
+    if "semantic" not in tags and not semantic_queries:
+        moves.append("No semantic-query signal is configured. Add short plain-language `semantic_queries` to catch papers that avoid your exact keywords.")
+    if feedback_status == "none":
+        moves.append("No explicit feedback is recorded. Use `feedback --mark interested/archive` or the browser UI to make future ranking adapt.")
+    return moves[:5]
+
+
+def render_ranking_explanation_report(
+    records: list[dict[str, Any]],
+    profile: dict[str, Any],
+    feedback: dict[str, Any],
+    profile_path: Path,
+    feedback_file: Path,
+) -> str:
+    thresholds = profile.get("tier_thresholds", {}) if isinstance(profile.get("tier_thresholds"), dict) else {}
+    must_threshold = int(thresholds.get("must_read", 8))
+    skim_threshold = int(thresholds.get("skim", 3))
+    lines = [
+        "# Ranking Explanation",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: `{profile_path}`",
+        f"- Feedback: `{feedback_file}`",
+        f"- Thresholds: Must read >= {must_threshold}; Skim >= {skim_threshold}; Archive < {skim_threshold}",
+        "",
+        "This report explains the current saved ranking fields. It does not rerun Gmail, Mail.app, web, RSS, arXiv, or bibliography imports.",
+        "",
+        "## Papers",
+        "",
+    ]
+    for index, record in enumerate(records, 1):
+        title = str(record.get("title", "Untitled"))
+        paper_id = str(record.get("id", ""))
+        tier = str(record.get("tier", ""))
+        score = int(record.get("score", 0) or 0)
+        terms = [str(term) for term in record.get("matched_terms", []) if str(term).strip()]
+        tags = [str(tag) for tag in record.get("tags", []) if str(tag).strip()]
+        reasons = [str(reason) for reason in record.get("reasons", []) if str(reason).strip()]
+        feedback_status = explain_feedback_status(record, feedback)
+        delta_to_must = must_threshold - score
+        delta_to_skim = skim_threshold - score
+        if score >= must_threshold:
+            threshold_note = f"{score - must_threshold} above Must read threshold"
+        elif score >= skim_threshold:
+            threshold_note = f"{delta_to_must} below Must read threshold"
+        else:
+            threshold_note = f"{delta_to_skim} below Skim threshold"
+        lines.extend(
+            [
+                f"### {index}. {title}",
+                "",
+                f"- ID: `{paper_id}`",
+                f"- Tier: {tier}",
+                f"- Score: {score} ({threshold_note})",
+                f"- Matched terms: {', '.join(terms) if terms else 'none'}",
+                f"- Tags: {', '.join(tags) if tags else 'none'}",
+                f"- Feedback status: {feedback_status}",
+                f"- Source: {record.get('authors_source', '')}",
+                f"- Alerts: {', '.join(str(alert) for alert in record.get('alerts', [])[:5]) or 'none'}",
+                "",
+                "#### Why It Ranked This Way",
+                "",
+            ]
+        )
+        if reasons:
+            lines.extend(f"- {reason}" for reason in reasons[:8])
+        else:
+            lines.append("- No stored ranking reasons. Rerun a source or regenerate the digest with the current profile to refresh reasons.")
+        lines.extend(["", "#### Next Tuning Moves", ""])
+        for move in ranking_tuning_moves(record, profile, feedback_status, must_threshold, skim_threshold):
+            lines.append(f"- {move}")
+        lines.append("")
+    lines.extend(
+        [
+            "## Commands",
+            "",
+            "- Tune profile from accumulated feedback: `./tune_profile.sh`",
+            "- Diagnose profile quality: `./profile_doctor.sh`",
+            "- Mark a paper: `./serve_reader.sh` or `./feedback_reader.sh --paper-id ID --mark interested`",
+            "- Review one paper: `./review_workflow.sh --paper-id ID`",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def explain_ranking_command(args: argparse.Namespace) -> None:
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = load_feedback(feedback_file)
+    records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
+    if args.paper_id or args.title:
+        selected = select_paper_records(records, args.paper_id, args.title)
+    else:
+        selected = filter_records_for_export(records, split_csv(args.tiers), args.limit)
+    if not selected:
+        raise SystemExit("No papers selected for ranking explanation. Adjust --paper-id, --title, --tiers, or --limit.")
+    output = args.output or (kb_dir / "analysis" / "ranking_explanation.md")
+    write_report(output, render_ranking_explanation_report(selected, profile, feedback, args.profile, feedback_file))
+    print(f"Ranking explanation: {output}")
+    print(f"Explained papers: {len(selected)}")
+
+
 def ask_library_command(args: argparse.Namespace) -> None:
     from .copilot import render_literature_answer
 
@@ -7704,6 +7855,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Producing HTML/Markdown digests, CSV/JSON outputs, and a retained local knowledge base.",
         "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, and method-reference labels.",
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
+        "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
@@ -7734,7 +7886,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "",
         "## Practical Upgrade Path",
         "",
-        "- For better ranking: tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
+        "- For better ranking: run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
         "- For closer reading: use Zotero or explicit local PDF paths with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
         "- For public support: run `support-bundle` and review the redacted output before posting a GitHub issue.",
@@ -8334,6 +8486,18 @@ def build_parser() -> argparse.ArgumentParser:
     review_queue.add_argument("--html-output", type=Path, help="Output browser-friendly queue path. Defaults to --output with .html suffix")
     review_queue.add_argument("--no-html", action="store_true", help="Do not write a browser-friendly HTML queue")
     review_queue.set_defaults(func=review_queue_command)
+
+    explain_ranking = sub.add_parser("explain-ranking", aliases=["rank-explain"], help="Explain why selected papers received their current tier and score")
+    explain_ranking.add_argument("--profile", type=Path, required=True)
+    explain_ranking.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    explain_ranking.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    explain_ranking.add_argument("--papers-json", type=Path, help="Optional digest papers.json to include recent papers")
+    explain_ranking.add_argument("--paper-id", help="Comma-separated paper IDs; when omitted, papers are selected by --tiers")
+    explain_ranking.add_argument("--title", help="Comma-separated case-insensitive title substrings")
+    explain_ranking.add_argument("--tiers", default="Must read,Skim", help="Comma-separated tiers to explain when --paper-id/--title are omitted")
+    explain_ranking.add_argument("--limit", type=int, default=10, help="Maximum papers to explain when selecting by tier")
+    explain_ranking.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/ranking_explanation.md")
+    explain_ranking.set_defaults(func=explain_ranking_command)
 
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
     ask.add_argument("--profile", type=Path, required=True)

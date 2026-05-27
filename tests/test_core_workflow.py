@@ -225,6 +225,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_paper.sh").exists())
             self.assertTrue((project / "review_workflow.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
+            self.assertTrue((project / "explain_ranking.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "reading_plan.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
@@ -781,6 +782,65 @@ class CoreWorkflowTests(unittest.TestCase):
             tuned = json.loads(profile.read_text(encoding="utf-8"))
             self.assertTrue(any(item["term"] == "foundation model" for item in tuned["focus_terms"]))
             self.assertTrue(any(item["term"] == "medical imaging" for item in tuned["exclude_terms"]))
+
+    def test_explain_ranking_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "name": "Explain ranking test",
+                        "focus_terms": [{"term": "ambient noise", "weight": 7}],
+                        "regions": [{"term": "Taiwan", "weight": 5}],
+                        "methods": [{"term": "tomography", "weight": 5}],
+                        "semantic_queries": [],
+                        "exclude_terms": [],
+                        "tier_thresholds": {"must_read": 20, "skim": 5},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            kb = root / "kb"
+            kb.mkdir()
+            papers = root / "papers.json"
+            papers.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            feedback = {
+                "version": 1,
+                "papers": {"p1": {"status": "interested", "signals": {"more_like_this": True}}},
+                "terms": [],
+            }
+            (kb / "feedback.json").write_text(json.dumps(feedback), encoding="utf-8")
+            report = root / "ranking_explanation.md"
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "explain-ranking",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--papers-json",
+                    str(papers),
+                    "--paper-id",
+                    "p1",
+                    "--output",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Ranking Explanation", content)
+            self.assertIn("Thresholds: Must read >= 20; Skim >= 5", content)
+            self.assertIn("Ambient noise tomography of the Taiwan crust", content)
+            self.assertIn("Matched terms: ambient noise, tomography, Taiwan", content)
+            self.assertIn("Feedback status: status=interested", content)
+            self.assertIn("Why It Ranked This Way", content)
+            self.assertIn("Next Tuning Moves", content)
 
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

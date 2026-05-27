@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.42`
+Version: `0.2.43`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -121,6 +121,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Monitors configured web sources such as publisher article pages, journal feeds, saved-search feeds, and arXiv queries without depending on a hosted service.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, adaptive feedback similarity, and temporary boost terms.
+- Explains why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning suggestions.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
@@ -596,6 +597,17 @@ python3 scripts/scholar_reader.py reading-plan \
 
 `reading-plan` writes `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` next. Normal runs that update the knowledge base refresh both files automatically; use the command directly when you want to include a specific recent `papers.json`, change the limit, or write to another path.
 
+Explain why one paper or a batch received its current tier and score:
+
+```bash
+python3 scripts/scholar_reader.py explain-ranking \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --paper-id <ID>
+```
+
+`explain-ranking` writes `knowledge_base/analysis/ranking_explanation.md` by default. It uses saved `papers.json` or `library.json` ranking fields and reports thresholds, matched terms, tags, feedback status, stored ranking reasons, and concrete tuning moves. Use `--tiers "Must read,Skim" --limit 10` to explain a batch, or `--papers-json reader_out/daily/papers.json` to explain a recent digest.
+
 Open the project dashboard:
 
 ```bash
@@ -626,7 +638,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 
@@ -748,6 +760,7 @@ The richer knowledge base includes:
 - `weekly_review.md`: recurring synthesis from the retained library
 - `reading_plan.md` / `reading_plan.html`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
+- `analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_workflow.md`: one-paper workflow report linking extraction status, workup, and review pack
 - `analysis/<paper-id>_workup.md`: selected-paper decision brief for reading, citation, and manuscript use

@@ -31,7 +31,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, profile health, knowledge base, and diagnostics.
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
-14. Use `reading-plan`, `deep-read`, `workup`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+14. Use `reading-plan`, `explain-ranking`, `deep-read`, `workup`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
 
@@ -67,6 +67,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/analysis/<paper-id>_workup.md`: human-readable selected-paper decision brief for reading priority, foundation fit, manuscript role, and citation checks.
 - `knowledge_base/analysis/<paper-id>_review_pack.md`: LLM-ready context pack for selected-paper review against the user's profile, foundation, interested papers, optional full-text brief, and optional full-text cache.
 - `knowledge_base/analysis/review_queue.md` and `knowledge_base/analysis/review_queue.html`: batch reading panel with selected review packs, full-text extraction status, section coverage, visual/data/code signals, and next actions.
+- `knowledge_base/analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers.
 - `knowledge_base/answers/*.md`: local-library answers to user research questions.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
 - `knowledge_base/reading_status.md`: reading tracker grouped by status.
@@ -413,6 +414,17 @@ python3 scripts/scholar_reader.py reading-plan \
 ```
 
 Normal runs that update the knowledge base refresh `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html` automatically; run `reading-plan` directly when the user wants to include a specific recent `papers.json`, change the limit, or set `--html-output`.
+
+Explain why selected papers received their current tier and score:
+
+```bash
+python3 scripts/scholar_reader.py explain-ranking \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --paper-id <ID>
+```
+
+Use `--tiers "Must read,Skim" --limit 10` to explain a batch, or `--papers-json reader_out/daily/papers.json` to explain a recent digest.
 
 Ask the retained literature base a question:
 

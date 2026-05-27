@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.43 - 2026-05-28
+
+- Add `explain-ranking` / `rank-explain` plus generated `explain_ranking.sh` to explain selected papers' current score, tier, matched terms, feedback state, thresholds, and tuning moves.
+- Write `knowledge_base/analysis/ranking_explanation.md` by default for one paper or a tier-filtered batch.
+- Surface ranking explanation in generated dashboards, guides, capabilities, README, SKILL guidance, product notes, and tests.
+
 ## v0.2.42 - 2026-05-28
 
 - Add `review-workflow` / `paper-review` plus generated `review_workflow.sh` to run the selected-paper path from optional local full-text extraction to workup and review pack in one command.
