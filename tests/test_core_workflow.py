@@ -1496,11 +1496,14 @@ ER  -
 
     def test_feedback_updates_knowledge_base(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            profile = root / "profile.json"
+            root = Path(tmp) / "reader"
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
             profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
-            papers_json = root / "papers.json"
+            papers_json = root / "reader_out" / "daily" / "papers.json"
+            papers_json.parent.mkdir(parents=True)
             papers_json.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            kb = root / "knowledge_base"
 
             result = subprocess.run(
                 [
@@ -1510,7 +1513,7 @@ ER  -
                     "--profile",
                     str(profile),
                     "--kb-dir",
-                    str(root / "kb"),
+                    str(kb),
                     "--papers-json",
                     str(papers_json),
                     "--paper-id",
@@ -1527,15 +1530,24 @@ ER  -
                 check=True,
             )
             self.assertIn("Feedback updated", result.stdout)
-            self.assertTrue((root / "kb" / "library.json").exists())
-            self.assertTrue((root / "kb" / "papers" / "p1.md").exists())
-            foundation = (root / "kb" / "foundation.md").read_text(encoding="utf-8")
+            self.assertIn("Reading plan refreshed", result.stdout)
+            self.assertIn("Dashboard refreshed", result.stdout)
+            self.assertTrue((kb / "library.json").exists())
+            self.assertTrue((kb / "papers" / "p1.md").exists())
+            self.assertTrue((kb / "reading_plan.html").exists())
+            self.assertTrue((root / "DASHBOARD.html").exists())
+            reading_plan = (kb / "reading_plan.md").read_text(encoding="utf-8")
+            self.assertIn("Reading Plan", reading_plan)
+            dashboard = (root / "DASHBOARD.md").read_text(encoding="utf-8")
+            self.assertIn("Reading plan HTML", dashboard)
+            self.assertIn("Feedback records: 1 paper feedback records", dashboard)
+            foundation = (kb / "foundation.md").read_text(encoding="utf-8")
             self.assertIn("Feedback: interested; signals: more-like-this", foundation)
             self.assertIn("Strong candidate for the Taiwan manuscript.", foundation)
-            interested = (root / "kb" / "interested.md").read_text(encoding="utf-8")
+            interested = (kb / "interested.md").read_text(encoding="utf-8")
             self.assertIn("Feedback: interested; signals: more-like-this", interested)
             self.assertIn("Strong candidate for the Taiwan manuscript.", interested)
-            direction_path = next(path for path in (root / "kb" / "directions").glob("*.md") if path.name != "index.md")
+            direction_path = next(path for path in (kb / "directions").glob("*.md") if path.name != "index.md")
             direction = direction_path.read_text(encoding="utf-8")
             self.assertIn("Strong candidate for the Taiwan manuscript.", direction)
 
@@ -1909,6 +1921,9 @@ SCHEDULE_TIME=09:00
             weekly_content = (kb / "weekly_review.md").read_text(encoding="utf-8")
             self.assertIn("Personal Notes Review", weekly_content)
             self.assertIn("Useful comparison for the Taiwan manuscript.", weekly_content)
+            auto_plan_content = (kb / "reading_plan.md").read_text(encoding="utf-8")
+            self.assertIn("Reading Plan", auto_plan_content)
+            self.assertIn("reading: 1", auto_plan_content)
 
             reading_plan = root / "reading_plan.md"
             reading_plan_html = root / "reading_plan.html"
@@ -2464,6 +2479,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 with urllib.request.urlopen(request, timeout=5) as response:
                     html_body = response.read().decode("utf-8")
                 self.assertIn("Saved feedback for p1: save_note", html_body)
+                self.assertIn("reading plan:", html_body)
+                self.assertTrue((kb / "reading_plan.html").exists())
                 self.assertIn("Useful comparison for the Taiwan manuscript.", html_body)
                 feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
                 self.assertIn("Useful comparison for the Taiwan manuscript.", feedback["papers"]["p1"]["note"])

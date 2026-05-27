@@ -3464,6 +3464,62 @@ def write_auto_reading_plan(kb_dir: Path, out_dir: Path, profile: dict[str, Any]
     return output, html_output
 
 
+def project_dir_from_profile(profile_path: Path | None) -> Path | None:
+    if not profile_path:
+        return None
+    profile_path = profile_path.expanduser().resolve()
+    if profile_path.parent.name == "profiles":
+        return profile_path.parent.parent
+    return None
+
+
+def project_dir_from_kb(kb_dir: Path | None) -> Path | None:
+    if not kb_dir:
+        return None
+    kb_dir = kb_dir.expanduser().resolve()
+    if kb_dir.name == "knowledge_base":
+        return kb_dir.parent
+    return None
+
+
+def infer_project_dir(
+    profile_path: Path | None,
+    kb_dir: Path | None,
+    papers_json: Path | None = None,
+) -> Path | None:
+    if papers_json:
+        project_dir = project_dir_from_output(papers_json)
+        if project_dir:
+            return project_dir
+    return project_dir_from_profile(profile_path) or project_dir_from_kb(kb_dir)
+
+
+def refresh_feedback_dependent_outputs(
+    kb_dir: Path,
+    profile_path: Path,
+    profile: dict[str, Any],
+    papers_json: Path | None = None,
+) -> dict[str, Path]:
+    out_dir = papers_json.expanduser().resolve().parent if papers_json else None
+    project_dir = infer_project_dir(profile_path, kb_dir, papers_json)
+    if out_dir is None:
+        out_dir = project_dir / "reader_out" / "daily" if project_dir else Path("out")
+
+    reading_plan, reading_plan_html = write_auto_reading_plan(kb_dir, out_dir, profile)
+    outputs = {
+        "reading_plan": reading_plan,
+        "reading_plan_html": reading_plan_html,
+    }
+    if project_dir:
+        dashboard_md = project_dir / "DASHBOARD.md"
+        dashboard_html = project_dir / "DASHBOARD.html"
+        write_report(dashboard_md, render_project_dashboard(project_dir, profile_path, kb_dir, out_dir))
+        write_markdown_html(dashboard_md, dashboard_html, "Scholar Alert Reader Dashboard")
+        outputs["dashboard"] = dashboard_md
+        outputs["dashboard_html"] = dashboard_html
+    return outputs
+
+
 def write_outputs(
     out_dir: Path,
     kb_dir: Path,
@@ -6496,6 +6552,11 @@ def update_profile_from_feedback(args: argparse.Namespace) -> None:
             )
             print(f"Knowledge base updated: {kb_dir} ({added} retained additions from feedback)")
             print("Papers: " + ", ".join(f"{paper.id} {paper.title}" for paper in target_papers))
+    if profile_changed or feedback_changed:
+        refreshed = refresh_feedback_dependent_outputs(kb_dir, args.profile, profile, args.papers_json)
+        print(f"Reading plan refreshed: {refreshed['reading_plan']}")
+        if "dashboard_html" in refreshed:
+            print(f"Dashboard refreshed: {refreshed['dashboard_html']}")
     if not profile_changed and not feedback_changed:
         print("No feedback changes requested.")
 
@@ -9186,8 +9247,12 @@ def update_reading_status_command(args: argparse.Namespace) -> None:
     write_kb_direction_pages(kb_dir, library, profile, feedback)
     write_weekly_review(kb_dir, library, profile)
     report = write_reading_status_report(kb_dir, [asdict(paper) for paper in library], feedback)
+    refreshed = refresh_feedback_dependent_outputs(kb_dir, args.profile, profile, args.papers_json)
     print(f"Feedback updated: {feedback_file}")
     print(f"Reading status: {report}")
+    print(f"Reading plan refreshed: {refreshed['reading_plan']}")
+    if "dashboard_html" in refreshed:
+        print(f"Dashboard refreshed: {refreshed['dashboard_html']}")
     print("Papers: " + ", ".join(str(record.get("id", "")) for record in selected))
 
 

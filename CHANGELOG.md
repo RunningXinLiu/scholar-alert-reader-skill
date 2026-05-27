@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.62 - 2026-05-28
+
+- Refresh `reading_plan.md` / `reading_plan.html` after `feedback`, `status`, and browser feedback UI actions.
+- Refresh `DASHBOARD.md` / `DASHBOARD.html` after feedback/status actions when the project root can be inferred from the profile, knowledge base, or papers JSON path.
+- Show refreshed reading plan and dashboard paths in CLI/UI feedback responses.
+
 ## v0.2.61 - 2026-05-28
 
 - Add saved feedback status, reading labels, more/less-like-this signals, and personal note excerpts to `foundation.md`, `interested.md`, and direction pages.

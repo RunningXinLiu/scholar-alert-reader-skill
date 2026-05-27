@@ -26,7 +26,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 7. First run: use `foundation` to build the seen-paper baseline.
 8. Later runs: use `daily` so only papers not already in the state file are reported.
    - If the digest has zero papers, inspect `empty_run_diagnosis` in `summary.json` or the `No-paper diagnosis` section in `digest.md/html` / `DASHBOARD.html` before assuming Gmail/Mail parsing failed.
-9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
+9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base, reading plan, and project dashboard immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, profile health, knowledge base, and diagnostics.
@@ -61,7 +61,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes with links to paper pages and saved feedback context when present.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library, feedback state, and saved personal notes.
-- `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`: prioritized next-reading queue from retained/recent papers and feedback, refreshed automatically by runs that update the knowledge base.
+- `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`: prioritized next-reading queue from retained/recent papers and feedback, refreshed automatically by runs, feedback actions, and reading-status updates that update the knowledge base.
 - `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation, including cached local full-text evidence when available.
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
 - `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief with section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks for a selected paper.

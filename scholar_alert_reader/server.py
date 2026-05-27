@@ -517,6 +517,7 @@ def make_handler(config: ServerConfig):
                 config.profile_path,
             )
             core.write_reading_status_report(config.kb_dir, [core.asdict(paper) for paper in core.load_paper_library(config.kb_dir)], feedback)
+            refreshed = core.refresh_feedback_dependent_outputs(config.kb_dir, config.profile_path, profile, config.papers_json)
             deep_report = None
             workflow_report = None
             workup_report = None
@@ -556,6 +557,10 @@ def make_handler(config: ServerConfig):
 
             papers = core.load_papers_json(config.papers_json)
             message = f"Saved feedback for {paper_id}: {action}"
+            if refreshed.get("reading_plan_html"):
+                message += f"; reading plan: {refreshed['reading_plan_html']}"
+            if refreshed.get("dashboard_html"):
+                message += f"; dashboard: {refreshed['dashboard_html']}"
             if deep_report:
                 message += f"; deep-read report: {deep_report}"
             if workflow_report:
