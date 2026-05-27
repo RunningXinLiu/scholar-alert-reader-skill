@@ -1,21 +1,21 @@
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/logo.png" alt="Scholar Alert Reader logo" width="104">
+  <img src="docs/assets/logo.png" alt="Scholar Alert Reader logo" width="104">
 </p>
 
 # Scholar Alert Reader Skill
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.12`
+Version: `0.2.13`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/social-card.en.png" alt="Scholar Alert Reader social card" width="900">
+  <img src="docs/assets/social-card.en.png" alt="Scholar Alert Reader social card" width="900">
 </p>
 
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/workflow.en.gif" alt="Animated Scholar Alert Reader workflow" width="760">
+  <img src="docs/assets/workflow.en.gif" alt="Animated Scholar Alert Reader workflow" width="760">
 </p>
 
 ## Start Here
@@ -57,7 +57,7 @@ You can run the core tool from any terminal or from any coding agent that can ac
 ```bash
 git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
-python3 scripts/scholar_reader.py quickstart --project-dir ~/scholar_alerts
+python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
 ./setup_reader.sh --source auto --profile-template ai-seismology
 open QUICKSTART_REPORT.md
@@ -68,7 +68,7 @@ Agent compatibility:
 - **Claude Code**: supported through the Python CLI. This repo includes `CLAUDE.md` with Claude-specific operating notes.
 - **Cursor, Windsurf, Gemini CLI, and similar local agents**: supported if they can run shell commands and read/write local files.
 - **Claude Desktop or web chat**: can help interpret outputs, but needs a local tool/MCP/file bridge to run the workflow on your machine.
-- **Plain terminal**: fully supported through `scripts/scholar_reader.py` and the generated project scripts.
+- **Plain terminal**: fully supported through `python3 -m scholar_alert_reader`, the installed `scholar-alert-reader` command, the compatibility wrapper at `scripts/scholar_reader.py`, and the generated project scripts.
 
 What is agent-specific:
 
@@ -82,15 +82,15 @@ Sanitized demo screenshots are included for product previews and sharing.
 
 | Daily digest | Feedback triage |
 |---|---|
-| <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/01-daily-digest.png" alt="Daily digest screenshot" width="420"> | <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/02-feedback-triage.png" alt="Feedback triage screenshot" width="420"> |
+| <img src="docs/screenshots/01-daily-digest.png" alt="Daily digest screenshot" width="420"> | <img src="docs/screenshots/02-feedback-triage.png" alt="Feedback triage screenshot" width="420"> |
 
 | Foundation and interested library | Deep read copilot |
 |---|---|
-| <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/03-foundation-interested.png" alt="Foundation and interested library screenshot" width="420"> | <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/04-deep-read-copilot.png" alt="Deep read copilot screenshot" width="420"> |
+| <img src="docs/screenshots/03-foundation-interested.png" alt="Foundation and interested library screenshot" width="420"> | <img src="docs/screenshots/04-deep-read-copilot.png" alt="Deep read copilot screenshot" width="420"> |
 
 | Research map and advice | Obsidian and Zotero handoff |
 |---|---|
-| <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/05-research-map-advice.png" alt="Research map and advice screenshot" width="420"> | <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/06-obsidian-zotero.png" alt="Obsidian and Zotero handoff screenshot" width="420"> |
+| <img src="docs/screenshots/05-research-map-advice.png" alt="Research map and advice screenshot" width="420"> | <img src="docs/screenshots/06-obsidian-zotero.png" alt="Obsidian and Zotero handoff screenshot" width="420"> |
 
 ## What It Does
 
@@ -117,7 +117,7 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 ## Architecture
 
-![Scholar Alert Reader architecture](https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/architecture-showcase.en.png)
+![Scholar Alert Reader architecture](docs/assets/architecture-showcase.en.png)
 
 Chinese sharing assets are also included under `docs/assets/*.zh.*` and paired with Chinese copy in [docs/share-copy.zh.md](docs/share-copy.zh.md).
 
@@ -144,7 +144,40 @@ scholar_alert_reader/
 └── weekly.py      # weekly synthesis renderer
 ```
 
-The original `scripts/scholar_reader.py` path is kept as a compatibility wrapper, so existing automations can continue to call it.
+The package can run as `python3 -m scholar_alert_reader` or as an installed `scholar-alert-reader` command. The original `scripts/scholar_reader.py` path is kept as a compatibility wrapper, so existing automations can continue to call it.
+
+## Install As A CLI
+
+Run directly from a clone:
+
+```bash
+git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
+cd scholar-alert-reader-skill
+python3 -m scholar_alert_reader --version
+python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
+```
+
+Install from the checkout into your current Python environment:
+
+```bash
+python3 -m pip install .
+scholar-alert-reader quickstart --project-dir ~/scholar_alerts
+```
+
+Install straight from GitHub:
+
+```bash
+python3 -m pip install "git+https://github.com/RunningXinLiu/scholar-alert-reader-skill.git"
+scholar-reader quickstart --project-dir ~/scholar_alerts
+```
+
+If you plan to use Gmail API from an installed CLI, install the optional Gmail dependencies:
+
+```bash
+python3 -m pip install "scholar-alert-reader-skill[gmail] @ git+https://github.com/RunningXinLiu/scholar-alert-reader-skill.git"
+```
+
+Initialized project scripts remember the Python used at setup time, prefer `PROJECT_DIR/.venv/bin/python` when it exists, and fall back to `python3 -m scholar_alert_reader` when the repository wrapper is not available.
 
 ## CodeGraph
 
@@ -187,7 +220,7 @@ Create a Google Cloud OAuth client with application type `Desktop app`, download
 Authorize Gmail:
 
 ```bash
-python3 scripts/scholar_reader.py auth-gmail \
+python3 -m scholar_alert_reader auth-gmail \
   --gmail-credentials ~/.codex/scholar-alert-reader/gmail_credentials.json \
   --gmail-token ~/.codex/scholar-alert-reader/gmail_token.json
 ```
@@ -204,14 +237,14 @@ Gmail OAuth distribution model:
 Create a runnable local project:
 
 ```bash
-python3 scripts/scholar_reader.py quickstart --project-dir ~/scholar_alerts
+python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
 ```
 
 `quickstart` creates the project, runs private-data-free checks and demos, and writes `QUICKSTART_REPORT.md`. To do the steps manually instead:
 
 ```bash
-python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+python3 -m scholar_alert_reader init-project --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
 ```
 
@@ -254,7 +287,7 @@ This writes `reader.env`, which is automatically read by generated helper script
 Choose a starting research profile:
 
 ```bash
-python3 scripts/scholar_reader.py list-profile-templates
+python3 -m scholar_alert_reader list-profile-templates
 ./copy_profile_template.sh --template ai-seismology --force
 ```
 
@@ -582,8 +615,8 @@ Supported export formats are `bibtex`, `ris`, `markdown`, and `jsonl`.
 Check a local setup:
 
 ```bash
-python3 scripts/scholar_reader.py self-test --strict
-python3 scripts/scholar_reader.py doctor \
+python3 -m scholar_alert_reader self-test --strict
+python3 -m scholar_alert_reader doctor \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \
   --out-dir out/daily \
@@ -593,7 +626,7 @@ python3 scripts/scholar_reader.py doctor \
 Render a product-oriented setup/status guide:
 
 ```bash
-python3 scripts/scholar_reader.py guide \
+python3 -m scholar_alert_reader guide \
   --project-dir ~/scholar_alerts \
   --output ~/scholar_alerts/START_HERE.md
 ```
@@ -606,6 +639,7 @@ If a source returns no papers, Gmail OAuth is blocked, or generated outputs are 
 
 ```bash
 python -m py_compile scripts/scholar_reader.py scholar_alert_reader/*.py
+python -m scholar_alert_reader --version
 python -m unittest discover -s tests
 ```
 

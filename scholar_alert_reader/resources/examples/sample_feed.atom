@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Demo Geophysics Feed</title>
+  <id>https://example.org/demo-geophysics</id>
+  <updated>2026-05-27T09:00:00Z</updated>
+  <entry>
+    <title>Ambient noise tomography of the Taiwan crust</title>
+    <id>https://example.org/demo-taiwan-noise</id>
+    <updated>2026-05-27T09:00:00Z</updated>
+    <published>2026-05-27T09:00:00Z</published>
+    <author><name>Demo Researcher</name></author>
+    <author><name>Example Author</name></author>
+    <category term="ambient noise"/>
+    <category term="tomography"/>
+    <link href="https://example.org/demo-taiwan-noise"/>
+    <summary>A sanitized feed record for testing ambient noise tomography ranking.</summary>
+  </entry>
+  <entry>
+    <title>Receiver functions across the Tibetan Plateau</title>
+    <id>https://example.org/demo-tibet-rf</id>
+    <updated>2026-05-26T09:00:00Z</updated>
+    <published>2026-05-26T09:00:00Z</published>
+    <author><name>Example Seismologist</name></author>
+    <category term="receiver function"/>
+    <category term="Tibet"/>
+    <link href="https://example.org/demo-tibet-rf"/>
+    <summary>A sanitized feed record for testing receiver-function and crustal-structure ranking.</summary>
+  </entry>
+</feed>

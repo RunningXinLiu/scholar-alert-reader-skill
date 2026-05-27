@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scholar-alert-reader-skill"
+dynamic = ["version"]
+description = "Local literature triage from Scholar Alerts, bibliography files, web metadata, RSS, arXiv, and research-profile feedback."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "Xin Liu"}
+]
+keywords = [
+  "literature-review",
+  "google-scholar",
+  "gmail",
+  "zotero",
+  "obsidian",
+  "research",
+  "papers"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Text Processing"
+]
+dependencies = []
+
+[project.optional-dependencies]
+gmail = [
+  "google-api-python-client",
+  "google-auth-oauthlib",
+  "google-auth-httplib2"
+]
+
+[project.urls]
+Homepage = "https://github.com/RunningXinLiu/scholar-alert-reader-skill"
+Repository = "https://github.com/RunningXinLiu/scholar-alert-reader-skill"
+Issues = "https://github.com/RunningXinLiu/scholar-alert-reader-skill/issues"
+
+[project.scripts]
+scholar-alert-reader = "scholar_alert_reader.core:main"
+scholar-reader = "scholar_alert_reader.core:main"
+
+[tool.setuptools]
+packages = ["scholar_alert_reader"]
+
+[tool.setuptools.dynamic]
+version = {attr = "scholar_alert_reader.__version__"}
+
+[tool.setuptools.package-data]
+scholar_alert_reader = [
+  "resources/TROUBLESHOOTING.md",
+  "resources/assets/*.json",
+  "resources/assets/profile_templates/*.json",
+  "resources/examples/*"
+]

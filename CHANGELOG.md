@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.13 - 2026-05-27
+
+- Add standard Python packaging metadata with `python -m scholar_alert_reader` plus `scholar-alert-reader` and `scholar-reader` console scripts.
+- Bundle default profiles, profile templates, examples, and troubleshooting docs as package resources so installed quickstarts work outside a source checkout.
+- Make generated project scripts remember the Python used at initialization and fall back to `python -m scholar_alert_reader` when the repository wrapper is unavailable.
+- Use repository-relative README image paths so GitHub shows the latest checked-in logo, workflow, architecture, and screenshot assets.
+
 ## v0.2.12 - 2026-05-27
 
 - Add `quickstart` to create a local project, run private-data-free checks and multi-source demos, refresh onboarding docs, and write `QUICKSTART_REPORT.md`.

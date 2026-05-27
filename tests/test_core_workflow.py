@@ -53,6 +53,21 @@ class CoreWorkflowTests(unittest.TestCase):
     def test_version_is_set(self) -> None:
         self.assertRegex(__version__, r"^\d+\.\d+\.\d+")
 
+    def test_module_entrypoint_reports_version(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scholar_alert_reader",
+                "--version",
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+            cwd=ROOT,
+        )
+        self.assertIn(__version__, result.stdout)
+
     def test_profile_template_commands(self) -> None:
         result = subprocess.run(
             [
@@ -225,6 +240,16 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("RSS/Atom live read", rss_check.stdout)
+
+            module_fallback = subprocess.run(
+                [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+                env={**os.environ, "PYTHONPATH": str(ROOT), "SKILL_SCRIPT": str(project / "missing_scholar_reader.py")},
+            )
+            self.assertIn("mbox parse", module_fallback.stdout)
 
     def test_quickstart_command_creates_project_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

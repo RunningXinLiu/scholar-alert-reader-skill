@@ -41,8 +41,18 @@ from . import __version__
 
 SCHOLAR_SENDER = "scholaralerts-noreply@google.com"
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_PROFILE = SCRIPT_DIR.parent / "assets" / "default_profile.json"
-PROFILE_TEMPLATE_DIR = SCRIPT_DIR.parent / "assets" / "profile_templates"
+RESOURCE_DIR = SCRIPT_DIR / "resources"
+
+
+def resource_path(*parts: str) -> Path:
+    repo_path = SCRIPT_DIR.parent.joinpath(*parts)
+    if repo_path.exists():
+        return repo_path
+    return RESOURCE_DIR.joinpath(*parts)
+
+
+DEFAULT_PROFILE = resource_path("assets", "default_profile.json")
+PROFILE_TEMPLATE_DIR = resource_path("assets", "profile_templates")
 DEFAULT_PROFILE_TEMPLATE = "general-geophysics"
 PROJECT_ENV_NAME = "reader.env"
 DEFAULT_PRIVATE_DIR = Path.home() / ".codex" / "scholar-alert-reader"
@@ -2926,12 +2936,21 @@ def project_script_common(project_dir: Path, profile_path: Path, kb_dir: Path) -
             f"PROFILE_PATH=\"${{PROFILE_PATH:-{shell_double_default(profile_path)}}}\"",
             f"KB_DIR=\"${{KB_DIR:-{shell_double_default(kb_dir)}}}\"",
             f"SKILL_SCRIPT=\"${{SKILL_SCRIPT:-{shell_double_default(skill_wrapper_path())}}}\"",
+            f"PYTHON_FALLBACK=\"${{PYTHON_FALLBACK:-{shell_double_default(sys.executable)}}}\"",
+            'SKILL_MODULE="${SKILL_MODULE:-scholar_alert_reader}"',
             'if [[ -z "${PYTHON_BIN:-}" ]]; then',
             '  if [[ -x "$PROJECT_DIR/.venv/bin/python" ]]; then',
             '    PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"',
+            '  elif [[ -x "$PYTHON_FALLBACK" ]]; then',
+            '    PYTHON_BIN="$PYTHON_FALLBACK"',
             "  else",
             '    PYTHON_BIN="python3"',
             "  fi",
+            "fi",
+            'if [[ -f "$SKILL_SCRIPT" ]]; then',
+            '  SKILL_CMD=("$PYTHON_BIN" "$SKILL_SCRIPT")',
+            "else",
+            '  SKILL_CMD=("$PYTHON_BIN" -m "$SKILL_MODULE")',
             "fi",
             "",
         ]
@@ -3226,7 +3245,7 @@ def init_project(args: argparse.Namespace) -> None:
             template_target = project_dir / "profiles" / "templates" / template_source.name
             if not template_target.exists() or args.force:
                 shutil.copyfile(template_source, template_target)
-    sample_mbox = SCRIPT_DIR.parent / "examples" / "sample_scholar_alerts.mbox.sample"
+    sample_mbox = resource_path("examples", "sample_scholar_alerts.mbox.sample")
     if sample_mbox.exists():
         sample_target = project_dir / "examples" / "sample_scholar_alerts.mbox"
         if not sample_target.exists() or args.force:
@@ -3239,12 +3258,12 @@ def init_project(args: argparse.Namespace) -> None:
         "sample_feed.atom",
         "feeds.example.txt",
     ]:
-        sample_source = SCRIPT_DIR.parent / "examples" / sample_name
+        sample_source = resource_path("examples", sample_name)
         if sample_source.exists():
             sample_target = project_dir / "examples" / sample_name
             if not sample_target.exists() or args.force:
                 shutil.copyfile(sample_source, sample_target)
-    troubleshooting_source = SCRIPT_DIR.parent / "TROUBLESHOOTING.md"
+    troubleshooting_source = resource_path("TROUBLESHOOTING.md")
     if troubleshooting_source.exists():
         troubleshooting_target = project_dir / "TROUBLESHOOTING.md"
         if not troubleshooting_target.exists() or args.force:
@@ -3311,7 +3330,7 @@ if [[ -z "${OUT_DIR:-}" ]]; then
   fi
 fi
 
-cmd=("$PYTHON_BIN" "$SKILL_SCRIPT" "$MODE" --profile "$PROFILE_PATH" --out-dir "$OUT_DIR" --kb-dir "$KB_DIR")
+cmd=("${SKILL_CMD[@]}" "$MODE" --profile "$PROFILE_PATH" --out-dir "$OUT_DIR" --kb-dir "$KB_DIR")
 
 if [[ "$SOURCE" == "gmail" ]]; then
   cmd+=(--source-gmail --gmail-credentials "$GMAIL_CREDENTIALS" --gmail-token "$GMAIL_TOKEN")
@@ -3374,32 +3393,32 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "web_import.sh": 'SOURCE=web WEB_SOURCE="${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/web}" "$PROJECT_DIR/run_reader.sh"\n',
         "rss_import.sh": 'SOURCE=rss RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/rss}" "$PROJECT_DIR/run_reader.sh"\n',
         "arxiv_search.sh": 'if [[ -z "${ARXIV_QUERY:-}" ]]; then echo "Set ARXIV_QUERY before running arxiv_search.sh" >&2; exit 2; fi\nSOURCE=arxiv MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/arxiv}" "$PROJECT_DIR/run_reader.sh"\n',
-        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --web-source "${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
-        "self_test.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" self-test --project-dir "${SELF_TEST_PROJECT_DIR:-$PROJECT_DIR/.self_test}" --force "$@"\n',
-        "setup_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" setup --project-dir "$PROJECT_DIR" "$@"\n',
-        "copy_profile_template.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" init-profile --profile "$PROFILE_PATH" "$@"\n',
-        "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
-        "serve_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
+        "source_check.sh": 'exec "${SKILL_CMD[@]}" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --web-source "${WEB_SOURCE:-$PROJECT_DIR/web_sources.txt}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
+        "self_test.sh": 'exec "${SKILL_CMD[@]}" self-test --project-dir "${SELF_TEST_PROJECT_DIR:-$PROJECT_DIR/.self_test}" --force "$@"\n',
+        "setup_reader.sh": 'exec "${SKILL_CMD[@]}" setup --project-dir "$PROJECT_DIR" "$@"\n',
+        "copy_profile_template.sh": 'exec "${SKILL_CMD[@]}" init-profile --profile "$PROFILE_PATH" "$@"\n',
+        "feedback_reader.sh": 'exec "${SKILL_CMD[@]}" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
+        "serve_reader.sh": 'exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
         "serve_recent.sh": 'PAPERS_JSON="${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" exec "$PROJECT_DIR/serve_reader.sh" "$@"\n',
-        "deep_read_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
-        "full_text_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
-        "review_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
-        "tune_profile.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
-        "ask_library.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
-        "advice_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
-        "guide_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
-        "status_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" status --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
-        "compare_papers.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" compare --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
-        "map_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" map --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
-        "zotero_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --output-dir "${ZOTERO_OUTPUT_DIR:-$KB_DIR/zotero}" "$@"\n',
-        "zotero_sync.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" zotero-sync --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --bibtex "${ZOTERO_BIBTEX_PATH:-$PROJECT_DIR/zotero.bib}" "$@"\n',
-        "obsidian_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" obsidian --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --vault-dir "${OBSIDIAN_EXPORT_DIR:-$KB_DIR/obsidian}" "$@"\n',
+        "deep_read_paper.sh": 'exec "${SKILL_CMD[@]}" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "full_text_paper.sh": 'exec "${SKILL_CMD[@]}" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "review_paper.sh": 'exec "${SKILL_CMD[@]}" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "advice_reader.sh": 'exec "${SKILL_CMD[@]}" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "guide_reader.sh": 'exec "${SKILL_CMD[@]}" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
+        "status_reader.sh": 'exec "${SKILL_CMD[@]}" status --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "compare_papers.sh": 'exec "${SKILL_CMD[@]}" compare --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "map_reader.sh": 'exec "${SKILL_CMD[@]}" map --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "zotero_export.sh": 'exec "${SKILL_CMD[@]}" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --output-dir "${ZOTERO_OUTPUT_DIR:-$KB_DIR/zotero}" "$@"\n',
+        "zotero_sync.sh": 'exec "${SKILL_CMD[@]}" zotero-sync --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --bibtex "${ZOTERO_BIBTEX_PATH:-$PROJECT_DIR/zotero.bib}" "$@"\n',
+        "obsidian_export.sh": 'exec "${SKILL_CMD[@]}" obsidian --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --vault-dir "${OBSIDIAN_EXPORT_DIR:-$KB_DIR/obsidian}" "$@"\n',
         "sync_obsidian_vault.sh": 'OBSIDIAN_LITERATURE_DIR="${OBSIDIAN_LITERATURE_DIR:-$HOME/Documents/Obsidian Vault/01_Literatures}"\nOBSIDIAN_EXPORT_DIR="${OBSIDIAN_EXPORT_DIR:-$OBSIDIAN_LITERATURE_DIR/10_Scholar_Alert_Reader}"\nexec "$PROJECT_DIR/obsidian_export.sh" --vault-dir "$OBSIDIAN_EXPORT_DIR" "$@"\n',
-        "enrich_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" enrich --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --limit "${LIMIT:-20}" --providers "${PROVIDERS:-openalex,crossref}" --update-library "$@"\n',
-        "weekly_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" weekly --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --days "${DAYS:-7}" "$@"\n',
-        "export_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" export --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --format "${FORMAT:-bibtex}" --tiers "${TIERS:-Must read,Skim}" "$@"\n',
-        "doctor_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" doctor --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" --gmail-deps "$@"\n',
+        "enrich_reader.sh": 'exec "${SKILL_CMD[@]}" enrich --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --limit "${LIMIT:-20}" --providers "${PROVIDERS:-openalex,crossref}" --update-library "$@"\n',
+        "weekly_reader.sh": 'exec "${SKILL_CMD[@]}" weekly --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --days "${DAYS:-7}" "$@"\n',
+        "export_reader.sh": 'exec "${SKILL_CMD[@]}" export --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --format "${FORMAT:-bibtex}" --tiers "${TIERS:-Must read,Skim}" "$@"\n',
+        "doctor_reader.sh": 'exec "${SKILL_CMD[@]}" doctor --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" --gmail-deps "$@"\n',
     }
     for filename, body in helper_specs.items():
         write_executable(project_dir / filename, generated_script_header() + common + body)

@@ -1,0 +1,72 @@
+{
+  "name": "Dense-array monitoring triage",
+  "language": "zh-CN",
+  "research_questions": [
+    "哪些论文和超密集台阵、DAS、城市/区域地震监测有关？",
+    "哪些算法能改进连续波形检测、定位、相位识别或噪声成像？",
+    "哪些台阵观测论文可以作为项目设计或数据处理参考？"
+  ],
+  "focus_terms": [
+    {"term": "dense seismic array", "weight": 8, "tags": ["array"]},
+    {"term": "dense array", "weight": 6, "tags": ["array"]},
+    {"term": "distributed acoustic sensing", "weight": 7, "tags": ["DAS"]},
+    {"term": "DAS", "weight": 5, "tags": ["DAS"]},
+    {"term": "ambient noise", "weight": 5, "tags": ["imaging"]},
+    {"term": "urban seismology", "weight": 5, "tags": ["urban"]},
+    {"term": "continuous waveform", "weight": 5, "tags": ["monitoring"]},
+    {"term": "earthquake detection", "weight": 5, "tags": ["monitoring"]},
+    {"term": "microseismic monitoring", "weight": 5, "tags": ["monitoring"]}
+  ],
+  "regions": [
+    {"term": "Beijing-Tianjin-Hebei", "weight": 8},
+    {"term": "North China", "weight": 6},
+    {"term": "Sichuan Basin", "weight": 5},
+    {"term": "urban", "weight": 3}
+  ],
+  "methods": [
+    {"term": "beamforming", "weight": 4},
+    {"term": "matched filter", "weight": 4},
+    {"term": "template matching", "weight": 4},
+    {"term": "phase picking", "weight": 5},
+    {"term": "association", "weight": 4},
+    {"term": "ambient noise correlation", "weight": 5},
+    {"term": "machine learning", "weight": 3}
+  ],
+  "semantic_queries": [
+    {"term": "dense array monitoring of continuous seismic waveforms", "weight": 6, "tags": ["semantic", "array"]},
+    {"term": "urban seismic noise imaging and earthquake monitoring", "weight": 5, "tags": ["semantic", "urban"]},
+    {"term": "machine learning for phase detection association and relocation", "weight": 5, "tags": ["semantic", "method"]}
+  ],
+  "watch_authors": [
+    {"term": "Nori Nakata", "weight": 3},
+    {"term": "Zefeng Li", "weight": 3},
+    {"term": "Yangkang Chen", "weight": 3}
+  ],
+  "exclude_terms": [
+    {"term": "wireless sensor network", "weight": 4},
+    {"term": "education", "weight": 4},
+    {"term": "conference program", "weight": 4},
+    {"term": "job opening", "weight": 5}
+  ],
+  "tier_thresholds": {
+    "must_read": 18,
+    "skim": 6
+  },
+  "limits": {
+    "must_read": 10,
+    "skim": 18,
+    "deep_read": 6
+  },
+  "knowledge_base": {
+    "foundation_tiers": ["Must read", "Skim"],
+    "interested_tiers": ["Must read"],
+    "interested_limit": 60,
+    "foundation_limit_per_direction": 45,
+    "write_archive_index": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "default_time": "09:00",
+    "default_days": ["Monday", "Wednesday", "Friday"]
+  }
+}

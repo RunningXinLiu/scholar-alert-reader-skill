@@ -5,6 +5,9 @@ __pycache__/
 .venv/
 venv/
 .codegraph/
+build/
+dist/
+*.egg-info/
 
 # Private auth
 gmail_credentials.json

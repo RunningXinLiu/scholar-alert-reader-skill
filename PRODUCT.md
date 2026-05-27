@@ -38,6 +38,7 @@ For users who do not use Obsidian or Zotero.
 - Mail.app integration is macOS-only.
 - macOS LaunchAgent scheduling is currently the packaged scheduler; other platforms should use their native scheduler around the same CLI commands.
 - Codex is the intended skill interface, but the repository also exposes a plain Python CLI for users who want to run it outside Codex.
+- The CLI should work from a source checkout (`python3 -m scholar_alert_reader`), an installed console script (`scholar-alert-reader` / `scholar-reader`), and the legacy wrapper (`scripts/scholar_reader.py`).
 - Gmail OAuth credentials are bring-your-own for public distribution. A shared OAuth client requires Google verification before broad use.
 
 ### Obsidian optional
@@ -62,6 +63,7 @@ For users who want citation/PDF management.
 
 - A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
 - A new user can run one `quickstart` command that creates the local project, runs private-data-free checks/demos, and writes a next-step report.
+- A terminal-only user can install the project with `pip`, run `scholar-alert-reader`, and use generated helper scripts without depending on Codex.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
 - A new user can run a bundled-data `self-test` before connecting private email, Zotero, Obsidian, or external feeds.
@@ -81,4 +83,4 @@ For users who want citation/PDF management.
 - Interactive setup prompts layered on top of the current non-interactive `setup` command.
 - Better section-aware parsing for extracted local PDF text.
 - More demo scenarios with sanitized sample alerts, feedback, and retained-library files.
-- Release packaging with a versioned changelog and minimal public sample profile.
+- Optional PyPI release packaging after the GitHub install path is stable.
