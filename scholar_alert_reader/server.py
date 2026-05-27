@@ -117,6 +117,8 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
                     '<button name="action" value="status_read">Read</button>',
                     '<button name="action" value="status_must_cite">Must cite</button>',
                     '<button name="action" value="status_method">Method ref</button>',
+                    '<button name="action" value="status_background">Background only</button>',
+                    '<button name="action" value="status_not_relevant">Not relevant</button>',
                     "</form>",
                     "</article>",
                 ]
@@ -363,6 +365,15 @@ def make_handler(config: ServerConfig):
                 mark = "interested"
                 reading_status = "method-reference"
                 labels = ["method-reference"]
+            elif action == "status_background":
+                mark = "neutral"
+                reading_status = "background-only"
+                note = "Marked as background only from feedback UI."
+            elif action == "status_not_relevant":
+                mark = "archive"
+                less_like_this = True
+                reading_status = "not-relevant"
+                note = "Marked as not relevant from feedback UI."
 
             profile = core.load_profile(config.profile_path)
             feedback_file = core.default_feedback_file(config.kb_dir)
@@ -372,12 +383,22 @@ def make_handler(config: ServerConfig):
                 record = feedback.setdefault("papers", {}).setdefault(paper.id, {})
                 if reading_status:
                     record["reading_status"] = reading_status
+                if action == "status_background":
+                    signals = record.setdefault("signals", {})
+                    signals["more_like_this"] = False
+                    signals["less_like_this"] = False
                 if labels:
                     current = [str(label) for label in record.get("labels", []) if str(label).strip()]
                     for label in labels:
                         if label not in current:
                             current.append(label)
                     record["labels"] = current
+                if action == "status_background":
+                    core.remove_feedback_terms_for_paper(feedback, paper.id)
+                elif more_like_this:
+                    core.remove_feedback_terms_for_paper(feedback, paper.id, "negative")
+                elif less_like_this:
+                    core.remove_feedback_terms_for_paper(feedback, paper.id, "positive")
                 if more_like_this:
                     for term, weight in core.feedback_terms_from_paper(paper):
                         core.add_feedback_term(feedback, term, "positive", weight, "paper", paper.id)

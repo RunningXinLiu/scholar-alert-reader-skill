@@ -603,7 +603,7 @@ def positive_seed_paper(paper: Paper, feedback: dict[str, Any] | None, seed_tier
     record = feedback_paper_record(feedback, paper.id)
     signals = record.get("signals", {}) if isinstance(record.get("signals", {}), dict) else {}
     reading_status = str(record.get("reading_status", "") or "")
-    if record.get("status") == "archive" or reading_status == "not-relevant" or signals.get("less_like_this"):
+    if record.get("status") == "archive" or reading_status in {"background-only", "not-relevant"} or signals.get("less_like_this"):
         return False
     if record.get("status") == "interested" or signals.get("more_like_this"):
         return True
@@ -6184,6 +6184,31 @@ def add_feedback_term(
     terms.append(record)
 
 
+def remove_feedback_terms_for_paper(feedback: dict[str, Any], paper_id: str, direction: str | None = None) -> None:
+    terms = feedback.get("terms", [])
+    if not isinstance(terms, list) or not paper_id:
+        return
+    retained: list[dict[str, Any]] = []
+    for item in terms:
+        if not isinstance(item, dict):
+            continue
+        if direction and item.get("direction", "positive") != direction:
+            retained.append(item)
+            continue
+        source_ids = [str(value) for value in item.get("source_paper_ids", []) if str(value).strip()]
+        if paper_id not in source_ids:
+            retained.append(item)
+            continue
+        remaining_ids = [value for value in source_ids if value != paper_id]
+        if remaining_ids:
+            item["source_paper_ids"] = remaining_ids
+            retained.append(item)
+        elif item.get("source") != "paper":
+            item.pop("source_paper_ids", None)
+            retained.append(item)
+    feedback["terms"] = retained
+
+
 def update_paper_feedback(
     feedback: dict[str, Any],
     paper: Paper,
@@ -8341,6 +8366,7 @@ def explain_ranking_command(args: argparse.Namespace) -> None:
 
 
 POSITIVE_READING_STATUSES = {"reading", "read", "must-cite", "method-reference"}
+NEUTRAL_READING_STATUSES = {"background-only"}
 NEGATIVE_READING_STATUSES = {"not-relevant"}
 
 
@@ -8354,6 +8380,8 @@ def feedback_label(record: dict[str, Any], feedback: dict[str, Any]) -> tuple[st
     signals = item.get("signals", {}) if isinstance(item.get("signals"), dict) else {}
     if status == "archive" or reading_status in NEGATIVE_READING_STATUSES or item.get("less_like_this") or signals.get("less_like_this"):
         return "negative", explain_feedback_status(record, feedback)
+    if reading_status in NEUTRAL_READING_STATUSES:
+        return "", explain_feedback_status(record, feedback)
     if status == "interested" or reading_status in POSITIVE_READING_STATUSES or item.get("more_like_this") or signals.get("more_like_this"):
         return "positive", explain_feedback_status(record, feedback)
     return "", explain_feedback_status(record, feedback)
@@ -8614,6 +8642,8 @@ def feedback_item_label(item: dict[str, Any]) -> str:
     signals = item.get("signals", {}) if isinstance(item.get("signals"), dict) else {}
     if status == "archive" or reading_status in NEGATIVE_READING_STATUSES or item.get("less_like_this") or signals.get("less_like_this"):
         return "negative"
+    if reading_status in NEUTRAL_READING_STATUSES:
+        return ""
     if status == "interested" or reading_status in POSITIVE_READING_STATUSES or item.get("more_like_this") or signals.get("more_like_this"):
         return "positive"
     return ""
@@ -9225,7 +9255,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Deduplicating repeated papers across alerts and sources.",
         "- Ranking papers with profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, and adaptive local feedback similarity.",
         "- Producing HTML/Markdown digests, CSV/JSON outputs, and a retained local knowledge base.",
-        "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, and method-reference labels.",
+        "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, method-reference, background-only, and not-relevant labels.",
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
         "- Evaluating saved ranking quality against interested/archive labels with precision, recall, average precision, false positives, and missed positives.",

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.53 - 2026-05-28
+
+- Add `Background only` and `Not relevant` reading-decision buttons to the local feedback UI.
+- Treat `background-only` as neutral for adaptive seeds, ranking evaluation, semantic feedback seeds, and profile-tuning feedback counts.
+- Clean stale paper-derived positive/negative feedback terms when UI decisions flip a paper to background-only, more-like-this, or less-like-this.
+
 ## v0.2.52 - 2026-05-28
 
 - Add a `Full review` action to the local feedback UI that runs the selected-paper `review-workflow`.

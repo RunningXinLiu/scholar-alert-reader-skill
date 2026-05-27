@@ -2333,6 +2333,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     initial_body = response.read().decode("utf-8")
                 self.assertIn('value="review_workflow"', initial_body)
                 self.assertIn("Full review", initial_body)
+                self.assertIn('value="status_background"', initial_body)
+                self.assertIn('value="status_not_relevant"', initial_body)
 
                 body = urllib.parse.urlencode({"paper_id": "p1", "action": "workup"}).encode("utf-8")
                 request = urllib.request.Request(
@@ -2389,6 +2391,53 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     report_body = response.read().decode("utf-8")
                 self.assertIn("Selected Paper Review Workflow", report_body)
                 self.assertIn("Review pack", report_body)
+
+                body = urllib.parse.urlencode({"paper_id": "p1", "action": "status_background"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    html_body = response.read().decode("utf-8")
+                self.assertIn("Saved feedback for p1: status_background", html_body)
+                feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
+                self.assertEqual(feedback["papers"]["p1"]["reading_status"], "background-only")
+                self.assertEqual(feedback["papers"]["p1"]["status"], "neutral")
+                self.assertFalse(feedback["papers"]["p1"]["signals"]["more_like_this"])
+                self.assertFalse(feedback["papers"]["p1"]["signals"]["less_like_this"])
+                self.assertFalse(
+                    any("p1" in item.get("source_paper_ids", []) for item in feedback.get("terms", []))
+                )
+                self.assertIn("background-only", (kb / "reading_status.md").read_text(encoding="utf-8"))
+
+                body = urllib.parse.urlencode({"paper_id": "p1", "action": "status_not_relevant"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    html_body = response.read().decode("utf-8")
+                self.assertIn("Saved feedback for p1: status_not_relevant", html_body)
+                feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
+                self.assertEqual(feedback["papers"]["p1"]["reading_status"], "not-relevant")
+                self.assertEqual(feedback["papers"]["p1"]["status"], "archive")
+                self.assertTrue(feedback["papers"]["p1"]["signals"]["less_like_this"])
+                self.assertFalse(
+                    any(
+                        item.get("direction") == "positive" and "p1" in item.get("source_paper_ids", [])
+                        for item in feedback.get("terms", [])
+                    )
+                )
+                self.assertTrue(
+                    any(
+                        item.get("direction") == "negative" and "p1" in item.get("source_paper_ids", [])
+                        for item in feedback.get("terms", [])
+                    )
+                )
             finally:
                 server.shutdown()
                 server.server_close()

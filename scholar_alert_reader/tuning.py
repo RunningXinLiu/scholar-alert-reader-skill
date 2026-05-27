@@ -68,6 +68,8 @@ def feedback_paper_ids(feedback: dict[str, Any]) -> tuple[set[str], set[str]]:
         status = str(item.get("status", "neutral"))
         reading = str(item.get("reading_status", ""))
         signals = item.get("signals", {}) if isinstance(item.get("signals"), dict) else {}
+        if reading == "background-only":
+            continue
         if status == "interested" or reading in {"reading", "read", "must-cite", "method-reference"} or signals.get("more_like_this"):
             positive.add(str(paper_id))
         if status == "archive" or reading == "not-relevant" or signals.get("less_like_this"):
