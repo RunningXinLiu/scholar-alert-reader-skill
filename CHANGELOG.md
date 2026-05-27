@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.24 - 2026-05-27
+
+- Add `reading-plan` / generated `reading_plan.sh` to prioritize what to read next from retained and recent papers.
+- Combine reading status, interested/archive feedback, tier, score, labels, latest-run flags, and full-text cache availability into a local reading queue.
+- Document the daily reading-plan workflow in README, SKILL guidance, and product requirements.
+- Add tests for the generated helper and reading-plan report output.
+
 ## v0.2.23 - 2026-05-27
 
 - Add `capabilities` / generated `capabilities.sh` to explain product strengths, boundaries, non-promises, and recommended workflows.

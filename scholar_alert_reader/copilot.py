@@ -602,6 +602,184 @@ def render_research_advice(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def reading_priority(record: dict[str, Any], feedback: dict[str, Any] | None) -> tuple[int, list[str]]:
+    status = reading_status(record, feedback)
+    labels = set(reading_labels(record, feedback))
+    item = feedback_record(record, feedback)
+    signals = item.get("signals", {}) if isinstance(item.get("signals"), dict) else {}
+    score = int(record.get("score", 0) or 0)
+    reasons: list[str] = []
+
+    if record.get("tier") == "Must read":
+        score += 45
+        reasons.append("Must read tier")
+    elif record.get("tier") == "Skim":
+        score += 15
+        reasons.append("Skim tier")
+    if item.get("status") == "interested":
+        score += 45
+        reasons.append("marked interested")
+    if signals.get("more_like_this"):
+        score += 10
+        reasons.append("more-like-this seed")
+    if status == "reading":
+        score += 35
+        reasons.append("already in reading")
+    elif status in {"must-cite", "method-reference"}:
+        score += 30
+        reasons.append(status)
+    elif status == "read":
+        score -= 45
+        reasons.append("already read")
+    elif status in {"background-only", "not-relevant"}:
+        score -= 90
+        reasons.append(status)
+    if "must-cite" in labels:
+        score += 30
+        reasons.append("must-cite label")
+    if "method-reference" in labels:
+        score += 20
+        reasons.append("method-reference label")
+    if record.get("is_new"):
+        score += 6
+        reasons.append("new in latest run")
+    matched_terms = [str(term) for term in record.get("matched_terms", []) if str(term).strip()]
+    if matched_terms:
+        reasons.append("matches " + ", ".join(matched_terms[:3]))
+    return score, reasons
+
+
+def reading_plan_candidates(records: list[dict[str, Any]], feedback: dict[str, Any] | None) -> list[tuple[int, dict[str, Any], list[str]]]:
+    ranked: list[tuple[int, dict[str, Any], list[str]]] = []
+    for record in records:
+        item = feedback_record(record, feedback)
+        status = reading_status(record, feedback)
+        if item.get("status") == "archive" or status in {"not-relevant", "background-only"}:
+            continue
+        priority, reasons = reading_priority(record, feedback)
+        if (
+            record.get("tier") in {"Must read", "Skim"}
+            or item.get("status") == "interested"
+            or status in {"reading", "must-cite", "method-reference"}
+            or priority >= 25
+        ):
+            ranked.append((priority, record, reasons))
+    ranked.sort(
+        key=lambda item: (
+            -item[0],
+            {"reading": 0, "must-cite": 1, "method-reference": 2, "unread": 3, "read": 4}.get(
+                reading_status(item[1], feedback),
+                9,
+            ),
+            {"Must read": 0, "Skim": 1, "Archive": 2}.get(text(item[1].get("tier")), 9),
+            -int(item[1].get("score", 0) or 0),
+            text(item[1].get("title")).lower(),
+        )
+    )
+    return ranked
+
+
+def reading_next_action(record: dict[str, Any], feedback: dict[str, Any] | None, full_text_ids: set[str]) -> str:
+    paper_id = text(record.get("id"))
+    status = reading_status(record, feedback)
+    labels = set(reading_labels(record, feedback))
+    if paper_id in full_text_ids:
+        return f"`review-pack --paper-id {paper_id}` or `review-queue --paper-id {paper_id}` with the cached full text."
+    if status == "reading":
+        return f"Finish the paper, then run `status --paper-id {paper_id} --status read` with a note."
+    if "must-cite" in labels or status == "must-cite":
+        return f"Run `full-text --paper-id {paper_id}` before citing, then inspect methods/results."
+    if record.get("tier") == "Must read":
+        return f"Run `full-text --paper-id {paper_id}` if a local PDF is available, otherwise `review-pack --paper-id {paper_id}`."
+    return f"Skim abstract/figures first; keep only if it changes your current question, otherwise `status --paper-id {paper_id} --status background-only`."
+
+
+def render_reading_plan(
+    records: list[dict[str, Any]],
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
+    limit: int = 10,
+    full_text_ids: set[str] | None = None,
+) -> str:
+    full_text_ids = full_text_ids or set()
+    ranked = reading_plan_candidates(records, feedback)
+    selected = ranked[:limit]
+    today = selected[: min(3, len(selected))]
+    next_queue = selected[len(today):]
+    status_counts = Counter(reading_status(record, feedback) for record in records)
+    term_counts = top_counter([str(term) for _, record, _ in selected for term in record.get("matched_terms", [])], 10)
+    deferred = [
+        record
+        for record in records
+        if reading_status(record, feedback) in {"read", "background-only", "not-relevant"}
+        or feedback_record(record, feedback).get("status") == "archive"
+    ]
+
+    lines = [
+        "# Reading Plan",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: {profile.get('name', 'unnamed')}",
+        f"- Papers considered: {len(records)}",
+        f"- Papers selected: {len(selected)}",
+        f"- Full-text caches available: {len(full_text_ids)}",
+        "",
+        "This is a local prioritization plan from retained papers, recent digest records, reading status, feedback, and ranking signals. It is a reading workflow aid, not a substitute for reading the paper.",
+        "",
+        "## Queue Snapshot",
+        "",
+    ]
+    if status_counts:
+        lines.append("- Reading status: " + "; ".join(f"{name}: {count}" for name, count in sorted(status_counts.items())))
+    if term_counts:
+        lines.append("- Selected terms: " + "; ".join(f"{name} ({count})" for name, count in term_counts))
+    lines.append(f"- Deferred/read/background/not-relevant/archive records: {len(deferred)}")
+    lines.append("")
+
+    lines.extend(["## Read First", ""])
+    if not today:
+        lines.append("No high-priority papers are ready. Run a fresh digest, mark interested papers, or loosen the reading-plan filters.")
+        lines.append("")
+    for index, (priority, record, reasons) in enumerate(today, 1):
+        lines.extend(
+            [
+                f"### {index}. {text(record.get('title', 'Untitled'))}",
+                "",
+                paper_line(record),
+                f"- Priority: {priority}",
+                f"- Status: {reading_status(record, feedback)}",
+                f"- Why now: {', '.join(reasons[:6]) if reasons else 'high retained-library rank'}",
+                f"- Next action: {reading_next_action(record, feedback, full_text_ids)}",
+                "",
+            ]
+        )
+
+    lines.extend(["## Next Queue", ""])
+    if not next_queue:
+        lines.append("No additional papers selected beyond the first block.")
+    for priority, record, reasons in next_queue:
+        reason_text = ", ".join(reasons[:4]) if reasons else "ranked retained paper"
+        lines.append(paper_line(record))
+        lines.append(f"  - Priority: {priority}; status: {reading_status(record, feedback)}; why: {reason_text}")
+        lines.append(f"  - Next action: {reading_next_action(record, feedback, full_text_ids)}")
+    lines.append("")
+
+    lines.extend(
+        [
+            "## Suggested Batch Commands",
+            "",
+            "After choosing IDs from the plan:",
+            "",
+            "```bash",
+            "python3 -m scholar_alert_reader review-queue --profile profiles/research_profile.json --kb-dir knowledge_base --paper-id ID1,ID2",
+            "python3 -m scholar_alert_reader status --profile profiles/research_profile.json --kb-dir knowledge_base --paper-id ID1 --status reading --label must-cite",
+            "```",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def render_reading_status(records: list[dict[str, Any]], feedback: dict[str, Any] | None = None) -> str:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for record in records:

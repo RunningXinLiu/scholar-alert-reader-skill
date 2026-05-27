@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.23`
+Version: `0.2.24`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -47,6 +47,7 @@ Good next prompts:
 - "Import papers from this scholarly webpage or saved HTML list."
 - "Pull papers from this RSS feed or arXiv query and rank them against my profile."
 - "Open the feedback UI so I can mark interested papers."
+- "Make a reading plan from my retained and recent papers."
 - "Deep-read this paper against my foundation."
 - "Export my retained library to Obsidian and Zotero."
 
@@ -120,7 +121,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
-- Adds a literature-copilot layer: selected-paper metadata briefs, local-library Q&A, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
+- Adds a literature-copilot layer: selected-paper metadata briefs, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
 - Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
 
 ## Capability Boundary
@@ -141,7 +142,7 @@ The core ranking layer is local and explainable: profile terms, methods, regions
 
 Scholar Alert Reader is useful without any external note app:
 
-1. **Codex-only**: read alerts or bibliography exports, rank papers, write HTML/Markdown digests, maintain a local knowledge base, and use deep-read/Q&A/review-pack/advice commands.
+1. **Codex-only**: read alerts or bibliography exports, rank papers, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/Q&A/review-pack/advice commands.
 2. **Codex + Obsidian**: sync generated notes, maps, reading status, answers, comparisons, and deep reads into a generated Obsidian folder.
 3. **Codex + Zotero + Obsidian**: use Zotero for citations/PDFs and Obsidian for durable human-written notes and synthesis.
 
@@ -520,6 +521,18 @@ python3 scripts/scholar_reader.py review-queue \
 
 `review-queue` writes `knowledge_base/analysis/review_queue.md`, `knowledge_base/full_text/<paper-id>.txt` when extraction succeeds, and `knowledge_base/analysis/<paper-id>_review_pack.md` for each selected paper. Use `--no-extract` to rely only on existing caches, or `--strict-full-text` when every selected paper must have a local text cache.
 
+Make a reading plan from retained papers plus an optional recent digest:
+
+```bash
+python3 scripts/scholar_reader.py reading-plan \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json out/recent/papers.json \
+  --limit 10
+```
+
+`reading-plan` writes `knowledge_base/reading_plan.md`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `review-pack`, or `review-queue` next.
+
 Ask a question against the local literature base:
 
 ```bash
@@ -537,7 +550,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_queue.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_queue.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 
@@ -655,6 +668,7 @@ The richer knowledge base includes:
 - `papers/<paper-id>.md`: one note page per retained paper
 - `directions/*.md`: retained papers grouped by topic tags
 - `weekly_review.md`: recurring synthesis from the retained library
+- `reading_plan.md`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_pack.md`: selected-paper review context for an assistant

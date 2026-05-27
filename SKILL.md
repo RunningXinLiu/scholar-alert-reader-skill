@@ -28,7 +28,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-12. Use `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+12. Use `reading-plan`, `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 13. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 14. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
 
@@ -53,6 +53,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
+- `knowledge_base/reading_plan.md`: prioritized next-reading queue from retained/recent papers and feedback.
 - `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation.
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
 - `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief for a selected paper.
@@ -329,6 +330,16 @@ python3 scripts/scholar_reader.py review-queue \
   --kb-dir knowledge_base \
   --tiers "Must read" \
   --limit 5
+```
+
+Make a reading plan before choosing review-pack IDs:
+
+```bash
+python3 scripts/scholar_reader.py reading-plan \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json out/recent/papers.json \
+  --limit 10
 ```
 
 Ask the retained literature base a question:

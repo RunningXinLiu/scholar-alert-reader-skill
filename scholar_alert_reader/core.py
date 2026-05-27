@@ -3569,6 +3569,7 @@ def render_project_guide(
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
+        "- `./reading_plan.sh`: choose what to read next and which paper IDs to send into review packs.",
         "- `./advice_reader.sh`: generate reading strategy and gap advice.",
         "",
         "## Optional Integrations",
@@ -3814,6 +3815,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "reading_plan.sh": 'exec "${SKILL_CMD[@]}" reading-plan --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "advice_reader.sh": 'exec "${SKILL_CMD[@]}" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "guide_reader.sh": 'exec "${SKILL_CMD[@]}" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
         "status_reader.sh": 'exec "${SKILL_CMD[@]}" status --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -3956,6 +3958,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./review_paper.sh --paper-id <ID>",
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
                     "./tune_profile.sh",
+                    "./reading_plan.sh",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
                     "./advice_reader.sh",
                     "```",
@@ -5699,6 +5702,36 @@ def research_advice_command(args: argparse.Namespace) -> None:
     print(f"Research advice: {output}")
 
 
+def available_full_text_ids(kb_dir: Path) -> set[str]:
+    full_text_dir = kb_dir / "full_text"
+    if not full_text_dir.exists():
+        return set()
+    return {path.stem for path in full_text_dir.glob("*.txt") if path.is_file()}
+
+
+def reading_plan_command(args: argparse.Namespace) -> None:
+    from .copilot import render_reading_plan
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback_file = args.feedback_file or default_feedback_file(kb_dir)
+    feedback = load_feedback(feedback_file)
+    records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
+    output = args.output or (kb_dir / "reading_plan.md")
+    write_report(
+        output,
+        render_reading_plan(
+            records,
+            profile,
+            feedback=feedback,
+            limit=args.limit,
+            full_text_ids=available_full_text_ids(kb_dir),
+        ),
+    )
+    print(f"Reading plan: {output}")
+    print(f"Papers considered: {len(records)}")
+
+
 READING_STATUSES = {
     "unread",
     "reading",
@@ -5926,6 +5959,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Ranking papers with profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, and adaptive local feedback similarity.",
         "- Producing HTML/Markdown digests, CSV/JSON outputs, and a retained local knowledge base.",
         "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, and method-reference labels.",
+        "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
         "",
         "## Capability Boundary",
@@ -6444,6 +6478,15 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--limit", type=int, default=12)
     advice.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/research_advice.md")
     advice.set_defaults(func=research_advice_command)
+
+    reading_plan = sub.add_parser("reading-plan", help="Prioritize what to read next from retained/recent papers")
+    reading_plan.add_argument("--profile", type=Path, required=True)
+    reading_plan.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    reading_plan.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    reading_plan.add_argument("--papers-json", type=Path, help="Optional digest papers.json to include recent papers")
+    reading_plan.add_argument("--limit", type=int, default=10, help="Maximum papers to include in the plan")
+    reading_plan.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/reading_plan.md")
+    reading_plan.set_defaults(func=reading_plan_command)
 
     status_cmd = sub.add_parser("status", help="Update reading status and labels for selected papers")
     status_cmd.add_argument("--profile", type=Path, required=True)

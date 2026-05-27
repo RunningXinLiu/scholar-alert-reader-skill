@@ -152,6 +152,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_paper.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
+            self.assertTrue((project / "reading_plan.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertTrue((project / "TROUBLESHOOTING.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
@@ -1034,6 +1035,28 @@ SCHEDULE_TIME=09:00
                 check=True,
             )
             self.assertIn("reading", (kb / "reading_status.md").read_text(encoding="utf-8"))
+
+            reading_plan = root / "reading_plan.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "reading-plan",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--output",
+                    str(reading_plan),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            reading_plan_content = reading_plan.read_text(encoding="utf-8")
+            self.assertIn("Reading Plan", reading_plan_content)
+            self.assertIn("Read First", reading_plan_content)
+            self.assertIn("already in reading", reading_plan_content)
 
             comparison = root / "compare.md"
             subprocess.run(
