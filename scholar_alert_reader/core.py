@@ -7850,92 +7850,116 @@ def paper_workup_command(args: argparse.Namespace) -> None:
         print("Full-text cache: none")
 
 
-def review_workflow_command(args: argparse.Namespace) -> None:
-    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
-    records = merged_paper_records(kb_dir, args.papers_json)
-    target = select_paper_record(records, args.paper_id, args.title)
+def write_review_workflow_report(
+    profile_path: Path,
+    kb_dir: Path,
+    paper_id: str | None = None,
+    title: str | None = None,
+    papers_json: Path | None = None,
+    output: Path | None = None,
+    workup_output: Path | None = None,
+    review_pack_output: Path | None = None,
+    feedback_file: Path | None = None,
+    pdf_path: Path | None = None,
+    fetch_pdf: bool = False,
+    pdf_url: str | None = None,
+    max_pdf_bytes: int = 80_000_000,
+    fetch_timeout: int = 30,
+    update_library: bool = False,
+    no_extract: bool = False,
+    force_extract: bool = False,
+    strict_full_text: bool = False,
+    max_chars: int = 120000,
+    timeout: int = 30,
+    max_full_text_chars: int = 40000,
+    max_full_text_brief_chars: int = 16000,
+    max_workup_brief_chars: int = 7000,
+    related_limit: int = 12,
+) -> tuple[Path, str, Path, Path]:
+    records = merged_paper_records(kb_dir, papers_json)
+    target = select_paper_record(records, paper_id, title)
     stem = str(target.get("id", "paper") or "paper")
     text_output = kb_dir / "full_text" / f"{stem}.txt"
     brief_output = kb_dir / "analysis" / f"{stem}_full_text_brief.md"
-    workup_output = args.workup_output or (kb_dir / "analysis" / f"{stem}_workup.md")
-    review_pack_output = args.review_pack_output or (kb_dir / "analysis" / f"{stem}_review_pack.md")
-    workflow_output = args.output or (kb_dir / "analysis" / f"{stem}_review_workflow.md")
+    workup_output = workup_output or (kb_dir / "analysis" / f"{stem}_workup.md")
+    review_pack_output = review_pack_output or (kb_dir / "analysis" / f"{stem}_review_pack.md")
+    workflow_output = output or (kb_dir / "analysis" / f"{stem}_review_workflow.md")
 
     extraction_status = "skipped by --no-extract"
     extraction_source = ""
-    if not args.no_extract:
-        if text_output.exists() and brief_output.exists() and not args.force_extract:
+    if not no_extract:
+        if text_output.exists() and brief_output.exists() and not force_extract:
             extraction_status = "cached local full-text text and brief"
         else:
             try:
-                source_arg = args.pdf_path
-                if args.fetch_pdf and not source_arg:
+                source_arg = pdf_path
+                if fetch_pdf and not source_arg:
                     fetched_pdf, fetched_url, fetched_bytes, _ = fetch_pdf_for_record(
                         target,
                         kb_dir,
-                        pdf_url=args.pdf_url,
+                        pdf_url=pdf_url,
                         output=kb_dir / "pdfs" / f"{stem}.pdf",
-                        max_bytes=args.max_pdf_bytes,
-                        timeout=args.fetch_timeout,
+                        max_bytes=max_pdf_bytes,
+                        timeout=fetch_timeout,
                     )
                     source_arg = fetched_pdf
                     extraction_source = f"{fetched_pdf} (fetched from {fetched_url}, {fetched_bytes} bytes)"
-                    if args.update_library:
+                    if update_library:
                         merge_fetched_pdf_metadata(
                             kb_dir,
                             stem,
                             fetched_pdf,
                             fetched_url,
-                            load_profile(args.profile),
+                            load_profile(profile_path),
                         )
                 if text_output.exists() and not brief_output.exists() and not source_arg:
                     source_arg = text_output
                 text_output, brief_output, source_path, method = write_full_text_brief_report(
-                    profile_path=args.profile,
+                    profile_path=profile_path,
                     kb_dir=kb_dir,
-                    paper_id=args.paper_id,
-                    title=args.title,
-                    papers_json=args.papers_json,
+                    paper_id=paper_id,
+                    title=title,
+                    papers_json=papers_json,
                     pdf_path=source_arg,
                     text_output=text_output,
                     output=brief_output,
-                    max_chars=args.max_chars,
-                    timeout=args.timeout,
+                    max_chars=max_chars,
+                    timeout=timeout,
                 )
                 if not extraction_source:
                     extraction_source = str(source_path)
                 extraction_status = f"extracted with {method}"
             except Exception as exc:
                 extraction_status = f"unavailable: {exc}"
-    if args.strict_full_text and not text_output.exists():
+    if strict_full_text and not text_output.exists():
         raise SystemExit(f"Full-text cache is required but unavailable for {stem}: {extraction_status}")
 
     workup_path, _, _ = write_paper_workup_report(
-        profile_path=args.profile,
+        profile_path=profile_path,
         kb_dir=kb_dir,
-        paper_id=args.paper_id,
-        title=args.title,
-        papers_json=args.papers_json,
+        paper_id=paper_id,
+        title=title,
+        papers_json=papers_json,
         output=workup_output,
-        feedback_file=args.feedback_file,
+        feedback_file=feedback_file,
         full_text_path=text_output,
         full_text_brief_path=brief_output,
-        limit=args.related_limit,
-        max_full_text_brief_chars=args.max_workup_brief_chars,
+        limit=related_limit,
+        max_full_text_brief_chars=max_workup_brief_chars,
     )
     review_pack_path, pack_brief_path, pack_text_path = write_review_context_pack_report(
-        profile_path=args.profile,
+        profile_path=profile_path,
         kb_dir=kb_dir,
-        paper_id=args.paper_id,
-        title=args.title,
-        papers_json=args.papers_json,
+        paper_id=paper_id,
+        title=title,
+        papers_json=papers_json,
         output=review_pack_output,
-        feedback_file=args.feedback_file,
+        feedback_file=feedback_file,
         full_text_path=text_output,
         full_text_brief_path=brief_output,
-        limit=args.related_limit,
-        max_full_text_chars=args.max_full_text_chars,
-        max_full_text_brief_chars=args.max_full_text_brief_chars,
+        limit=related_limit,
+        max_full_text_chars=max_full_text_chars,
+        max_full_text_brief_chars=max_full_text_brief_chars,
     )
 
     next_action = (
@@ -7976,6 +8000,37 @@ def review_workflow_command(args: argparse.Namespace) -> None:
         "",
     ]
     write_report(workflow_output, "\n".join(lines))
+    return workflow_output, extraction_status, workup_path, review_pack_path
+
+
+def review_workflow_command(args: argparse.Namespace) -> None:
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    workflow_output, extraction_status, workup_path, review_pack_path = write_review_workflow_report(
+        profile_path=args.profile,
+        kb_dir=kb_dir,
+        paper_id=args.paper_id,
+        title=args.title,
+        papers_json=args.papers_json,
+        output=args.output,
+        workup_output=args.workup_output,
+        review_pack_output=args.review_pack_output,
+        feedback_file=args.feedback_file,
+        pdf_path=args.pdf_path,
+        fetch_pdf=args.fetch_pdf,
+        pdf_url=args.pdf_url,
+        max_pdf_bytes=args.max_pdf_bytes,
+        fetch_timeout=args.fetch_timeout,
+        update_library=args.update_library,
+        no_extract=args.no_extract,
+        force_extract=args.force_extract,
+        strict_full_text=args.strict_full_text,
+        max_chars=args.max_chars,
+        timeout=args.timeout,
+        max_full_text_chars=args.max_full_text_chars,
+        max_full_text_brief_chars=args.max_full_text_brief_chars,
+        max_workup_brief_chars=args.max_workup_brief_chars,
+        related_limit=args.related_limit,
+    )
     print(f"Review workflow: {workflow_output}")
     print(f"Full-text extraction: {extraction_status}")
     print(f"Paper workup: {workup_path}")

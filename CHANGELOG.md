@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.52 - 2026-05-28
+
+- Add a `Full review` action to the local feedback UI that runs the selected-paper `review-workflow`.
+- Expose `review_workflow` reports in the UI report links alongside deep reads, workups, full-text briefs, and review packs.
+- Share the same review-workflow helper between the CLI and browser UI so one-paper analysis stays consistent across entry points.
+
 ## v0.2.51 - 2026-05-28
 
 - Let `deep-read` automatically include a cached local full-text brief and full-text cache status when available.

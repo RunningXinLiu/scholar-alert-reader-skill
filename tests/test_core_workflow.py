@@ -2329,6 +2329,11 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             thread.start()
             try:
                 base_url = f"http://127.0.0.1:{server.server_port}"
+                with urllib.request.urlopen(base_url, timeout=5) as response:
+                    initial_body = response.read().decode("utf-8")
+                self.assertIn('value="review_workflow"', initial_body)
+                self.assertIn("Full review", initial_body)
+
                 body = urllib.parse.urlencode({"paper_id": "p1", "action": "workup"}).encode("utf-8")
                 request = urllib.request.Request(
                     f"{base_url}/feedback",
@@ -2364,6 +2369,26 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     report_body = response.read().decode("utf-8")
                 self.assertIn("Paper Review Context Pack", report_body)
                 self.assertIn("Review Task For The Assistant", report_body)
+
+                body = urllib.parse.urlencode({"paper_id": "p1", "action": "review_workflow"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    html_body = response.read().decode("utf-8")
+                workflow = kb / "analysis" / "p1_review_workflow.md"
+                self.assertTrue(workflow.exists())
+                self.assertIn("Saved feedback for p1: review_workflow", html_body)
+                self.assertIn("/report?name=p1_review_workflow.md", html_body)
+                self.assertIn("/report?name=p1_workup.md", html_body)
+                self.assertIn("/report?name=p1_review_pack.md", html_body)
+                with urllib.request.urlopen(f"{base_url}/report?name=p1_review_workflow.md", timeout=5) as response:
+                    report_body = response.read().decode("utf-8")
+                self.assertIn("Selected Paper Review Workflow", report_body)
+                self.assertIn("Review pack", report_body)
             finally:
                 server.shutdown()
                 server.server_close()

@@ -46,6 +46,7 @@ def report_links(paper_id: str, config: ServerConfig) -> str:
     analysis_dir = config.kb_dir / "analysis"
     reports = [
         ("Deep read", f"{paper_id}_deep_read.md"),
+        ("Review workflow", f"{paper_id}_review_workflow.md"),
         ("Workup", f"{paper_id}_workup.md"),
         ("Full-text brief", f"{paper_id}_full_text_brief.md"),
         ("Review pack", f"{paper_id}_review_pack.md"),
@@ -109,6 +110,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "") -> s
                     '<button name="action" value="more">More like this</button>',
                     '<button name="action" value="less">Less like this</button>',
                     '<button name="action" value="deep">Deep read</button>',
+                    '<button name="action" value="review_workflow">Full review</button>',
                     '<button name="action" value="workup">Workup</button>',
                     '<button name="action" value="review_pack">Review pack</button>',
                     '<button name="action" value="status_reading">Reading</button>',
@@ -342,6 +344,11 @@ def make_handler(config: ServerConfig):
                 more_like_this = True
                 reading_status = "reading"
                 note = "Queued for review pack from feedback UI."
+            elif action == "review_workflow":
+                mark = "interested"
+                more_like_this = True
+                reading_status = "reading"
+                note = "Queued for full review workflow from feedback UI."
             elif action == "status_reading":
                 mark = "interested"
                 reading_status = "reading"
@@ -388,6 +395,7 @@ def make_handler(config: ServerConfig):
             )
             core.write_reading_status_report(config.kb_dir, [core.asdict(paper) for paper in core.load_paper_library(config.kb_dir)], feedback)
             deep_report = None
+            workflow_report = None
             workup_report = None
             review_pack_report = None
             if action == "deep":
@@ -396,6 +404,14 @@ def make_handler(config: ServerConfig):
                     kb_dir=config.kb_dir,
                     paper_id=paper_id,
                     papers_json=config.papers_json,
+                )
+            elif action == "review_workflow":
+                workflow_report, _, workup_report, review_pack_report = core.write_review_workflow_report(
+                    profile_path=config.profile_path,
+                    kb_dir=config.kb_dir,
+                    paper_id=paper_id,
+                    papers_json=config.papers_json,
+                    feedback_file=feedback_file,
                 )
             elif action == "workup":
                 workup_report, _, _ = core.write_paper_workup_report(
@@ -416,6 +432,8 @@ def make_handler(config: ServerConfig):
             message = f"Saved feedback for {paper_id}: {action}"
             if deep_report:
                 message += f"; deep-read report: {deep_report}"
+            if workflow_report:
+                message += f"; review workflow: {workflow_report}"
             if workup_report:
                 message += f"; workup report: {workup_report}"
             if review_pack_report:

@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.51`
+Version: `0.2.52`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -134,7 +134,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
-- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, and trigger deep-read/workup/review-pack reports from the browser UI, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
+- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Includes `privacy-check` so users can scan local projects for files that should not be published before sharing issue attachments, screenshots, or zip archives.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
@@ -476,7 +476,7 @@ Open the feedback UI:
 ./serve_reader.sh
 ```
 
-The browser UI can mark papers, generate `Deep read` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` links.
+The browser UI can mark papers, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` links.
 
 Review recent alerts again without modifying the cumulative library:
 
@@ -542,7 +542,7 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
-The UI includes buttons for `Interested`, `Archive`, `Deep read`, `Workup`, `Review pack`, reading status, and citation/method labels. Generated reports appear as links on the paper card after the action completes.
+The UI includes buttons for `Interested`, `Archive`, `Deep read`, `Full review`, `Workup`, `Review pack`, reading status, and citation/method labels. Generated reports appear as links on the paper card after the action completes.
 
 ## Literature Copilot
 
