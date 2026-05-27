@@ -123,8 +123,10 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "guide_reader.sh").exists())
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
+            self.assertTrue((project / "zotero_sync.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Product Modes", start_here)
             self.assertIn("Capability boundary", start_here)
@@ -594,6 +596,50 @@ ER  -
             self.assertTrue((zotero_dir / "scholar_alert_reader.bib").exists())
             self.assertTrue((zotero_dir / "scholar_alert_reader.ris").exists())
 
+            zotero_bib = root / "zotero.bib"
+            pdf_path = root / "Ambient Noise.pdf"
+            zotero_bib.write_text(
+                f"""
+@article{{zoteroAmbient2026,
+  title = {{Ambient noise tomography of the Taiwan crust}},
+  author = {{A Researcher and B Researcher}},
+  journal = {{Journal}},
+  year = {{2026}},
+  doi = {{10.0000/test}},
+  file = {{Full Text PDF:{pdf_path}:application/pdf}},
+  uri = {{http://zotero.org/users/1/items/ABCD1234}},
+  zotero-key = {{ABCD1234}}
+}}
+""".strip(),
+                encoding="utf-8",
+            )
+            sync_report = root / "zotero_sync.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "zotero-sync",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--bibtex",
+                    str(zotero_bib),
+                    "--report",
+                    str(sync_report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            synced_library = json.loads(library.read_text(encoding="utf-8"))
+            zotero_meta = synced_library[0]["metadata"]["zotero"]
+            self.assertEqual(zotero_meta["citation_key"], "zoteroAmbient2026")
+            self.assertEqual(zotero_meta["item_key"], "ABCD1234")
+            self.assertIn(str(pdf_path), zotero_meta["pdf_paths"])
+            self.assertIn("Matched papers: 1", sync_report.read_text(encoding="utf-8"))
+            self.assertIn("Citation key: zoteroAmbient2026", (kb / "papers" / "p1.md").read_text(encoding="utf-8"))
+
             obsidian_dir = root / "obsidian"
             subprocess.run(
                 [
@@ -620,8 +666,9 @@ ER  -
             self.assertTrue((obsidian_dir / "06_Deep_Reads").exists())
             paper_note = next((obsidian_dir / "01_Papers").glob("*.md"))
             note = paper_note.read_text(encoding="utf-8")
-            self.assertIn("citation_key:", note)
+            self.assertIn('citation_key: "zoteroAmbient2026"', note)
             self.assertIn('doi: "10.0000/test"', note)
+            self.assertIn(str(pdf_path), note)
 
 
 if __name__ == "__main__":

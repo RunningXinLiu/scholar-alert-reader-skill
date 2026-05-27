@@ -19,6 +19,7 @@ Use this reference when changing the skill implementation rather than a user's p
 - New capabilities should usually be subcommands, not hidden flags on `daily`.
 - Keep `doctor` dependency-light and safe: it should report paths and counts, not secret token contents.
 - Keep raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, and generated knowledge-base files out of shared repos.
+- Treat Zotero/Better BibTeX read-back files as private because they can contain local PDF paths and citation-library identifiers.
 - Enrich only selected retained papers by default. Do not call external APIs for every archived alert item.
 - Keep deterministic local outputs as the source of truth: `papers.json`, `library.json`, `feedback.json`, and Markdown pages.
 

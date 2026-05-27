@@ -53,8 +53,9 @@ For users who want notes in a local vault.
 For users who want citation/PDF management.
 
 - Export: BibTeX and RIS from retained papers.
+- Read-back: Better BibTeX/BibTeX exports can add citation keys, Zotero item keys, and local PDF paths back into retained papers.
 - Obsidian paper notes include citation-oriented frontmatter such as `citation_key`, `doi`, `year`, and `journal`.
-- Future direction: read Zotero item keys/PDF paths back into the local knowledge base.
+- Future direction: use synced local PDF paths for full-text parsing and deep-read reports.
 
 ## Product Requirements
 
@@ -74,7 +75,6 @@ For users who want citation/PDF management.
 ## Roadmap
 
 - Interactive setup prompts layered on top of the current non-interactive `setup` command.
-- Zotero read-back for item keys, PDF paths, and Better BibTeX citation keys.
 - PDF full-text deep-read when a local Zotero PDF is available.
 - More demo scenarios with sanitized sample alerts, feedback, and retained-library files.
 - Release packaging with a versioned changelog and minimal public sample profile.

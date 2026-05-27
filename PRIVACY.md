@@ -7,12 +7,12 @@ Scholar Alert Reader is designed to run locally.
 The tool may read:
 
 - Google Scholar Alert emails through Gmail API, Mail.app, or exported mbox/eml files.
-- Local BibTeX/RIS bibliography exports from Zotero, EndNote, Google Scholar, publishers, or databases.
+- Local BibTeX/RIS bibliography exports from Zotero, EndNote, Google Scholar, publishers, or databases, including optional Better BibTeX read-back files that may contain local PDF paths.
 - Local RSS/Atom feed lists and arXiv queries.
 - Local profile files.
 - Local generated state such as `reader.env`, `seen_papers.json`, `feedback.json`, and `knowledge_base/`.
 
-Do not commit or publish raw mailbox exports, personal bibliography imports, personal feed lists, `reader.env`, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge-base outputs unless you have intentionally reviewed and sanitized them.
+Do not commit or publish raw mailbox exports, personal bibliography imports, personal Zotero/Better BibTeX read-back files, personal feed lists, `reader.env`, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge-base outputs unless you have intentionally reviewed and sanitized them.
 
 ## External Requests
 

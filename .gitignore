@@ -18,6 +18,7 @@ token.json
 *.eml
 import.bib
 import.ris
+zotero.bib
 feeds.txt
 reader.env
 out/

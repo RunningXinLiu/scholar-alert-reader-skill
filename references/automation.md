@@ -70,6 +70,16 @@ SOURCE=ris RIS_PATH=~/Downloads/export.ris MODE=run ./run_reader.sh
 
 Project scaffolds also include `./bibtex_import.sh` and `./ris_import.sh`, which default to `import.bib` and `import.ris` inside the project directory.
 
+## Zotero Read-back
+
+Use Zotero/Better BibTeX read-back after papers have entered `knowledge_base/library.json`. This is separate from importing a bibliography as a paper source: it enriches already-retained papers with Zotero citation keys, item keys, and local PDF paths.
+
+```bash
+ZOTERO_BIBTEX_PATH=~/Downloads/My_Library.bib ./zotero_sync.sh
+```
+
+The sync matches retained papers by DOI first and normalized title second. Keep the exported `zotero.bib` private because it may expose local file paths.
+
 ## RSS/Atom And arXiv
 
 Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer RSS/Atom feeds and the arXiv public Atom API over arbitrary webpage scraping.

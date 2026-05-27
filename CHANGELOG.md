@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.3 - 2026-05-27
+
+- Add `zotero-sync` / generated `zotero_sync.sh` to read Better BibTeX/BibTeX metadata back into retained papers.
+- Store Zotero citation keys, item keys, and local PDF paths under `metadata.zotero`.
+- Reuse synced Zotero citation keys and PDF paths in Obsidian paper-note frontmatter.
+
 ## v0.2.2 - 2026-05-27
 
 - Add `setup` / generated `setup_reader.sh` to persist local source, profile, schedule, Obsidian, and Zotero defaults in `reader.env`.

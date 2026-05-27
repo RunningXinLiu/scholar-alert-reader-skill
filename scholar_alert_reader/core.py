@@ -845,6 +845,82 @@ def doi_url(doi: str) -> str:
     return f"https://doi.org/{doi}"
 
 
+def normalize_doi(doi: str) -> str:
+    doi = clean_bibliography_value(doi)
+    doi = doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
+    doi = doi.replace("doi:", "")
+    return doi.strip().lower()
+
+
+def unquote_file_url(value: str) -> str:
+    value = value.strip()
+    if value.lower().startswith("file://"):
+        parsed = urlparse(value)
+        return unquote(parsed.path)
+    return value
+
+
+def extract_pdf_paths(value: str) -> list[str]:
+    paths: list[str] = []
+    if not value:
+        return paths
+    for item in re.split(r"\s*;\s*", value):
+        remaining = item
+        for match in re.finditer(r"file://[^\s;]+?\.pdf", item, flags=re.IGNORECASE):
+            path = unquote_file_url(match.group(0))
+            if path and path not in paths:
+                paths.append(path)
+            remaining = remaining.replace(match.group(0), " ")
+        for pattern in [
+            r"(?<![A-Za-z0-9])(?:~|/)[^;]+?\.pdf",
+            r"(?<![A-Za-z])[A-Za-z]:[\\/][^;]+?\.pdf",
+        ]:
+            for match in re.finditer(pattern, remaining, flags=re.IGNORECASE):
+                path = unquote_file_url(match.group(0))
+                if path and path not in paths:
+                    paths.append(path)
+    return paths
+
+
+def first_nonempty_field(fields: dict[str, str], names: list[str]) -> str:
+    for name in names:
+        value = fields.get(name)
+        if value:
+            return value
+    return ""
+
+
+def zotero_item_key_from_fields(fields: dict[str, str]) -> str:
+    direct = first_nonempty_field(fields, ["zotero-key", "zoterokey", "item-key", "itemkey"])
+    if direct:
+        return direct
+    for name in ["uri", "zotero-select", "zotero-uri"]:
+        value = fields.get(name, "")
+        match = re.search(r"/items/([A-Za-z0-9]+)", value)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def zotero_metadata_from_bibtex_fields(fields: dict[str, str], source_path: Path) -> dict[str, Any]:
+    pdf_paths: list[str] = []
+    for name, value in fields.items():
+        if name == "file" or name.startswith("bdsk-file") or "attachment" in name or name in {"pdf", "local-url"}:
+            for path in extract_pdf_paths(value):
+                if path not in pdf_paths:
+                    pdf_paths.append(path)
+    return {
+        "citation_key": fields.get("_key", ""),
+        "item_key": zotero_item_key_from_fields(fields),
+        "doi": first_value(fields, ["doi"]),
+        "title": first_value(fields, ["title"]),
+        "pdf_paths": pdf_paths,
+        "uri": first_nonempty_field(fields, ["uri", "zotero-select", "zotero-uri"]),
+        "source_files": [str(source_path)],
+        "synced_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
 def merge_bibliography_paper(papers_by_key: dict[str, Paper], paper: Paper) -> None:
     key = normalize_title(paper.title)
     existing = papers_by_key.get(key)
@@ -2222,8 +2298,22 @@ def slugify(value: str) -> str:
 
 def metadata_lines(paper: Paper) -> list[str]:
     lines: list[str] = []
+    zotero = paper.metadata.get("zotero") if paper.metadata else None
     openalex = paper.metadata.get("openalex") if paper.metadata else None
     crossref = paper.metadata.get("crossref") if paper.metadata else None
+    if isinstance(zotero, dict):
+        lines.extend(
+            [
+                "## Zotero",
+                "",
+                f"- Citation key: {zotero.get('citation_key', '')}",
+                f"- Item key: {zotero.get('item_key', '')}",
+                f"- DOI: {zotero.get('doi', '')}",
+            ]
+        )
+        for path in coerce_list(zotero.get("pdf_paths")):
+            lines.append(f"- Local PDF: {path}")
+        lines.append("")
     if isinstance(openalex, dict):
         lines.extend(
             [
@@ -2702,6 +2792,7 @@ def render_project_guide(
         "## Optional Integrations",
         "",
         "- `./zotero_export.sh`: writes BibTeX/RIS to `knowledge_base/zotero/` for Zotero import.",
+        "- `./zotero_sync.sh`: reads a Better BibTeX/BibTeX export back into `library.json` so citation keys and local PDF paths are retained.",
         "- `./sync_obsidian_vault.sh`: writes generated Markdown into an Obsidian literature folder.",
         "- Keep user-authored Obsidian notes outside the generated export folder so reruns never overwrite your writing.",
         "",
@@ -2906,6 +2997,7 @@ exec "${cmd[@]}"
         "compare_papers.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" compare --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "map_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" map --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "zotero_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --output-dir "${ZOTERO_OUTPUT_DIR:-$KB_DIR/zotero}" "$@"\n',
+        "zotero_sync.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" zotero-sync --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --bibtex "${ZOTERO_BIBTEX_PATH:-$PROJECT_DIR/zotero.bib}" "$@"\n',
         "obsidian_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" obsidian --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --vault-dir "${OBSIDIAN_EXPORT_DIR:-$KB_DIR/obsidian}" "$@"\n',
         "sync_obsidian_vault.sh": 'OBSIDIAN_LITERATURE_DIR="${OBSIDIAN_LITERATURE_DIR:-$HOME/Documents/Obsidian Vault/01_Literatures}"\nOBSIDIAN_EXPORT_DIR="${OBSIDIAN_EXPORT_DIR:-$OBSIDIAN_LITERATURE_DIR/10_Scholar_Alert_Reader}"\nexec "$PROJECT_DIR/obsidian_export.sh" --vault-dir "$OBSIDIAN_EXPORT_DIR" "$@"\n',
         "enrich_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" enrich --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --limit "${LIMIT:-20}" --providers "${PROVIDERS:-openalex,crossref}" --update-library "$@"\n',
@@ -2933,6 +3025,7 @@ exec "${cmd[@]}"
                     "*.eml",
                     "import.bib",
                     "import.ris",
+                    "zotero.bib",
                     "feeds.txt",
                     "gmail_credentials.json",
                     "gmail_token.json",
@@ -3031,6 +3124,7 @@ exec "${cmd[@]}"
                     "./compare_papers.sh --paper-id <ID1>,<ID2>",
                     "./map_reader.sh",
                     "./zotero_export.sh",
+                    "ZOTERO_BIBTEX_PATH=~/Downloads/My_Library.bib ./zotero_sync.sh",
                     "./sync_obsidian_vault.sh",
                     "```",
                     "",
@@ -3833,6 +3927,113 @@ def merge_record_metadata_into_library(kb_dir: Path, records: list[dict[str, Any
     return changed
 
 
+def paper_best_doi(paper: Paper) -> str:
+    metadata = paper.metadata or {}
+    for provider in ["zotero", "bibtex", "ris", "openalex", "crossref"]:
+        value = metadata.get(provider)
+        if isinstance(value, dict):
+            doi = normalize_doi(str(value.get("doi", "")))
+            if doi:
+                return doi
+    return ""
+
+
+def merge_zotero_metadata(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(existing)
+    for key in ["citation_key", "item_key", "doi", "title", "uri", "synced_at"]:
+        value = incoming.get(key)
+        if value:
+            merged[key] = value
+    for key in ["pdf_paths", "source_files"]:
+        values: list[str] = []
+        for item in coerce_list(merged.get(key)):
+            if item not in values:
+                values.append(item)
+        for item in coerce_list(incoming.get(key)):
+            if item not in values:
+                values.append(item)
+        if values:
+            merged[key] = values
+    return merged
+
+
+def zotero_entries_from_bibtex(path: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for bibtex_path in bibliography_paths(path, ".bib"):
+        text = bibtex_path.read_text(encoding="utf-8", errors="replace")
+        for fields in parse_bibtex_entries(text):
+            metadata = zotero_metadata_from_bibtex_fields(fields, bibtex_path)
+            if metadata.get("title"):
+                records.append(metadata)
+    return records
+
+
+def zotero_match_index(library: list[Paper]) -> tuple[dict[str, Paper], dict[str, Paper]]:
+    by_title: dict[str, Paper] = {}
+    by_doi: dict[str, Paper] = {}
+    for paper in library:
+        title_key = normalize_title(paper.title)
+        if title_key:
+            by_title[title_key] = paper
+        doi = paper_best_doi(paper)
+        if doi:
+            by_doi[doi] = paper
+    return by_title, by_doi
+
+
+def sync_zotero_command(args: argparse.Namespace) -> None:
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    library = load_paper_library(kb_dir)
+    entries = zotero_entries_from_bibtex(args.bibtex)
+    by_title, by_doi = zotero_match_index(library)
+    matched = 0
+    unmatched: list[str] = []
+    pdf_paths = 0
+    for entry in entries:
+        doi = normalize_doi(str(entry.get("doi", "")))
+        title = str(entry.get("title", ""))
+        paper = by_doi.get(doi) if doi else None
+        if paper is None:
+            paper = by_title.get(normalize_title(title))
+        if paper is None:
+            unmatched.append(title)
+            continue
+        existing = paper.metadata.get("zotero", {}) if isinstance(paper.metadata.get("zotero"), dict) else {}
+        paper.metadata["zotero"] = merge_zotero_metadata(existing, entry)
+        matched += 1
+        pdf_paths += len(entry.get("pdf_paths", []) or [])
+
+    if matched:
+        save_paper_library(kb_dir, library)
+        write_kb_paper_pages(kb_dir, library)
+        write_kb_direction_pages(kb_dir, library, profile)
+        write_weekly_review(kb_dir, library, profile)
+    output = args.report or (kb_dir / "zotero" / "zotero_sync.md")
+    lines = [
+        "# Zotero Sync Report",
+        "",
+        f"- Source BibTeX: `{args.bibtex}`",
+        f"- Library papers: {len(library)}",
+        f"- Zotero entries: {len(entries)}",
+        f"- Matched papers: {matched}",
+        f"- Unmatched entries: {len(unmatched)}",
+        f"- PDF paths imported: {pdf_paths}",
+        "",
+    ]
+    if unmatched:
+        lines.extend(["## Unmatched Entries", ""])
+        lines.extend(f"- {title}" for title in unmatched[:50])
+        if len(unmatched) > 50:
+            lines.append(f"- ... {len(unmatched) - 50} more")
+        lines.append("")
+    write_report(output, "\n".join(lines).rstrip() + "\n")
+    print(f"Zotero entries: {len(entries)}")
+    print(f"Matched papers: {matched}")
+    print(f"PDF paths imported: {pdf_paths}")
+    print(f"Report: {output}")
+
+
 def refresh_library_markdown(kb_dir: Path, profile: dict[str, Any]) -> int:
     library = load_paper_library(kb_dir)
     write_kb_paper_pages(kb_dir, library)
@@ -4147,6 +4348,17 @@ def zotero_export_command(args: argparse.Namespace) -> None:
     print(f"Exported papers: {len(selected)}")
 
 
+def preferred_citation_key(record: dict[str, Any], existing: set[str]) -> str:
+    zotero = record.get("metadata", {}).get("zotero") if isinstance(record.get("metadata"), dict) else {}
+    key = str(zotero.get("citation_key", "")).strip() if isinstance(zotero, dict) else ""
+    if key and key not in existing:
+        existing.add(key)
+        return key
+    from .export import cite_key
+
+    return cite_key(record, existing)
+
+
 def obsidian_export_command(args: argparse.Namespace) -> None:
     from .copilot import (
         obsidian_note_name,
@@ -4155,7 +4367,6 @@ def obsidian_export_command(args: argparse.Namespace) -> None:
         render_reading_status,
         render_research_map,
     )
-    from .export import cite_key
 
     profile = load_profile(args.profile)
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
@@ -4179,7 +4390,7 @@ def obsidian_export_command(args: argparse.Namespace) -> None:
     (reading_dir / "Reading Status.md").write_text(render_reading_status(records, feedback=feedback), encoding="utf-8")
     existing_citation_keys: set[str] = set()
     for record in records:
-        citation_key = cite_key(record, existing_citation_keys)
+        citation_key = preferred_citation_key(record, existing_citation_keys)
         (papers_dir / f"{obsidian_note_name(record)}.md").write_text(
             render_obsidian_paper(record, feedback=feedback, citation_key=citation_key),
             encoding="utf-8",
@@ -4493,6 +4704,13 @@ def build_parser() -> argparse.ArgumentParser:
     zotero.add_argument("--limit", type=int, default=0, help="Max papers to export; 0 means no limit")
     zotero.add_argument("--output-dir", type=Path, help="Output directory. Defaults to kb-dir/zotero")
     zotero.set_defaults(func=zotero_export_command)
+
+    zotero_sync = sub.add_parser("zotero-sync", help="Read Better BibTeX/BibTeX metadata back into the retained library")
+    zotero_sync.add_argument("--profile", type=Path, required=True)
+    zotero_sync.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    zotero_sync.add_argument("--bibtex", type=Path, required=True, help="Better BibTeX/BibTeX export from Zotero")
+    zotero_sync.add_argument("--report", type=Path, help="Markdown report path. Defaults to kb-dir/zotero/zotero_sync.md")
+    zotero_sync.set_defaults(func=sync_zotero_command)
 
     obsidian = sub.add_parser("obsidian", help="Export an Obsidian-ready Markdown vault folder")
     obsidian.add_argument("--profile", type=Path, required=True)

@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.2`
+Version: `0.2.3`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -431,6 +431,17 @@ python3 scripts/scholar_reader.py zotero \
   --kb-dir knowledge_base
 ```
 
+Read Zotero / Better BibTeX metadata back into the retained library:
+
+```bash
+python3 scripts/scholar_reader.py zotero-sync \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --bibtex ~/Downloads/My_Library.bib
+```
+
+This matches retained papers by DOI or normalized title and stores Zotero citation keys, item keys, and local PDF paths under `metadata.zotero`. Obsidian exports then reuse the Zotero citation key and include linked PDF paths in paper-note frontmatter.
+
 Export an Obsidian-ready Markdown folder:
 
 ```bash
@@ -442,7 +453,7 @@ python3 scripts/scholar_reader.py obsidian \
 
 The Obsidian export is structured as `00_Dashboard/`, `01_Papers/`, `02_Maps/`, `03_Reading/`, `04_Answers/`, `05_Comparisons/`, and `06_Deep_Reads/` inside the target folder. Keep that generated folder separate from user-written reading notes and topic notes.
 
-Project scaffolds also provide `./status_reader.sh`, `./compare_papers.sh`, `./map_reader.sh`, `./zotero_export.sh`, `./obsidian_export.sh`, and `./sync_obsidian_vault.sh`.
+Project scaffolds also provide `./status_reader.sh`, `./compare_papers.sh`, `./map_reader.sh`, `./zotero_export.sh`, `./zotero_sync.sh`, `./obsidian_export.sh`, and `./sync_obsidian_vault.sh`.
 
 Check input-source readiness without running the full workflow:
 
@@ -540,6 +551,7 @@ Do not commit:
 - Gmail OAuth credentials or token files
 - raw mailbox exports
 - personal `import.bib` / `import.ris` files
+- personal `zotero.bib` read-back files
 - personal `feeds.txt` source lists
 - `reader.env`
 - `seen_papers.json`

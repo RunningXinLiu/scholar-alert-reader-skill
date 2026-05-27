@@ -18,7 +18,14 @@ def metadata(record: dict[str, Any], provider: str) -> dict[str, Any]:
 
 
 def best_doi(record: dict[str, Any]) -> str:
-    doi = metadata(record, "openalex").get("doi") or metadata(record, "crossref").get("doi") or ""
+    doi = (
+        metadata(record, "zotero").get("doi")
+        or metadata(record, "bibtex").get("doi")
+        or metadata(record, "ris").get("doi")
+        or metadata(record, "openalex").get("doi")
+        or metadata(record, "crossref").get("doi")
+        or ""
+    )
     return str(doi).replace("https://doi.org/", "").strip()
 
 

@@ -58,6 +58,8 @@ Capability boundary: ranking and literature-copilot commands are currently based
 - `knowledge_base/zotero/`: Zotero-ready BibTeX/RIS files.
 - `knowledge_base/obsidian/`: Obsidian-ready Markdown dashboard, paper notes, maps, reading status, library answers, comparisons, and deep reads. In a real vault, sync it into a generated folder such as `01_Literatures/10_Scholar_Alert_Reader/`.
 
+`zotero-sync` can read a Better BibTeX/BibTeX export back into `knowledge_base/library.json` so retained papers keep Zotero citation keys, item keys, and local PDF paths under `metadata.zotero`.
+
 Archive-tier papers should not enter the knowledge base by default; they stay in the run outputs and seen-state file only.
 
 ## Commands
@@ -285,6 +287,13 @@ Export to Zotero or Obsidian:
 python3 scripts/scholar_reader.py zotero \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base
+```
+
+```bash
+python3 scripts/scholar_reader.py zotero-sync \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --bibtex ~/Downloads/My_Library.bib
 ```
 
 ```bash

@@ -635,6 +635,9 @@ def render_obsidian_paper(
     year = best_year(record)
     journal = best_journal(record)
     authors = best_authors(record)
+    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    zotero = metadata.get("zotero") if isinstance(metadata.get("zotero"), dict) else {}
+    pdf_paths = [str(path) for path in zotero.get("pdf_paths", [])] if isinstance(zotero, dict) else []
     frontmatter = [
         "---",
         f"id: {record.get('id', '')}",
@@ -649,6 +652,8 @@ def render_obsidian_paper(
         f"journal: {yaml_scalar(journal)}",
         f"doi: {yaml_scalar(doi)}",
         f"url: {yaml_scalar(record.get('url', ''))}",
+        f"zotero_item_key: {yaml_scalar(zotero.get('item_key', '') if isinstance(zotero, dict) else '')}",
+        f"pdf_paths: {yaml_list(pdf_paths)}",
         "---",
         "",
     ]
@@ -657,6 +662,7 @@ def render_obsidian_paper(
         "",
         f"- Citation key: `{citation_key}`" if citation_key else "- Citation key: not assigned",
         f"- DOI: {doi or 'not found'}",
+        f"- Local PDF: {pdf_paths[0]}" if pdf_paths else "- Local PDF: not linked",
         f"- Year: {year or 'unknown'}",
         f"- Journal: {journal or 'unknown'}",
         f"- Authors: {', '.join(authors[:8]) if authors else 'unknown'}",
