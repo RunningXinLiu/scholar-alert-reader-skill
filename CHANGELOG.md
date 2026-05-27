@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.28 - 2026-05-27
+
+- Add section-aware full-text briefs that detect common paper sections, summarize coverage, and extract evidence by section.
+- Add a citation-readiness checklist and missing/weak section list to `full-text` reports.
+- Keep the existing full-text command interface while improving reports for downstream `review-pack` / `review-queue` workflows.
+
 ## v0.2.27 - 2026-05-27
 
 - Add source-specific setup guidance to `SOURCE_CHECK.md` so Gmail, Mail.app, mbox, BibTeX/RIS, web, RSS/Atom, and arXiv users get immediate next steps.

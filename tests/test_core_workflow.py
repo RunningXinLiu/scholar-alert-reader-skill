@@ -1185,10 +1185,22 @@ SCHEDULE_TIME=09:00
 Abstract
 This study uses ambient noise tomography and uncertainty quantification to image the Taiwan crust.
 
-Methods
+1 Introduction
+Ambient noise tomography is increasingly used to connect crustal structure with tectonic interpretation.
+
+2 Data
+We use continuous waveform data from a dense seismic array in Taiwan between 2020 and 2025.
+
+3 Methods
 We measure seismic surface wave dispersion from continuous waveform data and invert for crustal structure.
 
-Conclusions
+4 Results
+The resulting velocity model resolves a robust low velocity zone beneath the target region.
+
+5 Limitations
+The analysis does not resolve short-period scattering or all uncertainty sources in the inversion.
+
+6 Conclusions
 The results show a robust low velocity zone and demonstrate how ambient noise tomography can constrain tectonic interpretation.
 """.strip(),
                 encoding="utf-8",
@@ -1221,7 +1233,12 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             full_text_content = full_text_report.read_text(encoding="utf-8")
             self.assertIn("Full-Text Brief", full_text_content)
             self.assertIn("Profile Overlap", full_text_content)
+            self.assertIn("Section Coverage", full_text_content)
+            self.assertIn("Evidence By Section", full_text_content)
             self.assertIn("Methods Excerpt", full_text_content)
+            self.assertIn("Data / Study Area Excerpt", full_text_content)
+            self.assertIn("Citation Readiness Checklist", full_text_content)
+            self.assertIn("Missing Or Weak Sections", full_text_content)
 
             review_pack = root / "review_pack.md"
             subprocess.run(

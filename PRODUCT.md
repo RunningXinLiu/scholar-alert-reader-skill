@@ -20,7 +20,7 @@ Turn scattered paper alerts, bibliography exports, structured scholarly webpages
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and brief when the user provides a local file path. `review-pack` turns the selected paper, user profile, foundation, interested papers, and optional full-text cache into an LLM-ready markdown context pack, but public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
+Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and section-aware brief when the user provides a local file path. `review-pack` turns the selected paper, user profile, foundation, interested papers, and optional full-text cache into an LLM-ready markdown context pack, but public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
 
 ## User Tiers
 
@@ -55,9 +55,9 @@ For users who want citation/PDF management.
 
 - Export: BibTeX and RIS from retained papers.
 - Read-back: Better BibTeX/BibTeX exports can add citation keys, Zotero item keys, and local PDF paths back into retained papers.
-- Full-text scaffold: local PDF/text paths can be extracted into text caches, brief reports, and batch review queues.
+- Full-text scaffold: local PDF/text paths can be extracted into text caches, section-aware brief reports, and batch review queues.
 - Obsidian paper notes include citation-oriented frontmatter such as `citation_key`, `doi`, `year`, and `journal`.
-- Future direction: add stronger section-aware parsing and optional LLM review over extracted local text.
+- Future direction: add stronger table/figure-aware parsing and optional LLM review over extracted local text.
 
 ## Product Requirements
 
@@ -76,6 +76,7 @@ For users who want citation/PDF management.
 - A user without Gmail or Zotero can import structured scholarly webpage metadata through `web_sources.txt`, monitor feeds through `feeds.txt`, or run targeted arXiv queries.
 - A user can tune ranking with focus terms, methods, regions, authors, exclusions, semantic queries, adaptive feedback similarity, temporary boosts, explicit paper feedback, and generated profile-tuning reports.
 - A user can generate a browser-friendly next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability; normal knowledge-base-updating runs refresh it automatically.
+- A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, missing-section notes, and citation-readiness checks.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.
@@ -86,6 +87,6 @@ For users who want citation/PDF management.
 
 ## Roadmap
 
-- Better section-aware parsing for extracted local PDF text.
+- Optional LLM review over extracted local full-text caches.
 - More demo scenarios with sanitized sample alerts, feedback, retained-library files, capability reports, and support-bundle outputs.
 - Optional PyPI release packaging after the GitHub install path is stable.

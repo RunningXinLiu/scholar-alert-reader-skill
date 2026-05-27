@@ -21,6 +21,78 @@ class ExtractedText:
     source_path: Path
 
 
+@dataclass
+class SectionExcerpt:
+    key: str
+    label: str
+    heading: str
+    excerpt: str
+
+
+SECTION_ORDER = [
+    "abstract",
+    "introduction",
+    "data",
+    "methods",
+    "results",
+    "discussion",
+    "limitations",
+    "conclusions",
+]
+
+SECTION_LABELS = {
+    "abstract": "Abstract / Summary",
+    "introduction": "Introduction / Motivation",
+    "data": "Data / Study Area",
+    "methods": "Methods",
+    "results": "Results / Findings",
+    "discussion": "Discussion / Interpretation",
+    "limitations": "Limitations / Caveats",
+    "conclusions": "Conclusions",
+}
+
+SECTION_ALIASES = {
+    "abstract": "abstract",
+    "summary": "abstract",
+    "introduction": "introduction",
+    "background": "introduction",
+    "motivation": "introduction",
+    "related work": "introduction",
+    "study area": "data",
+    "geological setting": "data",
+    "tectonic setting": "data",
+    "data": "data",
+    "dataset": "data",
+    "datasets": "data",
+    "observations": "data",
+    "materials": "data",
+    "data and methods": "methods",
+    "materials and methods": "methods",
+    "method": "methods",
+    "methods": "methods",
+    "methodology": "methods",
+    "model": "methods",
+    "models": "methods",
+    "inversion": "methods",
+    "experimental setup": "methods",
+    "experiments": "methods",
+    "results": "results",
+    "result": "results",
+    "findings": "results",
+    "analysis": "results",
+    "discussion": "discussion",
+    "interpretation": "discussion",
+    "discussion and conclusions": "discussion",
+    "limitations": "limitations",
+    "limitation": "limitations",
+    "caveats": "limitations",
+    "uncertainty and limitations": "limitations",
+    "conclusion": "conclusions",
+    "conclusions": "conclusions",
+    "concluding remarks": "conclusions",
+}
+
+
 def clean_full_text(value: str, max_chars: int = 120_000) -> str:
     value = value.replace("\x00", " ")
     value = re.sub(r"[ \t]+", " ", value)
@@ -163,6 +235,84 @@ def top_full_text_terms(full_text: str, limit: int = 20) -> list[tuple[str, int]
     return Counter(token.strip("-") for token in tokens if token.strip("-") not in stop).most_common(limit)
 
 
+def normalize_heading(value: str) -> str:
+    value = re.sub(r"^\s*(?:section\s+)?(?:[ivxlcdm]+|\d+)(?:[.\-)]\d+)*[.\-):]?\s+", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"[^a-z0-9/& -]+", "", value.lower())
+    value = value.replace("&", " and ")
+    value = re.sub(r"\s+", " ", value).strip(" -:")
+    return value
+
+
+def detect_section_key(line: str) -> tuple[str, str] | None:
+    stripped = line.strip()
+    if not stripped or len(stripped) > 90:
+        return None
+    if stripped.endswith((".", "?", "!")):
+        return None
+    if len(stripped.split()) > 9:
+        return None
+    normalized = normalize_heading(stripped)
+    if not normalized:
+        return None
+    if normalized in SECTION_ALIASES:
+        key = SECTION_ALIASES[normalized]
+        return key, stripped
+    for alias, key in SECTION_ALIASES.items():
+        if normalized.startswith(alias + " ") or normalized.endswith(" " + alias):
+            return key, stripped
+    return None
+
+
+def section_sentences(section_text: str, profile: dict[str, Any], limit: int = 2) -> list[str]:
+    selected = representative_sentences(section_text, profile, limit)
+    if selected:
+        return selected[:limit]
+    return sentence_candidates(section_text)[:limit]
+
+
+def extract_section_excerpts(full_text: str, max_chars: int = 1000) -> dict[str, SectionExcerpt]:
+    sections: dict[str, SectionExcerpt] = {}
+    current_key: str | None = None
+    current_heading = ""
+    current_lines: list[str] = []
+
+    def flush() -> None:
+        nonlocal current_key, current_heading, current_lines
+        if not current_key:
+            current_lines = []
+            return
+        excerpt = clean_full_text("\n".join(current_lines), max_chars=max_chars)
+        if len(excerpt) >= 24:
+            previous = sections.get(current_key)
+            if previous is None or len(excerpt) > len(previous.excerpt):
+                sections[current_key] = SectionExcerpt(
+                    key=current_key,
+                    label=SECTION_LABELS[current_key],
+                    heading=current_heading,
+                    excerpt=excerpt,
+                )
+        current_key = None
+        current_heading = ""
+        current_lines = []
+
+    for raw_line in full_text.splitlines():
+        detected = detect_section_key(raw_line)
+        if detected:
+            flush()
+            current_key, current_heading = detected
+            current_lines = []
+            continue
+        if current_key:
+            current_lines.append(raw_line)
+    flush()
+    return sections
+
+
+def remove_detected_section_headings(full_text: str) -> str:
+    lines = [line for line in full_text.splitlines() if detect_section_key(line) is None]
+    return "\n".join(lines)
+
+
 def find_section_excerpt(full_text: str, names: list[str], max_chars: int = 900) -> str:
     pattern = r"(?im)^\s*(?:" + "|".join(re.escape(name) for name in names) + r")\s*$"
     match = re.search(pattern, full_text)
@@ -181,12 +331,16 @@ def render_full_text_brief(
     text_output: Path,
 ) -> str:
     full_text = extracted.text
-    hits = profile_hits_in_text(full_text, profile)
-    terms = top_full_text_terms(full_text, 16)
-    sentences = representative_sentences(full_text, profile, 8)
-    abstract = find_section_excerpt(full_text, ["Abstract", "Summary"], max_chars=900)
-    methods = find_section_excerpt(full_text, ["Methods", "Method", "Data and Methods", "Methodology"], max_chars=900)
-    conclusions = find_section_excerpt(full_text, ["Conclusions", "Conclusion", "Discussion and Conclusions"], max_chars=900)
+    analysis_text = remove_detected_section_headings(full_text)
+    hits = profile_hits_in_text(analysis_text, profile)
+    terms = top_full_text_terms(analysis_text, 16)
+    sentences = representative_sentences(analysis_text, profile, 8)
+    sections = extract_section_excerpts(full_text)
+    abstract = sections.get("abstract").excerpt if sections.get("abstract") else find_section_excerpt(full_text, ["Abstract", "Summary"], max_chars=900)
+    methods = sections.get("methods").excerpt if sections.get("methods") else find_section_excerpt(full_text, ["Methods", "Method", "Data and Methods", "Methodology"], max_chars=900)
+    conclusions = sections.get("conclusions").excerpt if sections.get("conclusions") else find_section_excerpt(full_text, ["Conclusions", "Conclusion", "Discussion and Conclusions"], max_chars=900)
+    found_section_labels = [SECTION_LABELS[key] for key in SECTION_ORDER if key in sections]
+    missing_section_labels = [SECTION_LABELS[key] for key in SECTION_ORDER if key not in sections]
 
     lines = [
         f"# Full-Text Brief: {text(record.get('title', 'Untitled'))}",
@@ -207,17 +361,50 @@ def render_full_text_brief(
     lines.append("- " + ", ".join(hits[:20]) if hits else "- No configured profile terms were found verbatim in the extracted text.")
     lines.extend(["", "## Frequent Terms", ""])
     lines.append("- " + "; ".join(f"{term} ({count})" for term, count in terms) if terms else "- No stable terms extracted.")
-    if abstract:
+    lines.extend(["", "## Section Coverage", ""])
+    lines.append("- Found: " + ", ".join(found_section_labels) if found_section_labels else "- Found: no standard paper sections detected.")
+    lines.append("- Missing or weak: " + ", ".join(missing_section_labels) if missing_section_labels else "- Missing or weak: none of the tracked sections.")
+    lines.extend(["", "## Evidence By Section", ""])
+    if sections:
+        for key in SECTION_ORDER:
+            section = sections.get(key)
+            if not section:
+                continue
+            lines.extend([f"### {section.label} Excerpt", "", section.excerpt, "", "Inspection targets:"])
+            section_focus = section_sentences(section.excerpt, profile, limit=2)
+            if section_focus:
+                lines.extend(f"- {sentence}" for sentence in section_focus)
+            else:
+                lines.append("- Inspect this section manually; no concise sentence candidate was detected.")
+            lines.append("")
+    else:
+        lines.append("- No standard sections were detected. Inspect the full text cache and consider passing a cleaner `.txt` export.")
+    if abstract and "abstract" not in sections:
         lines.extend(["", "## Abstract / Summary Excerpt", "", abstract])
-    if methods:
+    if methods and "methods" not in sections:
         lines.extend(["", "## Methods Excerpt", "", methods])
-    if conclusions:
+    if conclusions and "conclusions" not in sections:
         lines.extend(["", "## Conclusion Excerpt", "", conclusions])
     lines.extend(["", "## Sentences To Inspect", ""])
     if sentences:
         lines.extend(f"- {sentence}" for sentence in sentences)
     else:
         lines.append("- No profile-weighted sentences found. Inspect the text cache manually.")
+    lines.extend(
+        [
+            "",
+            "## Citation Readiness Checklist",
+            "",
+            "- Problem and claimed contribution: verify from the introduction, abstract, and conclusion before citing.",
+            "- Data and study area: verify stations, catalog, region, period, preprocessing, and any selection bias.",
+            "- Method assumptions: inspect equations, model parameterization, training/inversion setup, uncertainty treatment, and baselines.",
+            "- Main results: check whether figures/tables support the claim you want to cite.",
+            "- Limits and failure modes: look for caveats in discussion, limitations, supplement, and data/code availability.",
+        ]
+    )
+    if missing_section_labels:
+        lines.extend(["", "## Missing Or Weak Sections", ""])
+        lines.extend(f"- {label}" for label in missing_section_labels)
     lines.extend(
         [
             "",
