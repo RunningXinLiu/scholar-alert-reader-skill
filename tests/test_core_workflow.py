@@ -114,6 +114,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "copy_profile_template.sh").exists())
             self.assertTrue((project / "setup_reader.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
+            self.assertTrue((project / "self_test.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "bibtex_import.sh").exists())
             self.assertTrue((project / "ris_import.sh").exists())
@@ -130,6 +131,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn(".self_test/", (project / ".gitignore").read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Product Modes", start_here)
             self.assertIn("Capability boundary", start_here)
@@ -536,6 +538,32 @@ ER  -
                 check=True,
             )
             self.assertIn("Scholar Alert Reader Doctor", report.read_text(encoding="utf-8"))
+
+    def test_self_test_command_runs_end_to_end(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "self-test-project"
+            report = root / "self-test.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "self-test",
+                    "--project-dir",
+                    str(project),
+                    "--output",
+                    str(report),
+                    "--strict",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Scholar Alert Reader Self-Test", content)
+            self.assertIn("Result: PASS", content)
+            self.assertTrue((project / "reader_out" / "self_test_demo" / "digest.html").exists())
+            self.assertTrue((project / "reader_out" / "self_test_demo" / "papers.json").exists())
 
     def test_guide_command_writes_product_setup_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

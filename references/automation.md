@@ -6,12 +6,15 @@ For a new workspace, initialize the local project first:
 
 ```bash
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+cd ~/scholar_alerts
+./self_test.sh
 ```
+
+`self_test.sh` uses bundled sample data only. It verifies the Python CLI, project scaffold, sample mbox parsing, sample RSS parsing, digest generation, and doctor report before connecting Gmail or personal files.
 
 Then persist local defaults so scheduled runs do not depend on a long command line:
 
 ```bash
-cd ~/scholar_alerts
 ./setup_reader.sh --source auto --profile-template ai-seismology --schedule-time 09:00 --schedule-days weekdays
 ```
 

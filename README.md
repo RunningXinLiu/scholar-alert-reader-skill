@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.7`
+Version: `0.2.8`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -56,6 +56,7 @@ You can run the core tool from any terminal or from any coding agent that can ac
 ```bash
 git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
+python3 scripts/scholar_reader.py self-test --strict
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
 ./setup_reader.sh --source auto --profile-template ai-seismology
@@ -100,6 +101,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, and temporary boost terms.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste.
+- Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
 - Adds a literature-copilot layer: selected-paper deep reads, local-library Q&A, paper comparison, research maps, and gap/advice reports.
 - Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
@@ -205,6 +207,12 @@ Create a runnable local project:
 ```bash
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
+```
+
+Run the bundled-data self-test. It does not read Gmail, Mail.app, Zotero, Obsidian, or any personal files:
+
+```bash
+./self_test.sh
 ```
 
 Open the generated onboarding guide:
@@ -551,6 +559,7 @@ Supported export formats are `bibtex`, `ris`, `markdown`, and `jsonl`.
 Check a local setup:
 
 ```bash
+python3 scripts/scholar_reader.py self-test --strict
 python3 scripts/scholar_reader.py doctor \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \

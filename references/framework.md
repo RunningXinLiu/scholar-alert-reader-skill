@@ -20,6 +20,7 @@ Use this reference when changing the skill implementation rather than a user's p
 - Preserve existing commands: `foundation`, `daily`, `run`, `feedback`, and `auth-gmail`.
 - Preserve `init-project` generated script names because users may automate them.
 - New capabilities should usually be subcommands, not hidden flags on `daily`.
+- Keep `self-test` private-data-free. It should use bundled sample files and should not read Gmail, Mail.app, Zotero, Obsidian, or user-provided source files unless explicitly configured.
 - Keep scoring explainable: exact profile terms and local `semantic_queries` should produce visible matched terms and reasons.
 - Keep `profile-tune` conservative. Default to report-only; require `--apply` before writing suggested terms into a user profile.
 - Keep `doctor` dependency-light and safe: it should report paths and counts, not secret token contents.

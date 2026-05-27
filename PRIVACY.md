@@ -12,6 +12,8 @@ The tool may read:
 - Local profile files.
 - Local generated state such as `reader.env`, `seen_papers.json`, `feedback.json`, and `knowledge_base/`, including profile-tuning reports, optional full-text extraction caches, and review context packs.
 
+`self-test` uses bundled sample data only by default. If a user passes `--project-dir`, the generated self-test project may still contain local generated outputs and should be treated as disposable/private.
+
 Do not commit or publish raw mailbox exports, personal bibliography imports, personal Zotero/Better BibTeX read-back files, personal feed lists, `reader.env`, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, profile-tuning reports, extracted full-text caches, review context packs, or generated knowledge-base outputs unless you have intentionally reviewed and sanitized them.
 
 ## External Requests

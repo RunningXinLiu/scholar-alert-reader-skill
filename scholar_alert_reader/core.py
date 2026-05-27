@@ -2856,20 +2856,21 @@ def render_project_guide(
         "",
         "## First Run",
         "",
-        "0. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
-        "1. Configure your local defaults once with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
-        "2. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
+        "0. Verify the install with bundled sample data: `./self_test.sh`.",
+        "1. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
+        "2. Configure your local defaults once with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
+        "3. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
         f"   - Current profile: `{profile_name}`.",
         f"   - Bundled templates copied to `profiles/templates/`: {template_line}.",
         "   - To reset from a template, run for example: `./copy_profile_template.sh --template ai-seismology --force`.",
-        "3. Choose an input source:",
+        "4. Choose an input source:",
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
         "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
         "   - Bibliography import: place `import.bib` or `import.ris` in this project, then run `./bibtex_import.sh` or `./ris_import.sh`.",
         "   - Structured web sources: place feed URLs in `feeds.txt` and run `./rss_import.sh`, or set `ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh`.",
-        "4. Build the baseline with `MODE=foundation ./run_reader.sh`.",
-        "5. Run daily triage with `./run_reader.sh`.",
-        "6. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
+        "5. Build the baseline with `MODE=foundation ./run_reader.sh`.",
+        "6. Run daily triage with `./run_reader.sh`.",
+        "7. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
         "",
         "## Persistent Configuration",
         "",
@@ -3078,6 +3079,7 @@ exec "${cmd[@]}"
         "rss_import.sh": 'SOURCE=rss RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/rss}" "$PROJECT_DIR/run_reader.sh"\n',
         "arxiv_search.sh": 'if [[ -z "${ARXIV_QUERY:-}" ]]; then echo "Set ARXIV_QUERY before running arxiv_search.sh" >&2; exit 2; fi\nSOURCE=arxiv MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/arxiv}" "$PROJECT_DIR/run_reader.sh"\n',
         "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
+        "self_test.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" self-test --project-dir "${SELF_TEST_PROJECT_DIR:-$PROJECT_DIR/.self_test}" --force "$@"\n',
         "setup_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" setup --project-dir "$PROJECT_DIR" "$@"\n',
         "copy_profile_template.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" init-profile --profile "$PROFILE_PATH" "$@"\n',
         "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
@@ -3130,6 +3132,7 @@ exec "${cmd[@]}"
                     "client_secret*.json",
                     "reader.env",
                     "profiles/*.bak",
+                    ".self_test/",
                     "seen_papers.json",
                     "knowledge_base/feedback.json",
                     "",
@@ -3158,6 +3161,7 @@ exec "${cmd[@]}"
                     "## First run",
                     "",
                     "```bash",
+                    "./self_test.sh",
                     "./demo_reader.sh",
                     "./setup_reader.sh --source auto --profile-template ai-seismology",
                     "./source_check.sh --source auto",
@@ -3245,9 +3249,10 @@ exec "${cmd[@]}"
 
     write_project_guide(project_dir, profile_path, kb_dir, out_dir, args.force)
 
-    print(f"Project initialized: {project_dir}")
-    print(f"Profile: {profile_path}")
-    print(f"Run: {project_dir / 'run_reader.sh'}")
+    if not getattr(args, "quiet", False):
+        print(f"Project initialized: {project_dir}")
+        print(f"Profile: {profile_path}")
+        print(f"Run: {project_dir / 'run_reader.sh'}")
 
 
 def default_schedule_values(profile: dict[str, Any]) -> tuple[str, str, str]:
@@ -3876,6 +3881,148 @@ def source_check_command(args: argparse.Namespace) -> None:
     else:
         print(report.rstrip())
     if args.strict and not ok:
+        raise SystemExit(1)
+
+
+def self_test_run_command(cmd: list[str], cwd: Path) -> tuple[bool, str]:
+    result = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, check=False)
+    detail = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
+    if result.returncode != 0 and result.stderr.strip():
+        detail = result.stderr.strip()
+    return result.returncode == 0, detail.splitlines()[-1] if detail else f"exit {result.returncode}"
+
+
+def self_test_command(args: argparse.Namespace) -> None:
+    temp_dir: tempfile.TemporaryDirectory[str] | None = None
+    if args.project_dir:
+        project_dir = args.project_dir.expanduser().resolve()
+        if project_dir.exists() and any(project_dir.iterdir()) and not args.force:
+            raise SystemExit(f"Self-test project directory is not empty: {project_dir}. Use --force or choose another path.")
+        project_dir.mkdir(parents=True, exist_ok=True)
+        keep_project = True
+    elif args.keep:
+        project_dir = Path(tempfile.mkdtemp(prefix="scholar-alert-reader-self-test-")) / "project"
+        keep_project = True
+    else:
+        temp_dir = tempfile.TemporaryDirectory()
+        project_dir = Path(temp_dir.name) / "scholar-alert-reader-self-test"
+        keep_project = False
+
+    checks: list[tuple[str, bool, str]] = []
+    script = skill_wrapper_path()
+    profile = project_dir / "profiles" / "research_profile.json"
+    kb_dir = project_dir / "knowledge_base"
+    demo_out = project_dir / "reader_out" / "self_test_demo"
+    mbox = project_dir / "examples" / "sample_scholar_alerts.mbox"
+    rss = project_dir / "examples" / "sample_feed.atom"
+
+    try:
+        init_project(argparse.Namespace(project_dir=project_dir, profile_template=args.profile_template, force=True, quiet=True))
+        checks.append(("init-project", True, str(project_dir)))
+    except Exception as exc:
+        checks.append(("init-project", False, str(exc) or exc.__class__.__name__))
+
+    if checks[-1][1]:
+        ok, detail = self_test_run_command(
+            [
+                sys.executable,
+                str(script),
+                "run",
+                "--source-mbox",
+                str(mbox),
+                "--profile",
+                str(profile),
+                "--out-dir",
+                str(demo_out),
+                "--kb-dir",
+                str(kb_dir),
+                "--no-kb-update",
+            ],
+            project_dir,
+        )
+        checks.append(("sample mbox run", ok, detail))
+
+        summary_path = demo_out / "summary.json"
+        digest_path = demo_out / "digest.html"
+        papers_path = demo_out / "papers.json"
+        if summary_path.exists():
+            summary = load_json(summary_path)
+            checks.append(("summary.json", True, f"{summary.get('papers_in_digest', 0)} papers in digest"))
+        else:
+            checks.append(("summary.json", False, str(summary_path)))
+        checks.append(("digest.html", digest_path.exists(), str(digest_path)))
+        checks.append(("papers.json", papers_path.exists(), str(papers_path)))
+
+        ok, detail = self_test_run_command(
+            [
+                sys.executable,
+                str(script),
+                "source-check",
+                "--project-dir",
+                str(project_dir),
+                "--source",
+                "rss",
+                "--rss-source",
+                str(rss),
+                "--live",
+            ],
+            project_dir,
+        )
+        checks.append(("sample RSS source-check", ok, detail))
+
+        ok, detail = self_test_run_command(
+            [
+                sys.executable,
+                str(script),
+                "doctor",
+                "--profile",
+                str(profile),
+                "--kb-dir",
+                str(kb_dir),
+                "--out-dir",
+                str(demo_out),
+            ],
+            project_dir,
+        )
+        checks.append(("doctor", ok, detail))
+
+    passed = all(ok for _, ok, _ in checks)
+    lines = [
+        "# Scholar Alert Reader Self-Test",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Result: {'PASS' if passed else 'WARN'}",
+        f"- Project: `{project_dir}`",
+        f"- Project retained: `{bool(keep_project or args.project_dir)}`",
+        "",
+        "## Checks",
+        "",
+    ]
+    for name, ok, detail in checks:
+        marker = "OK" if ok else "WARN"
+        lines.append(f"- [{marker}] {name}: {detail}")
+    lines.extend(
+        [
+            "",
+            "## Artifacts",
+            "",
+            f"- Demo digest: `{digest_path}`",
+            f"- Demo papers JSON: `{papers_path}`",
+            f"- Demo summary: `{summary_path}`",
+            "",
+            "This command uses bundled sample data only. It does not read Gmail, Mail.app, user mailboxes, Zotero, Obsidian, or external private files.",
+        ]
+    )
+    report = "\n".join(lines).rstrip() + "\n"
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(report, encoding="utf-8")
+        print(f"Self-test report: {args.output}")
+    else:
+        print(report.rstrip())
+    if temp_dir is None and keep_project:
+        print(f"Self-test project retained: {project_dir}")
+    if args.strict and not passed:
         raise SystemExit(1)
 
 
@@ -4737,6 +4884,15 @@ def build_parser() -> argparse.ArgumentParser:
     source_check.add_argument("--strict", action="store_true", help="Exit non-zero if any check warns")
     source_check.add_argument("--output", type=Path, help="Write markdown report to this path")
     source_check.set_defaults(func=source_check_command)
+
+    self_test = sub.add_parser("self-test", help="Run a bundled-data end-to-end installation smoke test")
+    self_test.add_argument("--project-dir", type=Path, help="Optional self-test project directory. Defaults to a temporary directory.")
+    self_test.add_argument("--profile-template", default="ai-seismology", help="Bundled profile template used for the temporary test project")
+    self_test.add_argument("--keep", action="store_true", help="Keep the temporary self-test project for inspection")
+    self_test.add_argument("--force", action="store_true", help="Allow reusing a non-empty --project-dir")
+    self_test.add_argument("--strict", action="store_true", help="Exit non-zero if any self-test check warns")
+    self_test.add_argument("--output", type=Path, help="Write markdown report to this path")
+    self_test.set_defaults(func=self_test_command)
 
     auth = sub.add_parser("auth-gmail", help="Run the one-time Gmail OAuth browser flow")
     auth.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)

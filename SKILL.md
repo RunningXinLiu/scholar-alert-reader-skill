@@ -12,23 +12,24 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 ## Workflow
 
 1. For a new local setup, run `init-project` to create profiles, outputs, knowledge-base directories, helper scripts, and `START_HERE.md`.
-2. Run `./demo_reader.sh` first when the user wants to test without connecting Gmail, Obsidian, or Zotero.
-3. Run `./setup_reader.sh` or the `setup` command to persist local defaults in `reader.env` when the user has chosen a source, profile template, schedule, or integration paths.
-4. Choose a source:
+2. Run `self-test` or `./self_test.sh` first when the user wants to verify the install without connecting Gmail, Obsidian, Zotero, or private files.
+3. Run `./demo_reader.sh` when the user wants to inspect the sample digest output.
+4. Run `./setup_reader.sh` or the `setup` command to persist local defaults in `reader.env` when the user has chosen a source, profile template, schedule, or integration paths.
+5. Choose a source:
    - Gmail API: preferred for automation after OAuth setup.
    - Mail.app: works locally on macOS after Automation permission.
    - `.mbox`: works from exported Gmail/Apple Mail archives.
    - BibTeX/RIS: works from Zotero, EndNote, Google Scholar library, publisher, and database exports.
    - RSS/Atom or arXiv: works for structured web monitoring without scraping arbitrary pages.
-5. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the exact terms and `semantic_queries`.
-6. First run: use `foundation` to build the seen-paper baseline.
-7. Later runs: use `daily` so only papers not already in the state file are reported.
-8. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
-9. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
-10. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-11. Use `deep-read`, `full-text`, `review-pack`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
-12. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-13. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` when diagnosing local setup problems.
+6. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the exact terms and `semantic_queries`.
+7. First run: use `foundation` to build the seen-paper baseline.
+8. Later runs: use `daily` so only papers not already in the state file are reported.
+9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
+10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
+11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
+12. Use `deep-read`, `full-text`, `review-pack`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+13. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
+14. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` when diagnosing local setup problems.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -73,6 +74,12 @@ Create a local project:
 
 ```bash
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts --profile-template ai-seismology
+```
+
+Run the bundled-data self-test:
+
+```bash
+python3 scripts/scholar_reader.py self-test --strict
 ```
 
 List or copy bundled profile templates:

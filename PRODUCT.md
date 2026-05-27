@@ -30,7 +30,7 @@ For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, RSS/Atom feeds, or arXiv queries.
 - Output: `digest.html`, `digest.md`, `papers.json`, `knowledge_base/`.
-- Main actions: profile-based ranking, feedback UI, scheduled/manual digest, profile-tune, deep-read, full-text, review-pack, ask-library, advice, compare, map.
+- Main actions: self-test, profile-based ranking, feedback UI, scheduled/manual digest, profile-tune, deep-read, full-text, review-pack, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -63,6 +63,7 @@ For users who want citation/PDF management.
 - A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
+- A new user can run a bundled-data `self-test` before connecting private email, Zotero, Obsidian, or external feeds.
 - A new user can persist local defaults with `setup` / `setup_reader.sh` instead of repeatedly typing source, schedule, Obsidian, or Zotero path environment variables.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - A user without Gmail or Zotero can monitor structured web feeds through `feeds.txt` or run targeted arXiv queries.

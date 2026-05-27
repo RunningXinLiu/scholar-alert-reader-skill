@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.8 - 2026-05-27
+
+- Add `self-test` / generated `self_test.sh` for bundled-data end-to-end install validation.
+- Verify project scaffolding, sample mbox parsing, sample RSS source checking, digest artifacts, and doctor output without reading private data.
+- Add self-test guidance to README, SKILL, automation notes, privacy notes, and project scaffolds.
+
 ## v0.2.7 - 2026-05-27
 
 - Add `profile-tune` / generated `tune_profile.sh` to suggest profile updates from interested/archive and more-like-this/less-like-this feedback.
