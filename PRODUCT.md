@@ -90,6 +90,7 @@ For users who want citation/PDF management.
 - A user can open `review_queue.md` or `review_queue.html` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
 - Successful generated `run_reader.sh` runs should refresh `profiles/profile_doctor.md` and `DASHBOARD.md` / `DASHBOARD.html` automatically, with escape hatches for scripted users who set `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0`.
 - Zero-paper explanations should appear in terminal output, `summary.json`, `digest.md/html`, and the Dashboard, not only in logs.
+- A user can run `privacy-check` / `privacy_check.sh` before sharing a project folder, screenshots, support bundle, issue attachment, or zip archive; it should list risky paths and `.gitignore` gaps without exposing file contents.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - LaunchAgent install/uninstall must be explicit; default schedule generation should be a safe write/preview step.

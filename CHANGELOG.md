@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.44 - 2026-05-28
+
+- Add `privacy-check` / `privacy-audit` plus generated `privacy_check.sh` to scan local projects for files that should not be published.
+- Report high-risk files, review-before-sharing files, recommended `.gitignore` coverage, and strict-mode failures before public sharing or issue attachments.
+- Surface privacy checks in quickstart, generated guides, dashboards, capabilities, README, SKILL guidance, product notes, privacy policy, and tests.
+
 ## v0.2.43 - 2026-05-28
 
 - Add `explain-ranking` / `rank-explain` plus generated `explain_ranking.sh` to explain selected papers' current score, tier, matched terms, feedback state, thresholds, and tuning moves.

@@ -214,6 +214,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "arxiv_search.sh").exists())
             self.assertTrue((project / "doctor_reader.sh").exists())
             self.assertTrue((project / "support_bundle.sh").exists())
+            self.assertTrue((project / "privacy_check.sh").exists())
             self.assertTrue((project / "capabilities.sh").exists())
             self.assertTrue((project / "dashboard_reader.sh").exists())
             self.assertTrue((project / "guide_reader.sh").exists())
@@ -232,14 +233,19 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "TROUBLESHOOTING.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("zotero.ris", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("*.mbox.partial", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("*.pdf", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("web_sources.txt", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn(".self_test/", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("PRIVACY_CHECK.md", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("profiles/profile_onboarding.md", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("profiles/profile_doctor.md", (project / ".gitignore").read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Product Modes", start_here)
             self.assertIn("Capability boundary", start_here)
             self.assertIn("./capabilities.sh", start_here)
+            self.assertIn("./privacy_check.sh", start_here)
             self.assertIn("DASHBOARD.html", start_here)
             self.assertIn("Bundled templates", start_here)
             self.assertIn("./profile_wizard.sh", start_here)
@@ -371,6 +377,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Latest digest HTML", dashboard)
             self.assertIn("Review Workflow", dashboard)
             self.assertIn("Profile Health", dashboard)
+            self.assertIn("Privacy check", dashboard)
             self.assertIn("profile_doctor.md", dashboard)
             self.assertIn("sample_web_article.html", dashboard)
             self.assertTrue((project / "profiles" / "profile_doctor.md").exists())
@@ -401,6 +408,70 @@ class CoreWorkflowTests(unittest.TestCase):
                 env={**os.environ, "PYTHONPATH": str(ROOT), "SKILL_SCRIPT": str(project / "missing_scholar_reader.py")},
             )
             self.assertIn("mbox parse", module_fallback.stdout)
+
+    def test_privacy_check_flags_private_project_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "reader"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "init-project",
+                    "--project-dir",
+                    str(project),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            (project / "client_secret_test.json").write_text("{}", encoding="utf-8")
+            (project / "INBOX.mbox.partial").write_text("From private@example.org\n", encoding="utf-8")
+            (project / "reader.env").write_text("export GMAIL_TOKEN=/tmp/token.json\n", encoding="utf-8")
+            (project / "import.bib").write_text("@article{private,title={Private Paper}}\n", encoding="utf-8")
+            (project / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+            analysis_dir = project / "knowledge_base" / "analysis"
+            analysis_dir.mkdir(parents=True, exist_ok=True)
+            (project / "knowledge_base" / "feedback.json").write_text('{"papers": {"p1": {}}}', encoding="utf-8")
+            (analysis_dir / "p1_review_pack.md").write_text("private review context", encoding="utf-8")
+
+            report = project / "PRIVACY_CHECK.md"
+            result = subprocess.run(
+                [
+                    str(project / "privacy_check.sh"),
+                    "--output",
+                    str(report),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Result: FAIL", result.stdout)
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Privacy Check", content)
+            self.assertIn("High Risk: Do Not Publish", content)
+            self.assertIn("client_secret_test.json", content)
+            self.assertIn("INBOX.mbox.partial", content)
+            self.assertIn("reader.env", content)
+            self.assertIn("knowledge_base/feedback.json", content)
+            self.assertIn("knowledge_base/analysis/p1_review_pack.md", content)
+            self.assertIn("Do not publish", content)
+            self.assertIn("Git Ignore Coverage", content)
+            self.assertNotIn("sample_scholar_alerts.mbox - Raw mailbox export", content)
+
+            strict = subprocess.run(
+                [
+                    str(project / "privacy_check.sh"),
+                    "--strict",
+                    "--output",
+                    str(report),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(strict.returncode, 0)
 
     def test_setup_wizard_initializes_project_with_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

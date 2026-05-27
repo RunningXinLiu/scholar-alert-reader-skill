@@ -33,7 +33,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
 14. Use `reading-plan`, `explain-ranking`, `deep-read`, `workup`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
+16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `privacy-check`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems or preparing public reports.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -49,6 +49,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `deep_read_queue.md`: top papers for actual reading.
 - `seen_papers.json`: dedupe state; can include every alert item.
 - `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, profile health, library files, setup reports, and next actions.
+- `PRIVACY_CHECK.md`: local report of files that should not be published, review-before-sharing files, and recommended `.gitignore` coverage.
 - `SCHEDULE.md` and `LaunchAgents/*.plist`: local schedule report and macOS LaunchAgent plist generated from `reader.env`.
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
 - `knowledge_base/profile_tuning.md`: suggested profile updates from interested/archive feedback patterns.
@@ -534,6 +535,9 @@ python3 scripts/scholar_reader.py doctor \
 Generate a sanitized public-support bundle:
 
 ```bash
+python3 scripts/scholar_reader.py privacy-check \
+  --project-dir ~/scholar_alerts \
+  --strict
 python3 scripts/scholar_reader.py support-bundle \
   --project-dir ~/scholar_alerts
 ```
@@ -557,4 +561,4 @@ Down-rank:
 
 ## Privacy
 
-Treat mailbox exports, personal bibliography imports, feed lists, and Gmail tokens as private data. Do not upload raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, or generated knowledge-base outputs unless the user explicitly asks for that.
+Treat mailbox exports, personal bibliography imports, feed lists, local PDFs/full-text caches, and Gmail tokens as private data. Run `privacy-check` / `./privacy_check.sh --strict` before public issue reports, screenshots, zip files, or folder sharing. Do not upload raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, or generated knowledge-base outputs unless the user explicitly asks for that.

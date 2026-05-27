@@ -16,6 +16,16 @@ The tool may read:
 
 Do not commit or publish raw mailbox exports, personal bibliography imports, personal Zotero/Better BibTeX read-back files, personal webpage/feed source lists, `reader.env`, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, profile-tuning reports, extracted full-text caches, review context packs, or generated knowledge-base outputs unless you have intentionally reviewed and sanitized them.
 
+Before sharing a project folder, screenshots, support bundle, issue attachment, or zip archive, run:
+
+```bash
+./privacy_check.sh --strict
+# or
+python3 -m scholar_alert_reader privacy-check --project-dir ~/scholar_alerts --strict
+```
+
+The privacy check writes `PRIVACY_CHECK.md` by default. It reports risky paths, review-before-sharing files, and recommended `.gitignore` gaps without including raw file contents.
+
 The GitHub issue templates are designed for sanitized diagnostics only. If a report needs credentials, raw mailbox content, or private generated data to explain the problem, use the private security reporting path described in [SECURITY.md](SECURITY.md) instead of a public issue.
 
 ## External Requests

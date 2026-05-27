@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import fnmatch
 import hashlib
 import html
 import importlib.util
@@ -64,6 +65,15 @@ SOURCE_CHOICES = ["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "
 MODE_CHOICES = ["daily", "foundation", "run"]
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 FEEDBACK_VERSION = 1
+
+
+@dataclass(frozen=True)
+class PrivacyRule:
+    severity: str
+    label: str
+    patterns: tuple[str, ...]
+    reason: str
+
 
 TITLE_STOPWORDS = {
     "about",
@@ -3638,6 +3648,352 @@ def render_support_bundle(args: argparse.Namespace) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+PRIVACY_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".self_test",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+}
+
+SAFE_SAMPLE_PATTERNS = {
+    "examples/sample_scholar_alerts.mbox",
+    "examples/sample_import.bib",
+    "examples/sample_import.ris",
+    "examples/sample_feed.atom",
+    "examples/sample_web_article.html",
+    "examples/feeds.example.txt",
+    "examples/web_sources.example.txt",
+    "examples/research_profile.example.json",
+    "scholar_alert_reader/resources/examples/sample_scholar_alerts.mbox.sample",
+    "scholar_alert_reader/resources/examples/sample_import.bib",
+    "scholar_alert_reader/resources/examples/sample_import.ris",
+    "scholar_alert_reader/resources/examples/sample_feed.atom",
+    "scholar_alert_reader/resources/examples/sample_web_article.html",
+    "scholar_alert_reader/resources/examples/feeds.example.txt",
+    "scholar_alert_reader/resources/examples/web_sources.example.txt",
+    "scholar_alert_reader/resources/examples/research_profile.example.json",
+}
+
+PRIVACY_HIGH_RISK_RULES = [
+    PrivacyRule(
+        "HIGH",
+        "OAuth or API credential",
+        (
+            "client_secret*.json",
+            "**/client_secret*.json",
+            "gmail_credentials.json",
+            "**/gmail_credentials.json",
+            "gmail_token.json",
+            "**/gmail_token.json",
+            "token.json",
+            "**/token.json",
+            "*token*.json",
+            "**/*token*.json",
+            "*secret*.json",
+            "**/*secret*.json",
+        ),
+        "OAuth clients, API secrets, and read tokens must never be published.",
+    ),
+    PrivacyRule(
+        "HIGH",
+        "Raw mailbox export",
+        ("*.mbox", "**/*.mbox", "*.mbox.partial", "**/*.mbox.partial", "*.eml", "**/*.eml", "INBOX*", "**/INBOX*"),
+        "Mailbox exports can contain raw emails and personal metadata.",
+    ),
+    PrivacyRule(
+        "HIGH",
+        "Local configuration",
+        ("reader.env", "**/reader.env"),
+        "Local config can reveal source paths, feed lists, schedule defaults, and token locations.",
+    ),
+    PrivacyRule(
+        "HIGH",
+        "Private import or source list",
+        (
+            "import.bib",
+            "**/import.bib",
+            "import.ris",
+            "**/import.ris",
+            "zotero.bib",
+            "**/zotero.bib",
+            "zotero.ris",
+            "**/zotero.ris",
+            "web_sources.txt",
+            "**/web_sources.txt",
+            "feeds.txt",
+            "**/feeds.txt",
+        ),
+        "Personal bibliography, Zotero, webpage, and feed lists can reveal unpublished reading interests and local PDF paths.",
+    ),
+    PrivacyRule(
+        "HIGH",
+        "Seen-state or feedback file",
+        ("seen_papers.json", "**/seen_papers.json", "feedback.json", "**/feedback.json", "knowledge_base/feedback.json"),
+        "Seen-state and feedback files can expose the user's private alert history and reading decisions.",
+    ),
+    PrivacyRule(
+        "HIGH",
+        "Generated knowledge base",
+        (
+            "knowledge_base/library.json",
+            "knowledge_base/foundation.md",
+            "knowledge_base/interested.md",
+            "knowledge_base/daily_additions.md",
+            "knowledge_base/weekly_review.md",
+            "knowledge_base/reading_plan.md",
+            "knowledge_base/reading_plan.html",
+            "knowledge_base/reading_status.md",
+            "knowledge_base/papers/**",
+            "knowledge_base/directions/**",
+            "knowledge_base/full_text/**",
+            "knowledge_base/analysis/**",
+            "knowledge_base/answers/**",
+            "knowledge_base/comparisons/**",
+            "knowledge_base/zotero/**",
+            "knowledge_base/obsidian/**",
+        ),
+        "The retained library, notes, full-text caches, review packs, and generated exports are personal research memory.",
+    ),
+    PrivacyRule(
+        "HIGH",
+        "Local full text or PDF",
+        ("*.pdf", "**/*.pdf", "full_text/**", "**/full_text/**"),
+        "PDFs and extracted text can be copyrighted, licensed, or personally annotated.",
+    ),
+]
+
+PRIVACY_REVIEW_RULES = [
+    PrivacyRule(
+        "REVIEW",
+        "Generated run output",
+        ("reader_out/**", "out/**", "DASHBOARD.md", "DASHBOARD.html", "SCHEDULE.md", "LaunchAgents/**", "logs/**"),
+        "Generated reports may contain paper titles, source labels, local paths, and reading history.",
+    ),
+    PrivacyRule(
+        "REVIEW",
+        "Setup or diagnostic report",
+        ("SOURCE_CHECK.md", "DOCTOR.md", "SUPPORT_BUNDLE.md", "QUICKSTART_REPORT.md", "PRIVACY_CHECK.md"),
+        "Diagnostic files are designed to be safer, but still deserve review before sharing.",
+    ),
+    PrivacyRule(
+        "REVIEW",
+        "Research profile",
+        ("profiles/research_profile.json", "profiles/*.json"),
+        "Profiles are shareable only when the user is comfortable revealing research directions, watched authors, regions, and exclusions.",
+    ),
+]
+
+RECOMMENDED_GITIGNORE_PATTERNS = [
+    "reader.env",
+    "gmail_credentials.json",
+    "gmail_token.json",
+    "client_secret*.json",
+    "*.mbox",
+    "*.mbox.partial",
+    "*.eml",
+    "import.bib",
+    "import.ris",
+    "zotero.bib",
+    "zotero.ris",
+    "web_sources.txt",
+    "feeds.txt",
+    "seen_papers.json",
+    "reader_out/",
+    "knowledge_base/",
+    "PRIVACY_CHECK.md",
+    "SUPPORT_BUNDLE.md",
+    "*.pdf",
+]
+
+
+def privacy_rel(path: Path, project_dir: Path) -> str:
+    try:
+        return path.relative_to(project_dir).as_posix()
+    except ValueError:
+        return safe_display_path(path, project_dir)
+
+
+def privacy_pattern_match(rel_path: str, pattern: str) -> bool:
+    if pattern.endswith("/**"):
+        prefix = pattern[:-3].rstrip("/")
+        return rel_path == prefix or rel_path.startswith(prefix + "/")
+    return fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(Path(rel_path).name, pattern)
+
+
+def privacy_should_skip_path(path: Path, project_dir: Path) -> bool:
+    rel_path = privacy_rel(path, project_dir)
+    if rel_path in SAFE_SAMPLE_PATTERNS:
+        return True
+    return any(part in PRIVACY_SKIP_DIRS for part in Path(rel_path).parts)
+
+
+def privacy_scan_files(project_dir: Path) -> tuple[list[dict[str, str]], list[dict[str, str]], int]:
+    high: list[dict[str, str]] = []
+    review: list[dict[str, str]] = []
+    scanned = 0
+    all_rules = PRIVACY_HIGH_RISK_RULES + PRIVACY_REVIEW_RULES
+    if not project_dir.exists():
+        return high, review, scanned
+    for path in sorted(project_dir.rglob("*")):
+        if privacy_should_skip_path(path, project_dir):
+            continue
+        if path.is_dir():
+            continue
+        scanned += 1
+        rel_path = privacy_rel(path, project_dir)
+        for rule in all_rules:
+            if any(privacy_pattern_match(rel_path, pattern) for pattern in rule.patterns):
+                target = high if rule.severity == "HIGH" else review
+                try:
+                    size = str(path.stat().st_size)
+                except OSError:
+                    size = "unknown"
+                target.append(
+                    {
+                        "path": rel_path,
+                        "label": rule.label,
+                        "reason": rule.reason,
+                        "size": size,
+                    }
+                )
+                break
+    return high, review, scanned
+
+
+def privacy_gitignore_entries(project_dir: Path) -> set[str]:
+    gitignore = project_dir / ".gitignore"
+    if not gitignore.exists():
+        return set()
+    entries: set[str] = set()
+    for line in gitignore.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            entries.add(stripped)
+    return entries
+
+
+def gitignore_covers_pattern(entries: set[str], required: str) -> bool:
+    if required in entries:
+        return True
+    for entry in entries:
+        normalized = entry.lstrip("/")
+        if normalized == required:
+            return True
+        if normalized.endswith("/") and (required.startswith(normalized) or required.rstrip("/") == normalized.rstrip("/")):
+            return True
+        if fnmatch.fnmatch(required, normalized):
+            return True
+    return False
+
+
+def render_privacy_finding_table(findings: list[dict[str, str]]) -> list[str]:
+    if not findings:
+        return ["- None found."]
+    lines: list[str] = []
+    for item in findings:
+        size = item["size"]
+        size_text = f", {size} bytes" if size.isdigit() else ""
+        lines.append(f"- `{item['path']}` - {item['label']}{size_text}. {item['reason']}")
+    return lines
+
+
+def render_privacy_check(project_dir: Path) -> tuple[str, str, int, int, int]:
+    project_dir = project_dir.expanduser().resolve(strict=False)
+    high, review, scanned = privacy_scan_files(project_dir)
+    entries = privacy_gitignore_entries(project_dir)
+    missing_gitignore = [pattern for pattern in RECOMMENDED_GITIGNORE_PATTERNS if not gitignore_covers_pattern(entries, pattern)]
+    if high:
+        result = "FAIL"
+    elif review or missing_gitignore:
+        result = "WARN"
+    else:
+        result = "PASS"
+    lines = [
+        "# Privacy Check",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Version: `{__version__}`",
+        f"- Project: `{safe_display_path(project_dir, project_dir)}`",
+        f"- Result: `{result}`",
+        f"- Files scanned: {scanned}",
+        f"- High-risk findings: {len(high)}",
+        f"- Review-before-sharing findings: {len(review)}",
+        f"- Missing recommended `.gitignore` patterns: {len(missing_gitignore)}",
+        "",
+        "This report lists paths and categories only. It does not include raw mailbox contents, OAuth JSON contents, Gmail token contents, bibliography text, feedback records, generated notes, or extracted full text.",
+        "",
+    ]
+    if high:
+        lines.extend(
+            [
+                "## High Risk: Do Not Publish",
+                "",
+                "Do not publish, attach, screenshot, or paste these files into public issues or social posts unless you have intentionally sanitized them.",
+                "",
+                *render_privacy_finding_table(high),
+                "",
+            ]
+        )
+    else:
+        lines.extend(["## High Risk: Do Not Publish", "", "- None found.", ""])
+    lines.extend(
+        [
+            "## Review Before Sharing",
+            "",
+            "These files may be shareable after review, but can still expose paper titles, source choices, local paths, research directions, or generated reading state.",
+            "",
+            *render_privacy_finding_table(review),
+            "",
+            "## Git Ignore Coverage",
+            "",
+        ]
+    )
+    if entries:
+        lines.append(f"- `.gitignore` entries found: {len(entries)}")
+    else:
+        lines.append("- `.gitignore` is missing or empty.")
+    if missing_gitignore:
+        lines.extend(["", "Missing recommended patterns:"])
+        lines.extend(f"- `{pattern}`" for pattern in missing_gitignore)
+    else:
+        lines.append("- Recommended private-data patterns are covered.")
+    lines.extend(
+        [
+            "",
+            "## Recommended Cleanup",
+            "",
+            "- Keep OAuth files under `~/.codex/scholar-alert-reader/`, not inside the repo or project folder.",
+            "- Keep raw mailbox exports, private BibTeX/RIS files, Zotero read-back files, feed lists, `seen_papers.json`, and generated `knowledge_base/` out of Git.",
+            "- Run `./support_bundle.sh` for public GitHub issues; attach the support bundle only after reviewing it.",
+            "- Run `./privacy_check.sh --strict` before publishing a project folder, screenshot collection, zip file, or issue attachment.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n", result, len(high), len(review), len(missing_gitignore)
+
+
+def privacy_check_command(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve(strict=False)
+    output = args.output.expanduser() if args.output else project_dir / "PRIVACY_CHECK.md"
+    report, result, high_count, review_count, missing_count = render_privacy_check(project_dir)
+    write_report(output, report)
+    print(f"Privacy check: {output}")
+    print(f"Result: {result}")
+    print(f"High-risk findings: {high_count}")
+    print(f"Review-before-sharing findings: {review_count}")
+    print(f"Missing gitignore patterns: {missing_count}")
+    if args.strict and result != "PASS":
+        raise SystemExit(1)
+
+
 def write_project_env(path: Path, values: dict[str, str | Path | int | bool]) -> None:
     ordered_keys = [
         "SOURCE",
@@ -3809,6 +4165,7 @@ def render_project_guide(
         "- `./schedule_reader.sh --action write`: render a macOS LaunchAgent plist from `reader.env` schedule settings.",
         "- `./dashboard_reader.sh --open`: open the project dashboard with links to current outputs.",
         "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, or optional Mail.app source readiness.",
+        "- `./privacy_check.sh`: scan the project for files that should not be published or attached to issues.",
         "- `./profile_wizard.sh`: refine your research profile without editing JSON by hand.",
         "- `./profile_doctor.sh`: check whether the active profile is too broad, too sparse, or missing feedback signals.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
@@ -3841,6 +4198,7 @@ def render_project_guide(
         f"- RSS/Atom feed list: {status_marker(project_dir / 'feeds.txt')}",
         f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
         f"- Project dashboard HTML: {status_marker(project_dir / 'DASHBOARD.html')}",
+        f"- Privacy check: {status_marker(project_dir / 'PRIVACY_CHECK.md')}",
         f"- Schedule report: {status_marker(project_dir / 'SCHEDULE.md')}",
         f"- Daily papers JSON: {count_marker(daily_dir / 'papers.json')}",
         f"- Foundation digest HTML: {status_marker(foundation_dir / 'digest.html')}",
@@ -3859,6 +4217,7 @@ def render_project_guide(
             "## Safety Contract",
             "",
             "- Do not commit raw mailbox exports, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge bases unless they are intentionally sanitized.",
+            "- Run `./privacy_check.sh --strict` before publishing a project folder, issue attachment, screenshot set, or zip archive.",
             "- The generated Obsidian folder may be overwritten. Personal reading notes, topic notes, and writing drafts should live in sibling folders.",
             "",
         ]
@@ -4048,6 +4407,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- {dashboard_link('Source check', project_dir / 'SOURCE_CHECK.md', base_dir)}",
             f"- {dashboard_link('Doctor report', project_dir / 'DOCTOR.md', base_dir)}",
             f"- {dashboard_link('Profile doctor', profile_doctor_path, base_dir)}",
+            f"- {dashboard_link('Privacy check', project_dir / 'PRIVACY_CHECK.md', base_dir)}",
             f"- {dashboard_link('Schedule report', project_dir / 'SCHEDULE.md', base_dir)}",
             f"- {dashboard_link('Capabilities report', project_dir / 'CAPABILITIES.md', base_dir)}",
             f"- {dashboard_link('Troubleshooting guide', project_dir / 'TROUBLESHOOTING.md', base_dir)}",
@@ -4301,6 +4661,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "export_reader.sh": 'exec "${SKILL_CMD[@]}" export --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --format "${FORMAT:-bibtex}" --tiers "${TIERS:-Must read,Skim}" "$@"\n',
         "doctor_reader.sh": 'exec "${SKILL_CMD[@]}" doctor --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" --gmail-deps "$@"\n',
         "support_bundle.sh": 'exec "${SKILL_CMD[@]}" support-bundle --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" "$@"\n',
+        "privacy_check.sh": 'exec "${SKILL_CMD[@]}" privacy-check --project-dir "$PROJECT_DIR" "$@"\n',
         "capabilities.sh": 'exec "${SKILL_CMD[@]}" capabilities --project-dir "$PROJECT_DIR" "$@"\n',
     }
     for filename, body in helper_specs.items():
@@ -4319,11 +4680,14 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "",
                     "# Private mailbox/auth/local state",
                     "*.mbox",
+                    "*.mbox.partial",
                     "*.mbox/",
                     "*.eml",
+                    "*.pdf",
                     "import.bib",
                     "import.ris",
                     "zotero.bib",
+                    "zotero.ris",
                     "web_sources.txt",
                     "feeds.txt",
                     "gmail_credentials.json",
@@ -4338,6 +4702,8 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "knowledge_base/feedback.json",
                     "DASHBOARD.md",
                     "DASHBOARD.html",
+                    "PRIVACY_CHECK.md",
+                    "SUPPORT_BUNDLE.md",
                     "SCHEDULE.md",
                     "LaunchAgents/",
                     "logs/",
@@ -4375,6 +4741,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./setup_reader.sh --source auto --profile-template ai-seismology",
                     "./schedule_reader.sh --action write",
                     "./source_check.sh --source auto",
+                    "./privacy_check.sh",
                     "./run_reader.sh",
                     "./dashboard_reader.sh --open",
                     "```",
@@ -4472,6 +4839,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./capabilities.sh",
                     "./dashboard_reader.sh",
                     "./doctor_reader.sh",
+                    "./privacy_check.sh",
                     "./support_bundle.sh",
                     "./guide_reader.sh",
                     "./weekly_reader.sh",
@@ -7859,6 +8227,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
+        "- Scanning local projects for files that should not be published before sharing reports, issue attachments, screenshots, or zip archives.",
         "",
         "## Capability Boundary",
         "",
@@ -7889,7 +8258,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- For better ranking: run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
         "- For closer reading: use Zotero or explicit local PDF paths with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
-        "- For public support: run `support-bundle` and review the redacted output before posting a GitHub issue.",
+        "- For public support: run `privacy-check` first, then `support-bundle`, and review the redacted output before posting a GitHub issue.",
         "",
     ]
     if project_dir:
@@ -7903,6 +8272,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
                 f"- Run script: {path_status(str(project_dir / 'run_reader.sh'), project_dir)}",
                 f"- Setup wizard: {path_status(str(project_dir / 'setup_wizard.sh'), project_dir)}",
                 f"- Source check: {path_status(str(project_dir / 'SOURCE_CHECK.md'), project_dir)}",
+                f"- Privacy check: {path_status(str(project_dir / 'PRIVACY_CHECK.md'), project_dir)}",
                 f"- Daily digest: {path_status(str(project_dir / 'reader_out' / 'daily' / 'digest.html'), project_dir)}",
                 f"- Retained library: {json_summary(project_dir / 'knowledge_base' / 'library.json')}",
                 f"- Feedback records: {json_summary(project_dir / 'knowledge_base' / 'feedback.json')}",
@@ -8007,6 +8377,13 @@ def quickstart_command(args: argparse.Namespace) -> None:
     )
     checks.append(
         run_quickstart_step(
+            "privacy check",
+            [str(project_dir / "privacy_check.sh"), "--output", str(project_dir / "PRIVACY_CHECK.md")],
+            project_dir,
+        )
+    )
+    checks.append(
+        run_quickstart_step(
             "guide",
             [str(project_dir / "guide_reader.sh"), "--output", str(project_dir / "START_HERE.md")],
             project_dir,
@@ -8045,6 +8422,7 @@ def quickstart_command(args: argparse.Namespace) -> None:
             f"- Source check: `{project_dir / 'SOURCE_CHECK.md'}`",
             f"- Doctor report: `{project_dir / 'DOCTOR.md'}`",
             f"- Profile doctor: `{project_dir / 'profiles' / 'profile_doctor.md'}`",
+            f"- Privacy check: `{project_dir / 'PRIVACY_CHECK.md'}`",
             f"- mbox demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'mbox' / 'digest.html'}`",
             f"- BibTeX demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'bibtex' / 'digest.html'}`",
             f"- RIS demo digest: `{project_dir / 'reader_out' / 'demo_sources' / 'ris' / 'digest.html'}`",
@@ -8606,6 +8984,12 @@ def build_parser() -> argparse.ArgumentParser:
     support.add_argument("--no-report-excerpts", action="store_true", help="Do not include sanitized SOURCE_CHECK/DOCTOR excerpts")
     support.add_argument("--output", type=Path, help="Output markdown path. Defaults to project-dir/SUPPORT_BUNDLE.md")
     support.set_defaults(func=support_bundle_command)
+
+    privacy = sub.add_parser("privacy-check", aliases=["privacy-audit"], help="Scan a local project for files that should not be published")
+    privacy.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
+    privacy.add_argument("--output", type=Path, help="Output markdown path. Defaults to project-dir/PRIVACY_CHECK.md")
+    privacy.add_argument("--strict", action="store_true", help="Exit non-zero when the result is WARN or FAIL")
+    privacy.set_defaults(func=privacy_check_command)
 
     capabilities = sub.add_parser("capabilities", help="Explain product capabilities, boundaries, and recommended workflows")
     capabilities.add_argument("--project-dir", type=Path, help="Optional local project directory to include a redacted setup snapshot")

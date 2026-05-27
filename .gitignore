@@ -18,15 +18,21 @@ token.json
 # Private local data
 *.mbox/
 *.mbox
+*.mbox.partial
 *.eml
+*.pdf
 import.bib
 import.ris
 zotero.bib
+zotero.ris
 web_sources.txt
 feeds.txt
 reader.env
 out/
+reader_out/
 knowledge_base/
 profiles/
 seen_papers.json
 feedback.json
+PRIVACY_CHECK.md
+SUPPORT_BUNDLE.md

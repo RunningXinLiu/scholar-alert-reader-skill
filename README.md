@@ -87,13 +87,17 @@ What is agent-specific:
 
 Use GitHub issues for bugs, source setup help, and feature requests. The issue forms are privacy-first: do not paste raw emails, OAuth credentials, Gmail tokens, private bibliography/feed lists, `seen_papers.json`, `feedback.json`, or generated knowledge-base content.
 
-For public troubleshooting, generate a sanitized support bundle and review it before posting:
+For public troubleshooting, run a local privacy check first, then generate a sanitized support bundle and review it before posting:
 
 ```bash
+./privacy_check.sh --strict
 ./support_bundle.sh
 # or
+python3 -m scholar_alert_reader privacy-check --project-dir ~/scholar_alerts --strict
 python3 -m scholar_alert_reader support-bundle --project-dir ~/scholar_alerts
 ```
+
+`privacy-check` reports high-risk paths, review-before-sharing files, and recommended `.gitignore` gaps without including raw file contents.
 
 The bundle summarizes versions, platform, config keys, file presence, counts, and sanitized `SOURCE_CHECK.md` / `DOCTOR.md` excerpts without including token contents, raw mailbox data, feedback contents, or generated knowledge-base text.
 
@@ -127,6 +131,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, and trigger deep-read/workup/review-pack reports from the browser UI, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
+- Includes `privacy-check` so users can scan local projects for files that should not be published before sharing issue attachments, screenshots, or zip archives.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
 - Adds a literature-copilot layer: selected-paper metadata briefs, one-command paper review workflows, human-readable paper workups, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
 - Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
@@ -298,6 +303,7 @@ Read the capability boundary before connecting private data:
 
 ```bash
 ./capabilities.sh
+./privacy_check.sh
 ```
 
 Open the generated onboarding guide:
@@ -788,6 +794,8 @@ python3 -m scholar_alert_reader self-test --strict
 python3 -m scholar_alert_reader capabilities \
   --project-dir ~/scholar_alerts \
   --output ~/scholar_alerts/CAPABILITIES.md
+python3 -m scholar_alert_reader privacy-check \
+  --project-dir ~/scholar_alerts
 python3 -m scholar_alert_reader doctor \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \
@@ -823,7 +831,7 @@ GitHub Actions runs compile and unit tests on Python 3.10, 3.11, and 3.12. It al
 
 ## Privacy
 
-See [PRIVACY.md](PRIVACY.md). The short version: do not publish raw mailbox exports, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge bases unless you have reviewed and sanitized them.
+See [PRIVACY.md](PRIVACY.md). The short version: run `./privacy_check.sh --strict` before sharing files, and do not publish raw mailbox exports, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, PDFs/full-text caches, or generated knowledge bases unless you have reviewed and sanitized them.
 
 ## Do Not Commit
 
@@ -834,10 +842,14 @@ Do not commit:
 - personal `import.bib` / `import.ris` files
 - personal `web_sources.txt` source lists
 - personal `zotero.bib` read-back files
+- personal `zotero.ris` read-back files
 - personal `feeds.txt` source lists
 - `reader.env`
 - `seen_papers.json`
 - `feedback.json`
+- `PRIVACY_CHECK.md` if it lists private paths
+- `SUPPORT_BUNDLE.md` until reviewed
+- local PDFs and extracted full-text caches
 - generated `knowledge_base/full_text/` text caches
 - generated `out/`
 - generated `knowledge_base/`
