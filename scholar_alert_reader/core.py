@@ -9138,6 +9138,28 @@ def write_literature_answer_report(
     return output
 
 
+def write_selected_paper_answer_report(
+    profile_path: Path,
+    kb_dir: Path,
+    question: str,
+    paper_id: str,
+    papers_json: Path | None = None,
+    output: Path | None = None,
+    limit: int = 12,
+    feedback_file: Path | None = None,
+) -> Path:
+    from .copilot import render_selected_paper_answer
+
+    profile = load_profile(profile_path)
+    feedback = load_feedback(feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, papers_json) if papers_json else paper_records_from_library(kb_dir)
+    target = select_paper_record(records, paper_id, None)
+    stem = slugify(f"{paper_id}-{question}")[:90] or slugify(paper_id) or "selected-paper-question"
+    output = output or (kb_dir / "answers" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
+    write_report(output, render_selected_paper_answer(question, target, records, profile, feedback=feedback, limit=limit))
+    return output
+
+
 def ask_library_command(args: argparse.Namespace) -> None:
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
     output = write_literature_answer_report(

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.65 - 2026-05-28
+
+- Add a browser paper workspace at `/paper?id=...` so users can focus on one selected digest paper without losing feedback/report controls.
+- Let the browser ask paper-specific questions that combine the selected paper with the retained foundation, interested papers, saved notes, and question-matched records.
+- Write selected-paper answers to `knowledge_base/answers/` and serve them through the existing safe `/answer?name=...` route.
+
 ## v0.2.64 - 2026-05-28
 
 - Add an `Ask library` form to the browser feedback UI so users can query the retained library plus current digest without leaving the workbench.

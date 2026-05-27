@@ -2467,6 +2467,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertIn("Save note", initial_body)
                 self.assertIn('action="/ask"', initial_body)
                 self.assertIn("Ask library", initial_body)
+                self.assertIn("/paper?id=p1", initial_body)
+                self.assertIn("Open workspace", initial_body)
 
                 ask_body = urllib.parse.urlencode({"question": "Taiwan ambient noise manuscript"}).encode("utf-8")
                 ask_request = urllib.request.Request(
@@ -2488,6 +2490,44 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 with self.assertRaises(urllib.error.HTTPError) as raised_answer:
                     urllib.request.urlopen(f"{base_url}/answer?name=../feedback.json", timeout=5)
                 raised_answer.exception.close()
+
+                with urllib.request.urlopen(f"{base_url}/paper?id=p1", timeout=5) as response:
+                    paper_workspace = response.read().decode("utf-8")
+                self.assertIn("Scholar Alert Paper Workspace", paper_workspace)
+                self.assertIn("Ask about this paper", paper_workspace)
+                self.assertIn('name="paper_id" value="p1"', paper_workspace)
+                self.assertIn("Ambient noise tomography of the Taiwan crust", paper_workspace)
+                paper_ask_body = urllib.parse.urlencode(
+                    {
+                        "paper_id": "p1",
+                        "question": "How does this fit my foundation and citation plan?",
+                    }
+                ).encode("utf-8")
+                paper_ask_request = urllib.request.Request(
+                    f"{base_url}/ask",
+                    data=paper_ask_body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(paper_ask_request, timeout=5) as response:
+                    paper_ask_html = response.read().decode("utf-8")
+                self.assertIn("Answered paper question for p1", paper_ask_html)
+                self.assertIn("Scholar Alert Paper Workspace", paper_ask_html)
+                answer_files = sorted((kb / "answers").glob("*.md"))
+                self.assertEqual(len(answer_files), 2)
+                selected_answers = [path for path in answer_files if "p1-how-does-this-fit" in path.name]
+                self.assertEqual(len(selected_answers), 1)
+                with urllib.request.urlopen(
+                    f"{base_url}/answer?name={urllib.parse.quote(selected_answers[0].name)}",
+                    timeout=5,
+                ) as response:
+                    selected_answer_body = response.read().decode("utf-8")
+                self.assertIn("Selected Paper Answer", selected_answer_body)
+                self.assertIn("How does this fit my foundation", selected_answer_body)
+                self.assertIn("Ambient noise tomography of the Taiwan crust", selected_answer_body)
+                with self.assertRaises(urllib.error.HTTPError) as raised_paper:
+                    urllib.request.urlopen(f"{base_url}/paper?id=missing", timeout=5)
+                raised_paper.exception.close()
 
                 body = urllib.parse.urlencode(
                     {

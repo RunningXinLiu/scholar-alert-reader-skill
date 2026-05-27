@@ -186,6 +186,7 @@ def render_page(
     message: str = "",
     feedback: dict[str, Any] | None = None,
     message_html: str = "",
+    focused_paper: Any | None = None,
 ) -> str:
     cards = []
     for paper in papers:
@@ -216,7 +217,14 @@ def render_page(
                     f'<p class="meta">{html.escape(paper.authors_source)}</p>',
                     f'<p class="meta">{html.escape(metadata_summary)}</p>' if metadata_summary else "",
                     f'<p>{html.escape(paper.snippet)}</p>',
-                    f'<p><a href="{html.escape(paper.url, quote=True)}">Open paper</a></p>' if paper.url else "",
+                    '<p class="paper-links">'
+                    + (
+                        f'<a href="/paper?id={quote(paper.id, safe="")}">Open workspace</a>'
+                        if focused_paper is None
+                        else '<a href="/">Back to digest</a>'
+                    )
+                    + (f' · <a href="{html.escape(paper.url, quote=True)}">Open paper</a>' if paper.url else "")
+                    + "</p>",
                     report_links(paper.id, config),
                     f"<ul>{reasons}</ul>" if reasons else "",
                     f'<form method="post" action="/feedback">',
@@ -329,6 +337,13 @@ def render_page(
               font-size: 14px;
             }
             .reports a { margin-right: 8px; }
+            .paper-links {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              color: var(--muted);
+              font-size: 14px;
+            }
             .note {
               margin: 10px 0;
               border-left: 3px solid var(--accent);
@@ -393,7 +408,7 @@ def render_page(
             "</head>",
             "<body>",
             "<header>",
-            "<h1>Scholar Alert Feedback</h1>",
+            "<h1>Scholar Alert Paper Workspace</h1>" if focused_paper is not None else "<h1>Scholar Alert Feedback</h1>",
             f'<div class="meta">Profile: {html.escape(str(config.profile_path))}</div>',
             f'<div class="meta">Papers: {html.escape(str(config.papers_json))}</div>',
             f'<div class="meta">Knowledge base: {html.escape(str(config.kb_dir))}</div>',
@@ -404,8 +419,13 @@ def render_page(
             '<select id="status"><option value="">All statuses</option><option>unread</option><option>reading</option><option>read</option><option>must-cite</option><option>method-reference</option><option>background-only</option><option>not-relevant</option></select>',
             "</div>",
             '<form class="ask-form" method="post" action="/ask">',
-            '<input name="question" type="search" placeholder="Ask your library, e.g. which papers are closest to my current project?">',
-            '<button>Ask library</button>',
+            f'<input type="hidden" name="paper_id" value="{html.escape(str(getattr(focused_paper, "id", "")), quote=True)}">'
+            if focused_paper is not None
+            else "",
+            '<input name="question" type="search" placeholder="Ask about this paper against your foundation/interested library">'
+            if focused_paper is not None
+            else '<input name="question" type="search" placeholder="Ask your library, e.g. which papers are closest to my current project?">',
+            "<button>Ask about this paper</button>" if focused_paper is not None else "<button>Ask library</button>",
             "</form>",
             f'<div class="message">{message_html}</div>'
             if message_html
@@ -509,6 +529,28 @@ def make_handler(config: ServerConfig):
                 self.wfile.write(body)
                 return
             if parsed.path != "/":
+                if parsed.path == "/paper":
+                    query = parse_qs(parsed.query)
+                    paper_id = (query.get("id") or [""])[0]
+                    papers = core.load_papers_json(config.papers_json)
+                    selected = [paper for paper in papers if paper.id == paper_id]
+                    if not selected:
+                        self.send_error(404, "Paper ID not found")
+                        return
+                    feedback = core.load_feedback(core.default_feedback_file(config.kb_dir))
+                    body = render_page(
+                        selected,
+                        config,
+                        message=f"Focused workspace for {paper_id}",
+                        feedback=feedback,
+                        focused_paper=selected[0],
+                    ).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 self.send_error(404)
                 return
             papers = core.load_papers_json(config.papers_json)
@@ -525,24 +567,45 @@ def make_handler(config: ServerConfig):
                 length = int(self.headers.get("Content-Length", "0") or "0")
                 form = parse_qs(self.rfile.read(length).decode("utf-8", errors="replace"))
                 question = (form.get("question") or [""])[0].strip()
+                paper_id = (form.get("paper_id") or [""])[0].strip()
                 if not question:
                     self.send_error(400, "Question is required")
                     return
-                output = core.write_literature_answer_report(
-                    profile_path=config.profile_path,
-                    kb_dir=config.kb_dir,
-                    question=question,
-                    papers_json=config.papers_json,
-                    feedback_file=core.default_feedback_file(config.kb_dir),
-                )
+                if paper_id:
+                    try:
+                        output = core.write_selected_paper_answer_report(
+                            profile_path=config.profile_path,
+                            kb_dir=config.kb_dir,
+                            question=question,
+                            paper_id=paper_id,
+                            papers_json=config.papers_json,
+                            feedback_file=core.default_feedback_file(config.kb_dir),
+                        )
+                    except SystemExit:
+                        self.send_error(404, "Paper ID not found")
+                        return
+                else:
+                    output = core.write_literature_answer_report(
+                        profile_path=config.profile_path,
+                        kb_dir=config.kb_dir,
+                        question=question,
+                        papers_json=config.papers_json,
+                        feedback_file=core.default_feedback_file(config.kb_dir),
+                    )
                 papers = core.load_papers_json(config.papers_json)
                 feedback = core.load_feedback(core.default_feedback_file(config.kb_dir))
+                selected = [paper for paper in papers if paper.id == paper_id] if paper_id else []
                 answer_link = f'<a href="/answer?name={quote(output.name, safe="")}">{html.escape(output.name)}</a>'
                 body = render_page(
-                    papers,
+                    selected or papers,
                     config,
                     feedback=feedback,
-                    message_html=f"Answered library question: {html.escape(question)}; answer: {answer_link}",
+                    message_html=(
+                        f"Answered paper question for {html.escape(paper_id)}: {html.escape(question)}; answer: {answer_link}"
+                        if paper_id
+                        else f"Answered library question: {html.escape(question)}; answer: {answer_link}"
+                    ),
+                    focused_paper=selected[0] if selected else None,
                 ).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")

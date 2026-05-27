@@ -858,6 +858,115 @@ def render_literature_answer(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_selected_paper_answer(
+    question: str,
+    target: dict[str, Any],
+    library: list[dict[str, Any]],
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
+    limit: int = 12,
+) -> str:
+    target_id = text(target.get("id"))
+    related = related_records(target, library, limit)
+    question_matches = ranked_records_for_question(
+        [record for record in library if text(record.get("id")) != target_id],
+        question,
+        limit,
+        feedback=feedback,
+    )
+    matched = [str(term) for term in target.get("matched_terms", []) if str(term).strip()]
+    profile_hits = [term for term in profile_terms(profile) if term.lower() in record_text(target).lower()]
+    reasons = [str(reason) for reason in target.get("reasons", []) if str(reason).strip()]
+    note = feedback_note(target, feedback)
+    labels = reading_labels(target, feedback)
+
+    lines = [
+        f"# Selected Paper Answer: {question}",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: {profile.get('name', 'unnamed')}",
+        f"- Target paper: `{target_id}`",
+        f"- Title: {text(target.get('title', 'Untitled'))}",
+        f"- Link: {target.get('url', '')}",
+        f"- Tier: {target.get('tier', '')}; score: {target.get('score', 0)}",
+        f"- Reading status: {reading_status(target, feedback)}",
+        f"- Question-specific comparison papers: {len(question_matches)}",
+        "",
+        "## Source Boundary",
+        "",
+        "This answer is built from local Scholar Alert Reader data: alert metadata, bibliography fields, profile terms, feedback, saved notes, and retained foundation/interested papers. Treat it as a discussion scaffold until the full paper has been checked.",
+        "",
+        "## Short Answer",
+        "",
+    ]
+    if profile_hits or matched or related:
+        strongest = ", ".join(profile_hits[:4] or matched[:4]) or "the closest foundation papers"
+        lines.append(
+            f"This paper is worth discussing because it overlaps with {strongest}. The strongest local evidence is the alert signal below plus the closest retained papers; use the full text before treating it as citation-ready."
+        )
+    else:
+        lines.append(
+            "The local foundation does not yet show a strong match. Skim the abstract and conclusion first, then archive it if it does not change an active research question."
+        )
+    lines.append("")
+
+    if note or labels:
+        lines.extend(["## Your Existing Feedback", ""])
+        if labels:
+            lines.append("- Labels: " + ", ".join(f"`{label}`" for label in labels))
+        if note:
+            lines.extend(["", "### Personal Note", "", note])
+        lines.append("")
+
+    lines.extend(["## Why It May Matter", ""])
+    if profile_hits:
+        lines.append("- Profile overlap: " + ", ".join(profile_hits[:14]))
+    if matched:
+        lines.append("- Matched terms: " + ", ".join(matched[:18]))
+    if reasons:
+        lines.extend(f"- Ranking reason: {reason}" for reason in reasons[:8])
+    if not (profile_hits or matched or reasons):
+        lines.append("- No explicit profile or ranking rationale was recorded for this paper.")
+    lines.extend(["", "## Alert / Bibliography Signal", "", text(target.get("snippet", "No snippet available.")), ""])
+
+    lines.extend(["## Closest Foundation / Interested Papers", ""])
+    if related:
+        for score, record, shared in related:
+            lines.append(paper_line(record))
+            lines.append(f"  - Relation score: {score}; overlap: {', '.join(shared) if shared else 'metadata similarity'}")
+            snippet = text(record.get("snippet"))
+            if snippet:
+                lines.append(f"  - Signal: {snippet[:320]}")
+    else:
+        lines.append("No close retained-paper context found.")
+    lines.append("")
+
+    lines.extend(["## Papers That Match Your Question", ""])
+    if question_matches:
+        for score, record in question_matches:
+            lines.append(paper_line(record))
+            lines.append(f"  - Question retrieval score: {score}")
+            note_summary = feedback_note_summary(record, feedback)
+            if note_summary:
+                lines.append(f"  - Personal note: {note_summary}")
+    else:
+        lines.append("No additional retained papers strongly matched the question text.")
+    lines.append("")
+
+    lines.extend(
+        [
+            "## Suggested Discussion Moves",
+            "",
+            "- Ask whether this paper is novel, complementary, redundant, or mainly background relative to the closest foundation papers.",
+            "- If it may be cited, identify the exact section, figure, table, dataset, or equation that would support the citation.",
+            "- If the paper matters, run `review-workflow` or attach/sync the PDF and run `full-text` before final citation decisions.",
+            "- Update feedback after reading: `must-cite`, `method-reference`, `background-only`, or `not-relevant`.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def render_research_advice(
     records: list[dict[str, Any]],
     profile: dict[str, Any],
