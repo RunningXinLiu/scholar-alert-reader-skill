@@ -3087,6 +3087,7 @@ exec "${cmd[@]}"
         "deep_read_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "full_text_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "tune_profile.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "advice_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "guide_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
@@ -3212,6 +3213,7 @@ exec "${cmd[@]}"
                     "./deep_read_paper.sh --paper-id <ID>",
                     "./full_text_paper.sh --paper-id <ID>",
                     "./review_paper.sh --paper-id <ID>",
+                    "./tune_profile.sh",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
                     "./advice_reader.sh",
                     "```",
@@ -3656,6 +3658,33 @@ def update_profile_from_feedback(args: argparse.Namespace) -> None:
             print("Papers: " + ", ".join(f"{paper.id} {paper.title}" for paper in target_papers))
     if not profile_changed and not feedback_changed:
         print("No feedback changes requested.")
+
+
+def profile_tune_command(args: argparse.Namespace) -> None:
+    from .tuning import apply_profile_suggestions, render_profile_tuning_report, suggest_profile_updates
+
+    profile = load_profile(args.profile)
+    report_profile = json.loads(json.dumps(profile))
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    output = args.output or (kb_dir / "profile_tuning.md")
+    suggestions = suggest_profile_updates(profile, records, feedback, limit=args.limit)
+    changed = 0
+    if args.apply:
+        changed = apply_profile_suggestions(
+            profile,
+            suggestions,
+            focus_weight=args.focus_weight,
+            exclude_weight=args.exclude_weight,
+            semantic_weight=args.semantic_weight,
+        )
+        if changed:
+            save_json(args.profile, profile)
+    write_report(output, render_profile_tuning_report(report_profile, records, feedback, args.profile, limit=args.limit))
+    print(f"Profile tuning report: {output}")
+    if args.apply:
+        print(f"Profile updated: {args.profile} ({changed} additions)")
 
 
 def default_state_file(profile_path: Path | None, out_dir: Path) -> Path:
@@ -4757,6 +4786,19 @@ def build_parser() -> argparse.ArgumentParser:
     feedback.add_argument("--deep-read-limit", type=int)
     feedback.add_argument("--no-profile-update", action="store_true", help="Record feedback.json only; do not edit the profile")
     feedback.set_defaults(func=update_profile_from_feedback)
+
+    profile_tune = sub.add_parser("profile-tune", help="Suggest profile updates from interested/archive feedback")
+    profile_tune.add_argument("--profile", type=Path, required=True)
+    profile_tune.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    profile_tune.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    profile_tune.add_argument("--papers-json", type=Path, help="Optional digest papers.json to include recent papers")
+    profile_tune.add_argument("--limit", type=int, default=8, help="Maximum suggestions per section")
+    profile_tune.add_argument("--apply", action="store_true", help="Write suggested focus/exclude/semantic terms into the profile")
+    profile_tune.add_argument("--focus-weight", type=int, default=4)
+    profile_tune.add_argument("--exclude-weight", type=int, default=4)
+    profile_tune.add_argument("--semantic-weight", type=int, default=4)
+    profile_tune.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/profile_tuning.md")
+    profile_tune.set_defaults(func=profile_tune_command)
 
     serve_cmd = sub.add_parser("serve", help="Start a local browser UI for paper feedback")
     serve_cmd.add_argument("--profile", type=Path, required=True)

@@ -12,6 +12,7 @@ Use this reference when changing the skill implementation rather than a user's p
 - `scholar_alert_reader/export.py`: pure export renderers for BibTeX/RIS/Markdown/JSONL.
 - `scholar_alert_reader/fulltext.py`: local PDF/text extraction and full-text brief rendering. It should gracefully degrade when optional PDF tooling is missing.
 - `scholar_alert_reader/copilot.py`: deterministic literature-copilot renderers, including deep-read, Q&A, comparison, map, Obsidian pages, and LLM-ready review context packs.
+- `scholar_alert_reader/tuning.py`: deterministic profile-tuning suggestions from retained papers and explicit feedback. It should not mutate profiles directly; keep writes in `core.py` command handlers.
 - `scholar_alert_reader/diagnostics.py`: local setup checks for profile, Gmail token/dependencies, outputs, and knowledge-base files.
 
 ## Extension Rules
@@ -20,6 +21,7 @@ Use this reference when changing the skill implementation rather than a user's p
 - Preserve `init-project` generated script names because users may automate them.
 - New capabilities should usually be subcommands, not hidden flags on `daily`.
 - Keep scoring explainable: exact profile terms and local `semantic_queries` should produce visible matched terms and reasons.
+- Keep `profile-tune` conservative. Default to report-only; require `--apply` before writing suggested terms into a user profile.
 - Keep `doctor` dependency-light and safe: it should report paths and counts, not secret token contents.
 - Keep raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, and generated knowledge-base files out of shared repos.
 - Treat Zotero/Better BibTeX read-back files as private because they can contain local PDF paths and citation-library identifiers.

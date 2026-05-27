@@ -100,6 +100,16 @@ After `deep-read` or `full-text`, create a context pack that can be pasted into 
 
 The pack includes the selected paper, research profile, feedback status, closest foundation papers, active interested papers, and any cached local full text. Treat the generated review pack as private because it can contain extracted full text and personal research notes.
 
+## Profile Tuning
+
+After the user has marked several papers as interested/archive or more-like-this/less-like-this, generate a tuning report:
+
+```bash
+./tune_profile.sh
+```
+
+This writes `knowledge_base/profile_tuning.md` and is safe by default. It only edits the active profile when the user passes `--apply`.
+
 ## RSS/Atom And arXiv
 
 Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer RSS/Atom feeds and the arXiv public Atom API over arbitrary webpage scraping.

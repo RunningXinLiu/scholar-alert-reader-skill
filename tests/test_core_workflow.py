@@ -126,6 +126,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "zotero_sync.sh").exists())
             self.assertTrue((project / "full_text_paper.sh").exists())
             self.assertTrue((project / "review_paper.sh").exists())
+            self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
@@ -242,6 +243,95 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertIn("uncertainty quantification for seismic monitoring", paper.matched_terms)
         self.assertIn("semantic", paper.tags)
         self.assertTrue(any("语义匹配" in reason for reason in paper.reasons))
+
+    def test_profile_tune_reports_and_applies_feedback_suggestions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "name": "Tuning test",
+                        "focus_terms": [],
+                        "regions": [],
+                        "methods": [],
+                        "semantic_queries": [],
+                        "exclude_terms": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            kb = root / "kb"
+            kb.mkdir()
+            library = [
+                {
+                    **sample_paper(),
+                    "id": "positive",
+                    "title": "Foundation model for continuous seismic monitoring",
+                    "matched_terms": ["foundation model", "continuous seismic"],
+                    "tags": ["ai", "monitoring"],
+                },
+                {
+                    **sample_paper(),
+                    "id": "negative",
+                    "title": "Medical imaging education course announcement",
+                    "matched_terms": ["medical imaging"],
+                    "tags": ["education"],
+                },
+            ]
+            (kb / "library.json").write_text(json.dumps(library), encoding="utf-8")
+            feedback = {
+                "version": 1,
+                "papers": {
+                    "positive": {"status": "interested", "signals": {"more_like_this": True}},
+                    "negative": {"status": "archive", "signals": {"less_like_this": True}},
+                },
+                "terms": [],
+            }
+            (kb / "feedback.json").write_text(json.dumps(feedback), encoding="utf-8")
+            report = root / "profile_tuning.md"
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "profile-tune",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--output",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Profile Tuning Suggestions", content)
+            self.assertIn("foundation model", content)
+            self.assertIn("medical imaging", content)
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "profile-tune",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--apply",
+                    "--output",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            tuned = json.loads(profile.read_text(encoding="utf-8"))
+            self.assertTrue(any(item["term"] == "foundation model" for item in tuned["focus_terms"]))
+            self.assertTrue(any(item["term"] == "medical imaging" for item in tuned["exclude_terms"]))
 
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

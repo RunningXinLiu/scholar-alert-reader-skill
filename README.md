@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.6`
+Version: `0.2.7`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -414,7 +414,17 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+
+Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
+
+```bash
+python3 scripts/scholar_reader.py profile-tune \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base
+```
+
+`profile-tune` writes `knowledge_base/profile_tuning.md` with suggested `focus_terms`, `semantic_queries`, and `exclude_terms`. It does not edit the profile unless you pass `--apply`.
 
 ## Reading System And Integrations
 
@@ -521,6 +531,7 @@ The richer knowledge base includes:
 - `papers/<paper-id>.md`: one note page per retained paper
 - `directions/*.md`: retained papers grouped by topic tags
 - `weekly_review.md`: recurring synthesis from the retained library
+- `profile_tuning.md`: suggested profile updates from feedback patterns
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_pack.md`: selected-paper review context for an assistant
 

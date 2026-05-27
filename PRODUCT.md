@@ -20,7 +20,7 @@ Turn scattered paper alerts, bibliography exports, and structured web feeds into
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, and advice use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and brief when the user provides a local file path. `review-pack` turns the selected paper, user profile, foundation, interested papers, and optional full-text cache into an LLM-ready markdown context pack, but public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
+Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and brief when the user provides a local file path. `review-pack` turns the selected paper, user profile, foundation, interested papers, and optional full-text cache into an LLM-ready markdown context pack, but public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
 
 ## User Tiers
 
@@ -30,7 +30,7 @@ For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, RSS/Atom feeds, or arXiv queries.
 - Output: `digest.html`, `digest.md`, `papers.json`, `knowledge_base/`.
-- Main actions: profile-based ranking, feedback UI, scheduled/manual digest, deep-read, full-text, review-pack, ask-library, advice, compare, map.
+- Main actions: profile-based ranking, feedback UI, scheduled/manual digest, profile-tune, deep-read, full-text, review-pack, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -66,7 +66,7 @@ For users who want citation/PDF management.
 - A new user can persist local defaults with `setup` / `setup_reader.sh` instead of repeatedly typing source, schedule, Obsidian, or Zotero path environment variables.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - A user without Gmail or Zotero can monitor structured web feeds through `feeds.txt` or run targeted arXiv queries.
-- A user can tune ranking with focus terms, methods, regions, authors, exclusions, temporary boosts, and explicit paper feedback.
+- A user can tune ranking with focus terms, methods, regions, authors, exclusions, semantic queries, temporary boosts, explicit paper feedback, and generated profile-tuning reports.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.
 - Raw mailbox contents, OAuth secrets, Gmail tokens, personal bibliography/feed lists, feedback, and generated personal knowledge bases must not be committed.

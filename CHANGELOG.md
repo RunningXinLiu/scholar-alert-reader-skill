@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.7 - 2026-05-27
+
+- Add `profile-tune` / generated `tune_profile.sh` to suggest profile updates from interested/archive and more-like-this/less-like-this feedback.
+- Write `knowledge_base/profile_tuning.md` with suggested focus terms, semantic queries, exclude terms, evidence papers, and copyable apply commands.
+- Keep profile tuning report-only by default; `--apply` is required before suggested terms are written back to the active profile.
+
 ## v0.2.6 - 2026-05-27
 
 - Add dependency-free `semantic_queries` scoring to rescue papers that match the user's research intent without exact phrase matches.
