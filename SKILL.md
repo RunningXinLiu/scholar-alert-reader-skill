@@ -20,7 +20,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
    - `.mbox`: works from exported Gmail/Apple Mail archives.
    - BibTeX/RIS: works from Zotero, EndNote, Google Scholar library, publisher, and database exports.
    - RSS/Atom or arXiv: works for structured web monitoring without scraping arbitrary pages.
-5. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the terms.
+5. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the exact terms and `semantic_queries`.
 6. First run: use `foundation` to build the seen-paper baseline.
 7. Later runs: use `daily` so only papers not already in the state file are reported.
 8. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
@@ -368,7 +368,7 @@ For extension points and module boundaries, see `references/framework.md`.
 Prioritize papers that match:
 
 - The user's current research questions.
-- High-weight focus terms, methods, regions, and authors in the profile.
+- High-weight focus terms, methods, regions, authors, and semantic queries in the profile.
 - Recent papers and papers appearing in multiple alerts.
 
 Down-rank:

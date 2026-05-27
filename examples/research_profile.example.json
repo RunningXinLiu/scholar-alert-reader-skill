@@ -18,6 +18,11 @@
     {"term": "full waveform inversion", "weight": 5},
     {"term": "ambient noise", "weight": 4}
   ],
+  "semantic_queries": [
+    {"term": "uncertainty-aware seismic monitoring and imaging", "weight": 5, "tags": ["semantic", "uncertainty"]},
+    {"term": "data-driven earthquake detection and waveform analysis", "weight": 4, "tags": ["semantic", "ai"]},
+    {"term": "crustal and upper mantle structure from passive seismic data", "weight": 4, "tags": ["semantic", "structure"]}
+  ],
   "watch_authors": [
     {"term": "Greg Beroza", "weight": 3}
   ],

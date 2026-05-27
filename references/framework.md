@@ -19,6 +19,7 @@ Use this reference when changing the skill implementation rather than a user's p
 - Preserve existing commands: `foundation`, `daily`, `run`, `feedback`, and `auth-gmail`.
 - Preserve `init-project` generated script names because users may automate them.
 - New capabilities should usually be subcommands, not hidden flags on `daily`.
+- Keep scoring explainable: exact profile terms and local `semantic_queries` should produce visible matched terms and reasons.
 - Keep `doctor` dependency-light and safe: it should report paths and counts, not secret token contents.
 - Keep raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, and generated knowledge-base files out of shared repos.
 - Treat Zotero/Better BibTeX read-back files as private because they can contain local PDF paths and citation-library identifiers.

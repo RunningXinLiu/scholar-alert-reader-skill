@@ -53,34 +53,74 @@ FEEDBACK_VERSION = 1
 
 TITLE_STOPWORDS = {
     "about",
+    "across",
     "after",
+    "among",
+    "and",
     "analysis",
+    "are",
     "based",
+    "before",
     "between",
+    "can",
     "case",
+    "could",
     "data",
     "during",
     "earth",
     "effects",
     "evidence",
+    "for",
     "from",
     "global",
+    "had",
+    "has",
+    "have",
+    "her",
     "high",
+    "his",
     "implications",
     "into",
+    "its",
     "large",
+    "may",
+    "might",
     "model",
     "models",
     "new",
+    "not",
+    "onto",
+    "our",
+    "over",
     "paper",
+    "per",
     "regional",
     "results",
+    "shall",
+    "should",
     "study",
     "system",
+    "that",
+    "the",
+    "their",
+    "this",
     "through",
     "toward",
+    "towards",
+    "under",
     "using",
+    "via",
+    "was",
+    "were",
+    "where",
+    "which",
+    "while",
+    "will",
     "with",
+    "within",
+    "without",
+    "would",
+    "your",
 }
 
 ENTRY_RE = re.compile(
@@ -100,6 +140,7 @@ class TermHit:
     section: str
     field: str
     tags: list[str] = field(default_factory=list)
+    overlap: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -241,6 +282,7 @@ def coerce_terms(items: Iterable[Any], section: str, default_weight: int = 1) ->
         "focus_terms": ["focus"],
         "regions": ["region"],
         "methods": ["method"],
+        "semantic_queries": ["semantic"],
         "watch_authors": ["watchlist"],
         "runtime_boost": ["boost"],
     }
@@ -273,6 +315,7 @@ def profile_terms(profile: dict[str, Any], boost: str | None) -> tuple[list[dict
         ("focus_terms", 2),
         ("regions", 2),
         ("methods", 2),
+        ("semantic_queries", 3),
         ("watch_authors", 2),
     ]:
         positive.extend(coerce_terms(profile.get(section, []), section, default_weight))
@@ -296,6 +339,46 @@ def text_fields(paper: Paper) -> dict[str, str]:
         "snippet": paper.snippet.lower(),
         "alerts": " ".join(paper.alerts).lower(),
     }
+
+
+def semantic_token(value: str) -> str:
+    token = value.lower().strip("-_")
+    if len(token) > 4 and token.endswith("ies"):
+        return token[:-3] + "y"
+    if len(token) > 4 and token.endswith(("ing", "ers")):
+        return token[:-3]
+    if len(token) > 3 and token.endswith(("ed", "es")):
+        return token[:-2]
+    if len(token) > 3 and token.endswith("s"):
+        return token[:-1]
+    return token
+
+
+def semantic_tokens(value: str) -> set[str]:
+    found = re.findall(r"[a-z0-9]+", value.lower())
+    tokens = {semantic_token(token) for token in found}
+    return {token for token in tokens if token and token not in TITLE_STOPWORDS and len(token) > 2}
+
+
+def semantic_term_hit(item: dict[str, Any], fields: dict[str, str]) -> tuple[int, str, list[str]] | None:
+    term_tokens = semantic_tokens(str(item.get("term", "")))
+    if len(term_tokens) < 2:
+        return None
+    field_tokens = {field_name: semantic_tokens(field_text) for field_name, field_text in fields.items()}
+    haystack_tokens = set().union(*field_tokens.values()) if field_tokens else set()
+    overlap = sorted(term_tokens & haystack_tokens)
+    required = max(2, (len(term_tokens) * 3 + 4) // 5)
+    if len(overlap) < required:
+        return None
+    ratio = len(overlap) / len(term_tokens)
+    base_weight = int(item.get("weight", 1))
+    weight = max(1, round(base_weight * ratio))
+    if field_tokens.get("title", set()) & set(overlap):
+        weight += 1
+        field = "semantic:title"
+    else:
+        field = "semantic"
+    return weight, field, overlap[:8]
 
 
 def empty_feedback() -> dict[str, Any]:
@@ -409,6 +492,7 @@ def score_paper(
         needle = term.lower()
         if not needle:
             continue
+        exact_match = False
         for field_name, field_text in fields.items():
             if needle in field_text:
                 weight = item["weight"]
@@ -418,7 +502,15 @@ def score_paper(
                     weight *= 2
                 score += weight
                 hits.append(TermHit(term, weight, item["section"], field_name, item.get("tags", [])))
+                exact_match = True
                 break
+        if not exact_match:
+            semantic = semantic_term_hit(item, fields)
+            if semantic:
+                weight, field_name, overlap = semantic
+                score += weight
+                tags = sorted(set(item.get("tags", [])) | {"semantic"})
+                hits.append(TermHit(term, weight, item["section"], field_name, tags, overlap))
 
     topical_score = score
     for item in positive:
@@ -499,6 +591,9 @@ def build_reasons(hits: list[TermHit], paper: Paper) -> list[str]:
             reasons.append(f"降权：命中排除词 `{hit.term[1:]}`。")
         elif hit.field == "title":
             reasons.append(f"标题命中 `{hit.term}`，与 `{hit.section}` 相关。")
+        elif hit.field.startswith("semantic"):
+            overlap = f"；重叠词：{', '.join(hit.overlap[:6])}" if hit.overlap else ""
+            reasons.append(f"语义匹配 `{hit.term}`，与 `{hit.section}` 相关{overlap}。")
         elif hit.field == "alerts":
             reasons.append(f"来自/关联重点 alert `{hit.term}`。")
         else:

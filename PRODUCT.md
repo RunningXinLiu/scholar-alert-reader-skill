@@ -20,7 +20,7 @@ Turn scattered paper alerts, bibliography exports, and structured web feeds into
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, and advice use metadata, snippets, bibliography fields, profile terms, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and brief when the user provides a local file path. `review-pack` turns the selected paper, user profile, foundation, interested papers, and optional full-text cache into an LLM-ready markdown context pack, but public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
+Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, and advice use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and brief when the user provides a local file path. `review-pack` turns the selected paper, user profile, foundation, interested papers, and optional full-text cache into an LLM-ready markdown context pack, but public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
 
 ## User Tiers
 

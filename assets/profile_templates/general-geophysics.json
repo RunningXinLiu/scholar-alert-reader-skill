@@ -31,6 +31,11 @@
     {"term": "finite frequency", "weight": 3},
     {"term": "machine learning", "weight": 2}
   ],
+  "semantic_queries": [
+    {"term": "passive seismic data for crustal and upper mantle structure", "weight": 5, "tags": ["semantic", "structure"]},
+    {"term": "surface wave constraints on regional seismic tomography", "weight": 4, "tags": ["semantic", "method"]},
+    {"term": "earthquake source processes and tectonic interpretation", "weight": 4, "tags": ["semantic", "seismology"]}
+  ],
   "watch_authors": [
     {"term": "Greg Beroza", "weight": 3},
     {"term": "Dapeng Zhao", "weight": 3},

@@ -32,6 +32,11 @@
     {"term": "ambient noise correlation", "weight": 5},
     {"term": "machine learning", "weight": 3}
   ],
+  "semantic_queries": [
+    {"term": "dense array monitoring of continuous seismic waveforms", "weight": 6, "tags": ["semantic", "array"]},
+    {"term": "urban seismic noise imaging and earthquake monitoring", "weight": 5, "tags": ["semantic", "urban"]},
+    {"term": "machine learning for phase detection association and relocation", "weight": 5, "tags": ["semantic", "method"]}
+  ],
   "watch_authors": [
     {"term": "Nori Nakata", "weight": 3},
     {"term": "Zefeng Li", "weight": 3},

@@ -40,6 +40,11 @@
     {"term": "body wave", "weight": 3},
     {"term": "surface wave", "weight": 3}
   ],
+  "semantic_queries": [
+    {"term": "uncertainty-aware seismic imaging and monitoring", "weight": 5, "tags": ["semantic", "uncertainty"]},
+    {"term": "passive seismic data for crustal and upper mantle structure", "weight": 4, "tags": ["semantic", "structure"]},
+    {"term": "data-driven earthquake detection and waveform analysis", "weight": 4, "tags": ["semantic", "ai"]}
+  ],
   "watch_authors": [
     {"term": "Greg Beroza", "weight": 3},
     {"term": "Dapeng Zhao", "weight": 3},

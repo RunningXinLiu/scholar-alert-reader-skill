@@ -213,6 +213,36 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Induced seismicity", data["name"])
             self.assertTrue(any(item["term"] == "induced seismicity" for item in data["focus_terms"]))
 
+    def test_semantic_queries_rescue_non_exact_matches(self) -> None:
+        paper = core.Paper(
+            id="semantic1",
+            title="A scalable uncertainty-aware framework for earthquake monitoring",
+            authors_source="Journal, 2026",
+            snippet="Probabilistic seismic event detection for dense regional networks.",
+            url="https://example.org/semantic1",
+            scholar_url="",
+            first_seen="2026-05-27",
+            last_seen="2026-05-27",
+            alerts=["AI seismology"],
+            occurrences=1,
+        )
+        profile = {
+            "semantic_queries": [
+                {
+                    "term": "uncertainty quantification for seismic monitoring",
+                    "weight": 6,
+                    "tags": ["uncertainty", "monitoring"],
+                }
+            ],
+            "tier_thresholds": {"must_read": 8, "skim": 3},
+        }
+        core.score_paper(paper, profile, None)
+        self.assertGreaterEqual(paper.score, 3)
+        self.assertEqual(paper.tier, "Skim")
+        self.assertIn("uncertainty quantification for seismic monitoring", paper.matched_terms)
+        self.assertIn("semantic", paper.tags)
+        self.assertTrue(any("语义匹配" in reason for reason in paper.reasons))
+
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -34,6 +34,11 @@
     {"term": "DAS", "weight": 4},
     {"term": "distributed acoustic sensing", "weight": 4}
   ],
+  "semantic_queries": [
+    {"term": "uncertainty-aware seismic imaging and inversion", "weight": 6, "tags": ["semantic", "uncertainty"]},
+    {"term": "surface wave constraints on crustal and upper mantle structure", "weight": 5, "tags": ["semantic", "structure"]},
+    {"term": "passive seismic noise data for regional tomography", "weight": 5, "tags": ["semantic", "method"]}
+  ],
   "watch_authors": [
     {"term": "Andreas Fichtner", "weight": 4},
     {"term": "Robert D. van der Hilst", "weight": 4},

@@ -34,6 +34,11 @@
     {"term": "domain adaptation", "weight": 4},
     {"term": "large language model", "weight": 3}
   ],
+  "semantic_queries": [
+    {"term": "data-driven earthquake detection and waveform representation learning", "weight": 6, "tags": ["semantic", "ai", "monitoring"]},
+    {"term": "foundation models for continuous seismic monitoring", "weight": 6, "tags": ["semantic", "foundation-model"]},
+    {"term": "uncertainty-aware seismic event detection and association", "weight": 5, "tags": ["semantic", "uncertainty"]}
+  ],
   "watch_authors": [
     {"term": "Greg Beroza", "weight": 4},
     {"term": "Zachary Ross", "weight": 4},

@@ -34,6 +34,11 @@
     {"term": "rate-and-state", "weight": 4},
     {"term": "dense seismic array", "weight": 5}
   ],
+  "semantic_queries": [
+    {"term": "fluid-driven fault reactivation and earthquake triggering", "weight": 6, "tags": ["semantic", "mechanism"]},
+    {"term": "dense array monitoring of induced microseismicity", "weight": 6, "tags": ["semantic", "monitoring"]},
+    {"term": "injection-related seismic hazard and operational risk", "weight": 5, "tags": ["semantic", "hazard"]}
+  ],
   "watch_authors": [
     {"term": "Cliff Frohlich", "weight": 3},
     {"term": "William Ellsworth", "weight": 3},

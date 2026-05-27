@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.5`
+Version: `0.2.6`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -97,7 +97,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Connects to Gmail API, Apple Mail, exported `.mbox`, BibTeX/RIS files, RSS/Atom feeds, and arXiv queries.
 - Monitors structured web sources such as journal feeds and saved-search feeds without depending on a hosted service.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
-- Scores papers against your research profile: keywords, methods, regions, authors, exclusions, and temporary boost terms.
+- Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, and temporary boost terms.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
@@ -249,7 +249,9 @@ Bundled templates include:
 - `seismic-imaging`: surface waves, ambient noise, receiver functions, anisotropy, FWI, and inversion uncertainty.
 - `dense-array-monitoring`: dense arrays, DAS, urban monitoring, continuous detection, and array processing.
 
-The template is only the starting point. Edit `profiles/research_profile.json` to add your own regions, authors, methods, exclusions, and temporary boost terms.
+The template is only the starting point. Edit `profiles/research_profile.json` to add your own regions, authors, methods, exclusions, semantic queries, and temporary boost terms.
+
+`semantic_queries` are short natural-language descriptions of things you care about. They use local token-overlap matching, not a hosted embedding service, so they can rescue papers whose wording differs from your exact keywords while keeping the score explainable.
 
 Run daily triage:
 

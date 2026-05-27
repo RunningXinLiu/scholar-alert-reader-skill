@@ -210,7 +210,7 @@ def related_records(target: dict[str, Any], records: list[dict[str, Any]], limit
 
 def profile_terms(profile: dict[str, Any]) -> list[str]:
     values: list[str] = []
-    for section in ["focus_terms", "regions", "methods", "watch_authors"]:
+    for section in ["focus_terms", "regions", "methods", "semantic_queries", "watch_authors"]:
         for item in profile.get(section, []):
             if isinstance(item, dict):
                 values.append(text(item.get("term")))

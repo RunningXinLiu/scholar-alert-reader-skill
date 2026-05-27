@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.6 - 2026-05-27
+
+- Add dependency-free `semantic_queries` scoring to rescue papers that match the user's research intent without exact phrase matches.
+- Add explainable semantic-match reasons and a `semantic` tag in matched paper outputs.
+- Update bundled profile templates with starter semantic queries for AI seismology, seismic imaging, induced seismicity, dense-array monitoring, and general geophysics.
+
 ## v0.2.5 - 2026-05-27
 
 - Add `review-pack` / generated `review_paper.sh` for creating LLM-ready selected-paper review context packs.
