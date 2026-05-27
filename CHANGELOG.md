@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.27 - 2026-05-27
+
+- Add source-specific setup guidance to `SOURCE_CHECK.md` so Gmail, Mail.app, mbox, BibTeX/RIS, web, RSS/Atom, and arXiv users get immediate next steps.
+- Print setup-wizard context about generated config, readiness checks, live checks, and the selected source.
+- Cover the new onboarding guidance in tests and product docs.
+
 ## v0.2.26 - 2026-05-27
 
 - Write `knowledge_base/reading_plan.html` alongside `reading_plan.md` so daily reading plans are browser-friendly.

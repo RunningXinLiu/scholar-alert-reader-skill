@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.26`
+Version: `0.2.27`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -329,7 +329,7 @@ Or configure non-interactively:
 
 Both setup paths write `reader.env`, which is automatically read by generated helper scripts. Explicit one-off command variables still win, so `SOURCE=mbox ./run_reader.sh`, `WEB_SOURCE=... ./web_import.sh`, or `RSS_SOURCE=... ./rss_import.sh` can override the saved defaults.
 
-The wizard also writes `SOURCE_CHECK.md` after configuration. Add `--live-check` when you want it to attempt a real Gmail, mbox, bibliography, web, RSS, or arXiv read immediately.
+The wizard also writes `SOURCE_CHECK.md` after configuration. Add `--live-check` when you want it to attempt a real Gmail, mbox, bibliography, web, RSS, or arXiv read immediately. The report includes source-specific next steps for OAuth, Mail.app permissions, mbox placement, BibTeX/RIS exports, web source lists, RSS feed lists, and arXiv queries.
 
 Choose a starting research profile:
 
@@ -640,6 +640,8 @@ Check input-source readiness without running the full workflow:
 ```
 
 `mail-app` is intentionally explicit because it can trigger macOS Automation permission prompts.
+
+When `source-check` writes `SOURCE_CHECK.md`, it includes an actionable setup guide for the effective source and common recovery steps for WARN results. Use `--live` only when you want it to attempt an actual read from that source.
 
 ## Metadata And Weekly Review
 

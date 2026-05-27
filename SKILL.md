@@ -14,7 +14,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 1. For a new local setup, prefer `quickstart` to create a project, run private-data-free checks/demos, and write `QUICKSTART_REPORT.md`. Use `init-project` when the user wants only the scaffold. The CLI can be invoked as `python3 -m scholar_alert_reader`, an installed `scholar-alert-reader` / `scholar-reader` command, or the compatibility wrapper `python3 scripts/scholar_reader.py`.
 2. Run `self-test` or `./self_test.sh` first when the user wants to verify the install without connecting Gmail, Obsidian, Zotero, or private files.
 3. Run `./demo_reader.sh` when the user wants to inspect the sample mbox digest output. Run `./demo_sources.sh` when the user wants to verify all bundled non-private source paths.
-4. Run `./setup_wizard.sh` / `setup-wizard` for guided first-time configuration and an immediate `SOURCE_CHECK.md`, or `./setup_reader.sh` / `setup` to persist local defaults non-interactively in `reader.env`.
+4. Run `./setup_wizard.sh` / `setup-wizard` for guided first-time configuration, source-specific setup explanations, and an immediate `SOURCE_CHECK.md`, or `./setup_reader.sh` / `setup` to persist local defaults non-interactively in `reader.env`.
 5. Choose a source:
    - Gmail API: preferred for automation after OAuth setup.
    - Mail.app: works locally on macOS after Automation permission.
@@ -30,7 +30,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `reading-plan`, `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 13. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-14. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
+14. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -92,7 +92,7 @@ Terminal-only users can also run:
 python3 -m scholar_alert_reader setup-wizard --project-dir ~/scholar_alerts
 ```
 
-Use `--live-check` when the user wants the wizard to attempt a real source read immediately. Use `--skip-check` only when generating config without validation.
+Use `--live-check` when the user wants the wizard to attempt a real source read immediately. Use `--skip-check` only when generating config without validation. `SOURCE_CHECK.md` includes the effective source, readiness checks, and next steps for OAuth, source files, feed lists, arXiv queries, or Mail.app permissions.
 
 Create only the scaffold:
 

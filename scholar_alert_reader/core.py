@@ -4223,6 +4223,10 @@ def setup_wizard(args: argparse.Namespace) -> None:
         raise SystemExit("setup-wizard needs an interactive terminal. Pass --defaults or use the non-interactive setup command.")
 
     project_dir = args.project_dir.expanduser().resolve()
+    print("Scholar Alert Reader setup wizard")
+    print("- Writes reader.env and refreshes START_HERE.md.")
+    print("- Runs a readiness check after setup unless --skip-check is passed.")
+    print("- Use --live-check when you want to test the selected source immediately.")
     env_values = read_project_env(project_env_path(project_dir)) if project_dir.exists() else {}
     templates = available_profile_templates()
     default_template = args.profile_template or DEFAULT_PROFILE_TEMPLATE
@@ -4264,6 +4268,7 @@ def setup_wizard(args: argparse.Namespace) -> None:
     if default_mode not in MODE_CHOICES:
         default_mode = "daily"
     mode = args.mode or prompt_choice("Run mode", MODE_CHOICES, default_mode, assume_default)
+    print(f"Source note: {source_hint(source, project_dir)}")
 
     mbox_path = args.mbox_path
     bibtex_path = args.bibtex_path
@@ -4847,6 +4852,134 @@ def choose_auto_source(
     )
 
 
+def source_hint(source: str, project_dir: Path) -> str:
+    hints = {
+        "auto": "Auto tries Gmail, mbox, BibTeX, RIS, web metadata, RSS/Atom, arXiv, then optional Mail.app in that order.",
+        "gmail": "Gmail needs one local Desktop OAuth client JSON plus one browser authorization; it stores a read-only token locally.",
+        "mail-app": "Mail.app is macOS-only and needs Automation permission for the terminal or agent process that runs the tool.",
+        "mbox": f"mbox expects an exported mailbox at `{project_dir / 'INBOX.mbox'}` unless you pass another path.",
+        "bibtex": f"BibTeX expects a Zotero, Scholar, publisher, or database export at `{project_dir / 'import.bib'}` by default.",
+        "ris": f"RIS expects a Zotero, EndNote, publisher, or database export at `{project_dir / 'import.ris'}` by default.",
+        "web": f"Web metadata can be a URL, saved HTML file, directory, or one-item-per-line list at `{project_dir / 'web_sources.txt'}`.",
+        "rss": f"RSS/Atom can be a feed URL, feed file, directory, or one-item-per-line list at `{project_dir / 'feeds.txt'}`.",
+        "arxiv": "arXiv uses the public Atom API; precise category/topic queries work better than broad text searches.",
+    }
+    return hints.get(source, "Choose one source first, then run source-check with --live before scheduling automation.")
+
+
+def web_source_instruction(web_source: str, default_list: Path) -> str:
+    if is_url(web_source):
+        return f"- The configured webpage URL will be read directly. For multiple pages, create `{default_list}` with one URL or saved HTML path per line."
+    path = Path(web_source).expanduser()
+    suffix = path.suffix.lower()
+    if path.is_dir():
+        return f"- The configured directory `{path}` will be scanned for saved scholarly HTML files. For mixed URLs and files, use `{default_list}` as a one-item-per-line list."
+    if suffix in {".txt", ".list"} or not suffix:
+        return f"- Add publisher/article URLs or saved HTML file paths to `{path}`, one source per line."
+    if suffix in {".html", ".htm"}:
+        return f"- The configured saved HTML file `{path}` will be read directly. For multiple pages, create `{default_list}` with one URL or file path per line."
+    return f"- The configured web source `{path}` will be read as a file or list. Use `{default_list}` for a clearer one-item-per-line source list."
+
+
+def rss_source_instruction(rss_source: str, default_list: Path) -> str:
+    if is_url(rss_source):
+        return f"- The configured feed URL will be read directly. For multiple feeds, create `{default_list}` with one feed URL or feed file path per line."
+    path = Path(rss_source).expanduser()
+    suffix = path.suffix.lower()
+    if path.is_dir():
+        return f"- The configured directory `{path}` will be scanned for feed files. For mixed URLs and files, use `{default_list}` as a one-item-per-line list."
+    if suffix in {".txt", ".list"} or not suffix:
+        return f"- Add journal feeds, saved-search feeds, publisher feeds, or feed file paths to `{path}`, one source per line."
+    if suffix in {".atom", ".rss", ".xml"}:
+        return f"- The configured feed file `{path}` will be read directly. For multiple feeds, create `{default_list}` with one feed URL or file path per line."
+    return f"- The configured RSS/Atom source `{path}` will be read as a feed file or list. Use `{default_list}` for a clearer one-item-per-line source list."
+
+
+def source_setup_guidance(
+    source: str,
+    project_dir: Path,
+    mbox_path: Path,
+    bibtex_path: Path,
+    ris_path: Path,
+    web_source: str,
+    rss_source: str,
+    arxiv_query: str | None,
+    gmail_credentials: Path,
+    gmail_token: Path,
+) -> list[str]:
+    lines = [
+        f"- Source meaning: {source_hint(source, project_dir)}",
+        "- This check only validates readiness. It does not update `knowledge_base/` or import papers unless you run the reader workflow.",
+    ]
+    if source == "gmail":
+        lines.extend(
+            [
+                f"- Put your Desktop OAuth client JSON at `{gmail_credentials}` or pass `--gmail-credentials`.",
+                f"- Install Gmail dependencies with `python3 -m pip install -r requirements-gmail.txt`, then run `python3 -m scholar_alert_reader auth-gmail --gmail-credentials {gmail_credentials} --gmail-token {gmail_token}`.",
+                "- Use the Gmail read-only scope. Do not commit OAuth client JSON or token files.",
+            ]
+        )
+    elif source == "mail-app":
+        lines.extend(
+            [
+                "- Open Mail.app once, make sure Scholar Alert messages are visible, then run `./source_check.sh --source mail-app --live`.",
+                "- If macOS blocks access, grant Automation permission to Terminal, Codex, or the process running this command in System Settings.",
+            ]
+        )
+    elif source == "mbox":
+        lines.extend(
+            [
+                f"- Export Scholar Alert mail from Gmail or Apple Mail and place it at `{mbox_path}` unless you pass `--mbox-path`.",
+                "- Run `./source_check.sh --source mbox --live` before using it as the daily source.",
+            ]
+        )
+    elif source == "bibtex":
+        lines.extend(
+            [
+                f"- Export BibTeX from Zotero, Google Scholar library, a publisher page, or an academic database to `{bibtex_path}`.",
+                "- Use `./bibtex_import.sh` for one-off imports or set `SOURCE=bibtex` in `reader.env` for repeated runs.",
+            ]
+        )
+    elif source == "ris":
+        lines.extend(
+            [
+                f"- Export RIS from Zotero, EndNote, a publisher page, or an academic database to `{ris_path}`.",
+                "- Use `./ris_import.sh` for one-off imports or set `SOURCE=ris` in `reader.env` for repeated runs.",
+            ]
+        )
+    elif source == "web":
+        lines.extend(
+            [
+                web_source_instruction(web_source, project_dir / "web_sources.txt"),
+                "- Web metadata reads citation meta tags, JSON-LD, Dublin Core, and OpenGraph. It is not a deep crawler.",
+            ]
+        )
+    elif source == "rss":
+        lines.extend(
+            [
+                rss_source_instruction(rss_source, project_dir / "feeds.txt"),
+                "- RSS/Atom is usually the most stable non-email source for ongoing monitoring.",
+            ]
+        )
+    elif source == "arxiv":
+        query = arxiv_query or "cat:physics.geo-ph AND all:tomography"
+        lines.extend(
+            [
+                f"- Current/default query: `{query}`.",
+                "- Try precise queries such as `cat:physics.geo-ph AND all:\"ambient noise\"` or `cat:cs.LG AND all:seismology`.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "- Configure at least one source, then rerun `./source_check.sh --source auto --live`.",
+                "- Fastest private-data-free check: `./demo_sources.sh`, then open the generated demo digests.",
+            ]
+        )
+    lines.append("- After a successful live check, run `./run_reader.sh`; open `reader_out/daily/digest.html` and `knowledge_base/reading_plan.html`.")
+    return lines
+
+
 def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
     project_dir = args.project_dir.expanduser().resolve()
     source = args.source
@@ -4987,6 +5120,21 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
     if notes:
         lines.extend(["", "## Notes", ""])
         lines.extend(f"- {note}" for note in notes)
+    lines.extend(["", "## Setup Guidance", ""])
+    lines.extend(
+        source_setup_guidance(
+            source,
+            project_dir,
+            mbox_path,
+            bibtex_path,
+            ris_path,
+            web_source,
+            rss_source,
+            args.arxiv_query,
+            gmail_credentials,
+            gmail_token,
+        )
+    )
     return "\n".join(lines).rstrip() + "\n", ok
 
 
