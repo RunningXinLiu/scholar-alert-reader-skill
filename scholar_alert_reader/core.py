@@ -8997,10 +8997,11 @@ def ask_library_command(args: argparse.Namespace) -> None:
 
     profile = load_profile(args.profile)
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
     records = merged_paper_records(kb_dir, args.papers_json) if args.papers_json else paper_records_from_library(kb_dir)
     stem = slugify(args.question)[:70] or "question"
     output = args.output or (kb_dir / "answers" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
-    write_report(output, render_literature_answer(args.question, records, profile, limit=args.limit))
+    write_report(output, render_literature_answer(args.question, records, profile, feedback=feedback, limit=args.limit))
     print(f"Literature answer: {output}")
 
 
@@ -10023,6 +10024,7 @@ def build_parser() -> argparse.ArgumentParser:
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
     ask.add_argument("--profile", type=Path, required=True)
     ask.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    ask.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
     ask.add_argument("--papers-json", type=Path, help="Optionally include a digest papers.json in addition to the retained library")
     ask.add_argument("--question", required=True)
     ask.add_argument("--limit", type=int, default=15)

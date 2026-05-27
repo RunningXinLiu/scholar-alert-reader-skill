@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.57`
+Version: `0.2.58`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -154,7 +154,7 @@ python3 -m scholar_alert_reader capabilities
 
 The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional semantic reranking. `semantic-rerank` defaults to sparse TF-IDF with no extra dependencies; `--backend sentence-transformers` uses a user-installed local embedding model. It is not a hosted embedding service or autonomous reviewer.
 
-`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, the retained library, and cached local full-text briefs when available. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
+`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
 ## Product Modes
 
@@ -722,6 +722,8 @@ python3 scripts/scholar_reader.py ask \
   --kb-dir knowledge_base \
   --question "receiver function + Tibet 有哪些关键论文？"
 ```
+
+`ask` loads `knowledge_base/feedback.json` by default, so reading status, labels, and personal notes can retrieve papers and appear as evidence in the answer. Use `--feedback-file` for a custom feedback file.
 
 Generate research-gap and reading-strategy advice:
 

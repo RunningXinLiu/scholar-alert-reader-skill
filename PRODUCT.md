@@ -30,7 +30,7 @@ For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
 - Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `profiles/profile_doctor.md`, `knowledge_base/`.
-- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, embedding check, semantic rerank, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, ask-library, advice, compare, map.
+- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, embedding check, semantic rerank, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, feedback-aware ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -92,6 +92,7 @@ For users who want citation/PDF management.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
 - A user can run one selected-paper review workflow that attempts local full-text extraction when possible, writes a workup, writes a review pack, and records next actions in one report.
 - A user can trigger selected-paper deep-read/full-review/workup/review-pack reports from the local feedback UI, see and filter current feedback/reading-status badges, save personal reading notes that carry into deep-read/workup/reading-status reports, knowledge-base paper pages, and Obsidian paper notes, mark papers as background-only or not-relevant after reading, and open generated markdown reports from local browser links.
+- A user can ask the retained library a question and retrieve papers through alert metadata, profile terms, reading status, labels, and saved personal notes.
 - A user can build a review pack that automatically includes the section-aware full-text brief and raw text cache when they exist, so downstream assistants get structured evidence before raw text.
 - A user can open `review_queue.md` or `review_queue.html` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
 - Successful generated `run_reader.sh` runs should refresh `profiles/profile_doctor.md` and `DASHBOARD.md` / `DASHBOARD.html` automatically, with escape hatches for scripted users who set `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0`.

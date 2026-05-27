@@ -1792,7 +1792,33 @@ SCHEDULE_TIME=09:00
                 capture_output=True,
                 check=True,
             )
-            self.assertIn("Most Relevant Papers", answer.read_text(encoding="utf-8"))
+            answer_content = answer.read_text(encoding="utf-8")
+            self.assertIn("Most Relevant Papers", answer_content)
+            self.assertIn("Retrieved papers with personal notes: 1", answer_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", answer_content)
+
+            note_answer = root / "note_answer.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "ask",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--question",
+                    "manuscript comparison",
+                    "--output",
+                    str(note_answer),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            note_answer_content = note_answer.read_text(encoding="utf-8")
+            self.assertIn("Most Relevant Papers", note_answer_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", note_answer_content)
 
             advice = root / "advice.md"
             subprocess.run(

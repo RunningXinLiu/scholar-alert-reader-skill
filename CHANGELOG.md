@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.58 - 2026-05-28
+
+- Make `ask` / local-library Q&A load feedback by default and accept `--feedback-file`.
+- Use saved personal notes, reading status, and labels as retrieval signals for literature questions.
+- Show personal-note evidence and feedback status in generated literature answers.
+
 ## v0.2.57 - 2026-05-28
 
 - Carry saved personal notes into generated `knowledge_base/papers/<paper-id>.md` pages.

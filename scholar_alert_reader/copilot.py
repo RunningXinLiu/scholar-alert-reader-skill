@@ -166,13 +166,20 @@ def top_counter(values: list[str], limit: int) -> list[tuple[str, int]]:
     return Counter(value for value in values if value).most_common(limit)
 
 
-def ranked_records_for_question(records: list[dict[str, Any]], question: str, limit: int) -> list[tuple[int, dict[str, Any]]]:
+def ranked_records_for_question(
+    records: list[dict[str, Any]],
+    question: str,
+    limit: int,
+    feedback: dict[str, Any] | None = None,
+) -> list[tuple[int, dict[str, Any]]]:
     query_tokens = tokens(question)
     query_lower = question.lower()
     ranked: list[tuple[int, dict[str, Any]]] = []
     for record in records:
         title_tokens = tokens(text(record.get("title", "")))
-        all_tokens = tokens(record_text(record))
+        note_tokens = tokens(feedback_note(record, feedback, limit=5000))
+        label_tokens = tokens(" ".join(reading_labels(record, feedback)) + " " + reading_status(record, feedback))
+        all_tokens = tokens(record_text(record)) | note_tokens | label_tokens
         matched_terms = {str(term).lower() for term in record.get("matched_terms", [])}
         tags = {str(tag).lower() for tag in record.get("tags", [])}
         alerts = {str(alert).lower() for alert in record.get("alerts", [])}
@@ -180,6 +187,8 @@ def ranked_records_for_question(records: list[dict[str, Any]], question: str, li
         score = 0
         score += 5 * len(query_tokens & title_tokens)
         score += 2 * len(query_tokens & all_tokens)
+        score += 4 * len(query_tokens & note_tokens)
+        score += 2 * len(query_tokens & label_tokens)
         score += 4 * sum(1 for term in matched_terms if term and term in query_lower)
         score += 2 * sum(1 for tag in tags if tag and tag in query_lower)
         score += sum(1 for alert in alerts if alert and alert in query_lower)
@@ -778,12 +787,14 @@ def render_literature_answer(
     question: str,
     records: list[dict[str, Any]],
     profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
     limit: int = 15,
 ) -> str:
-    ranked = ranked_records_for_question(records, question, limit)
+    ranked = ranked_records_for_question(records, question, limit, feedback=feedback)
     selected = [record for _, record in ranked]
     tags = top_counter([str(tag) for record in selected for tag in record.get("tags", [])], 10)
     terms = top_counter([str(term) for record in selected for term in record.get("matched_terms", [])], 12)
+    note_matches = [record for record in selected if feedback_note(record, feedback)]
 
     lines = [
         f"# Literature Answer: {question}",
@@ -792,6 +803,7 @@ def render_literature_answer(
         f"- Profile: {profile.get('name', 'unnamed')}",
         f"- Papers searched: {len(records)}",
         f"- Papers retrieved: {len(selected)}",
+        f"- Retrieved papers with personal notes: {len(note_matches)}",
         "",
         "## Short Answer",
         "",
@@ -810,7 +822,9 @@ def render_literature_answer(
         lines.append("- Tags: " + "; ".join(f"{name} ({count})" for name, count in tags))
     if terms:
         lines.append("- Terms: " + "; ".join(f"{name} ({count})" for name, count in terms))
-    if not (tags or terms):
+    if note_matches:
+        lines.append(f"- Personal notes surfaced: {len(note_matches)} retrieved papers include saved notes.")
+    if not (tags or terms or note_matches):
         lines.append("- No repeated tags or matched terms in the retrieved set.")
     lines.append("")
 
@@ -821,6 +835,12 @@ def render_literature_answer(
         snippet = text(record.get("snippet"))
         if snippet:
             lines.append(f"  - Alert signal: {snippet[:320]}")
+        note = feedback_note_summary(record, feedback)
+        if note:
+            lines.append(f"  - Personal note: {note}")
+        labels = reading_labels(record, feedback)
+        if labels:
+            lines.append(f"  - Labels/status: {', '.join(labels)}; {reading_status(record, feedback)}")
     if not ranked:
         lines.append("No retrieved papers.")
     lines.append("")
