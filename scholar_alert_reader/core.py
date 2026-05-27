@@ -10199,6 +10199,11 @@ def quickstart_command(args: argparse.Namespace) -> None:
     print(f"Quickstart report: {report_path}")
     print(f"Project: {project_dir}")
     print(f"Result: {'PASS' if passed else 'WARN'}")
+    if args.open:
+        open_target = project_dir / "START_HERE.html"
+        if not open_target.exists():
+            open_target = project_dir / "DASHBOARD.html" if (project_dir / "DASHBOARD.html").exists() else report_path
+        open_local_path(open_target)
     if args.strict and not passed:
         raise SystemExit(1)
 
@@ -10285,6 +10290,7 @@ def build_parser() -> argparse.ArgumentParser:
     quickstart.add_argument("--skip-demos", action="store_true", help="Skip generated demo_sources.sh")
     quickstart.add_argument("--strict", action="store_true", help="Exit non-zero if any quickstart check fails")
     quickstart.add_argument("--output", type=Path, help="Write quickstart report to this path. Defaults to project-dir/QUICKSTART_REPORT.md")
+    quickstart.add_argument("--open", action="store_true", help="Open START_HERE.html after quickstart finishes")
     quickstart.set_defaults(func=quickstart_command)
 
     setup = sub.add_parser("setup", help="Write persistent local project defaults to reader.env")

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.75 - 2026-05-28
+
+- Add `quickstart --open` so first-time users can create the project, run private-data-free checks, generate onboarding artifacts, and open `START_HERE.html` in one command.
+- Fall back to `DASHBOARD.html` or `QUICKSTART_REPORT.md` if the browser start guide is unavailable.
+- Cover the quickstart browser-open path without launching a real browser in tests.
+
 ## v0.2.74 - 2026-05-28
 
 - Add `guide --open` so users can write and open the browser-friendly `START_HERE.html` onboarding guide in one command.

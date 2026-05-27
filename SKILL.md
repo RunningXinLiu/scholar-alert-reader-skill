@@ -11,7 +11,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 
 ## Workflow
 
-1. For a new local setup, prefer `quickstart` to create a project, run private-data-free checks/demos, write `QUICKSTART_REPORT.md`, and provide `START_HERE.html` / `START_HERE.md` as the first local onboarding screen. That guide includes recommended next actions plus a source setup matrix with current readiness hints for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv. Use `init-project` when the user wants only the scaffold. The CLI can be invoked as `python3 -m scholar_alert_reader`, an installed `scholar-alert-reader` / `scholar-reader` command, or the compatibility wrapper `python3 scripts/scholar_reader.py`.
+1. For a new local setup, prefer `quickstart --open` to create a project, run private-data-free checks/demos, write `QUICKSTART_REPORT.md`, and open `START_HERE.html` as the first local onboarding screen. That guide includes recommended next actions plus a source setup matrix with current readiness hints for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv. Use `quickstart` without `--open` for terminal-only setup, or `init-project` when the user wants only the scaffold. The CLI can be invoked as `python3 -m scholar_alert_reader`, an installed `scholar-alert-reader` / `scholar-reader` command, or the compatibility wrapper `python3 scripts/scholar_reader.py`.
 2. Run `self-test` or `./self_test.sh` first when the user wants to verify the install without connecting Gmail, Obsidian, Zotero, or private files.
 3. Run `./demo_reader.sh` when the user wants to inspect the sample mbox digest output. Run `./demo_sources.sh` when the user wants to verify all bundled non-private source paths.
 4. Run `./setup_wizard.sh` / `setup-wizard` for guided first-time configuration, source-specific setup explanations, and an immediate `SOURCE_CHECK.md`, or `./setup_reader.sh` / `setup` to persist local defaults non-interactively in `reader.env`.
@@ -92,7 +92,7 @@ Archive-tier papers should not enter the knowledge base by default; they stay in
 Create a local project:
 
 ```bash
-python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts --profile-template ai-seismology
+python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts --profile-template ai-seismology --open
 ```
 
 Guided first-time setup:

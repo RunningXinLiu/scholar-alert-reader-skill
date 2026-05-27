@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.74`
+Version: `0.2.75`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -66,10 +66,9 @@ You can run the core tool from any terminal or from any coding agent that can ac
 ```bash
 git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
-python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
+python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts --open
 cd ~/scholar_alerts
 ./setup_wizard.sh
-./dashboard_reader.sh --open
 ```
 
 Agent compatibility:
@@ -207,21 +206,21 @@ Run directly from a clone:
 git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
 python3 -m scholar_alert_reader --version
-python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
+python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts --open
 ```
 
 Install from the checkout into your current Python environment:
 
 ```bash
 python3 -m pip install .
-scholar-alert-reader quickstart --project-dir ~/scholar_alerts
+scholar-alert-reader quickstart --project-dir ~/scholar_alerts --open
 ```
 
 Install straight from GitHub:
 
 ```bash
 python3 -m pip install "git+https://github.com/RunningXinLiu/scholar-alert-reader-skill.git"
-scholar-reader quickstart --project-dir ~/scholar_alerts
+scholar-reader quickstart --project-dir ~/scholar_alerts --open
 ```
 
 If you plan to use Gmail API from an installed CLI, install the optional Gmail dependencies:
@@ -306,7 +305,7 @@ Gmail OAuth distribution model:
 Create a runnable local project:
 
 ```bash
-python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
+python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts --open
 cd ~/scholar_alerts
 ```
 

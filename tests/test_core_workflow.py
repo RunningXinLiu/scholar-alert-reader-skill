@@ -678,6 +678,32 @@ class CoreWorkflowTests(unittest.TestCase):
             for source_name in ["mbox", "bibtex", "ris", "web", "rss"]:
                 self.assertTrue((project / "reader_out" / "demo_sources" / source_name / "digest.html").exists())
 
+    def test_quickstart_open_writes_and_opens_start_here(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "quickstart-open-reader"
+            opened: list[Path] = []
+            original_open = core.open_local_path
+            try:
+                core.open_local_path = lambda path: opened.append(path)
+                core.quickstart_command(
+                    argparse.Namespace(
+                        project_dir=project,
+                        profile_template="ai-seismology",
+                        force=False,
+                        skip_self_test=True,
+                        skip_demos=True,
+                        strict=True,
+                        output=None,
+                        open=True,
+                    )
+                )
+            finally:
+                core.open_local_path = original_open
+            self.assertTrue((project / "QUICKSTART_REPORT.md").exists())
+            self.assertTrue((project / "START_HERE.md").exists())
+            self.assertTrue((project / "START_HERE.html").exists())
+            self.assertEqual(opened, [(project.resolve(strict=False) / "START_HERE.html")])
+
     def test_init_project_accepts_profile_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "reader"
