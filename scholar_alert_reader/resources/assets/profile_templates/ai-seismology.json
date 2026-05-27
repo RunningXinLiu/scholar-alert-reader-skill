@@ -55,6 +55,14 @@
     "must_read": 18,
     "skim": 6
   },
+  "adaptive_ranking": {
+    "enabled": true,
+    "positive_weight": 4,
+    "negative_weight": 5,
+    "min_overlap": 3,
+    "max_seed_papers": 40,
+    "seed_tiers": ["Must read"]
+  },
   "limits": {
     "must_read": 10,
     "skim": 18,

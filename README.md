@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.19`
+Version: `0.2.20`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -104,9 +104,9 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Connects to Gmail API, Apple Mail, exported `.mbox`, BibTeX/RIS files, structured scholarly webpages, RSS/Atom feeds, and arXiv queries.
 - Monitors configured web sources such as publisher article pages, journal feeds, saved-search feeds, and arXiv queries without depending on a hosted service.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
-- Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, and temporary boost terms.
+- Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, adaptive feedback similarity, and temporary boost terms.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
-- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste.
+- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
 - Adds a literature-copilot layer: selected-paper deep reads, local-library Q&A, paper comparison, research maps, and gap/advice reports.
@@ -314,9 +314,11 @@ Bundled templates include:
 - `seismic-imaging`: surface waves, ambient noise, receiver functions, anisotropy, FWI, and inversion uncertainty.
 - `dense-array-monitoring`: dense arrays, DAS, urban monitoring, continuous detection, and array processing.
 
-The template is only the starting point. Edit `profiles/research_profile.json` to add your own regions, authors, methods, exclusions, semantic queries, and temporary boost terms.
+The template is only the starting point. Edit `profiles/research_profile.json` to add your own regions, authors, methods, exclusions, semantic queries, adaptive ranking settings, and temporary boost terms.
 
 `semantic_queries` are short natural-language descriptions of things you care about. They use local token-overlap matching, not a hosted embedding service, so they can rescue papers whose wording differs from your exact keywords while keeping the score explainable.
+
+`adaptive_ranking` is the feedback loop. After you mark papers as `interested`, `more-like-this`, `archive`, `less-like-this`, `reading`, `must-cite`, or `method-reference`, later runs compare new papers with those local seeds. Similar papers get a small boost; papers similar to archived seeds get a penalty. This is local and explainable, not an embedding service.
 
 Run daily triage:
 
@@ -427,7 +429,7 @@ python3 scripts/scholar_reader.py feedback \
   --less-like-this
 ```
 
-The command writes `knowledge_base/feedback.json` by default and immediately refreshes `foundation.md` / `interested.md` when the selected paper should enter or leave the retained library. Later `daily`, `foundation`, and `run` commands load that file automatically when they use the same `--kb-dir`. Use `--no-feedback` on a run to ignore saved feedback temporarily.
+The command writes `knowledge_base/feedback.json` by default and immediately refreshes `foundation.md` / `interested.md` when the selected paper should enter or leave the retained library. Later `daily`, `foundation`, and `run` commands load that file automatically when they use the same `--kb-dir`; they also use retained/interested papers as adaptive ranking seeds. Use `--no-feedback` on a run to ignore saved feedback and adaptive seeds temporarily.
 
 Start the local feedback UI:
 
@@ -451,7 +453,7 @@ python3 scripts/scholar_reader.py deep-read \
   --paper-id <ID>
 ```
 
-Capability boundary: `deep-read`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, feedback, and the retained local library. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path or sync it from Zotero; the tool does not automatically download publisher PDFs.
+Capability boundary: `deep-read`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, adaptive feedback similarity, and the retained local library. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path or sync it from Zotero; the tool does not automatically download publisher PDFs.
 
 If a local PDF path has been synced from Zotero, extract text and write a full-text brief:
 

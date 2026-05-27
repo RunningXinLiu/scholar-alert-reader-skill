@@ -22,10 +22,10 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
    - BibTeX/RIS: works from Zotero, EndNote, Google Scholar library, publisher, and database exports.
    - Structured webpage metadata: works from publisher/article URLs, saved HTML files, or URL/path lists with citation meta tags, JSON-LD, Dublin Core, or OpenGraph.
    - RSS/Atom or arXiv: works for structured web monitoring without deep crawling arbitrary pages.
-6. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the exact terms and `semantic_queries`.
+6. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the exact terms, `semantic_queries`, and `adaptive_ranking` settings.
 7. First run: use `foundation` to build the seen-paper baseline.
 8. Later runs: use `daily` so only papers not already in the state file are reported.
-9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
+9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `deep-read`, `full-text`, `review-pack`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
@@ -36,7 +36,7 @@ Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
-Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, feedback, and retained-library context. `full-text` can extract local PDF/text files when the user provides them or when Zotero sync supplies a local path. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files or claim autonomous expert review.
+Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, and retained-library context. `full-text` can extract local PDF/text files when the user provides them or when Zotero sync supplies a local path. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files or claim autonomous expert review.
 
 ## Outputs
 
@@ -423,7 +423,7 @@ For extension points and module boundaries, see `references/framework.md`.
 Prioritize papers that match:
 
 - The user's current research questions.
-- High-weight focus terms, methods, regions, authors, and semantic queries in the profile.
+- High-weight focus terms, methods, regions, authors, semantic queries, and adaptive-ranking seeds in the profile/feedback/library.
 - Recent papers and papers appearing in multiple alerts.
 
 Down-rank:

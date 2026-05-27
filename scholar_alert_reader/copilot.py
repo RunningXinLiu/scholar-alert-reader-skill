@@ -92,7 +92,7 @@ def similarity_text(record: dict[str, Any]) -> str:
         record.get("authors_source", ""),
         record.get("snippet", ""),
         " ".join(str(term) for term in record.get("matched_terms", [])),
-        " ".join(str(tag) for tag in record.get("tags", []) if str(tag) not in {"watchlist", "feedback", "boost"}),
+        " ".join(str(tag) for tag in record.get("tags", []) if str(tag) not in {"adaptive", "watchlist", "feedback", "boost"}),
     ]
     return " ".join(text(field) for field in fields)
 
@@ -102,7 +102,7 @@ def record_terms(record: dict[str, Any]) -> set[str]:
     terms.update(
         str(tag).lower()
         for tag in record.get("tags", [])
-        if str(tag).strip() and str(tag) not in {"watchlist", "feedback", "boost"}
+        if str(tag).strip() and str(tag) not in {"adaptive", "watchlist", "feedback", "boost"}
     )
     terms.update(tokens(text(record.get("title", ""))))
     return terms

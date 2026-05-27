@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.20 - 2026-05-27
+
+- Add adaptive local feedback-similarity ranking from retained/interested papers and archive / less-like-this feedback seeds.
+- Include adaptive-ranking defaults in bundled profile templates and the packaged resources.
+- Document `adaptive_ranking` in the README, skill guide, product requirements, and profile schema.
+- Add unit tests for positive and negative adaptive-ranking behavior.
+
 ## v0.2.19 - 2026-05-27
 
 - Add privacy-first GitHub issue forms for bug reports, source setup help, and feature requests.

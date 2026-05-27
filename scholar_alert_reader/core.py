@@ -372,6 +372,20 @@ def semantic_tokens(value: str) -> set[str]:
     return {token for token in tokens if token and token not in TITLE_STOPWORDS and len(token) > 2}
 
 
+def paper_affinity_tokens(paper: Paper) -> set[str]:
+    text = " ".join(
+        [
+            paper.title,
+            paper.snippet,
+            paper.authors_source,
+            " ".join(paper.alerts),
+            " ".join(paper.matched_terms),
+            " ".join(paper.tags),
+        ]
+    )
+    return semantic_tokens(text)
+
+
 def semantic_term_hit(item: dict[str, Any], fields: dict[str, str]) -> tuple[int, str, list[str]] | None:
     term_tokens = semantic_tokens(str(item.get("term", "")))
     if len(term_tokens) < 2:
@@ -486,11 +500,154 @@ def feedback_adjustment(
     return delta, sorted(set(matched_terms), key=lambda t: t.lower()), tags, reasons[:5], forced_tier
 
 
+def adaptive_ranking_settings(profile: dict[str, Any]) -> dict[str, Any]:
+    configured = profile.get("adaptive_ranking", {})
+    if not isinstance(configured, dict):
+        configured = {}
+    return {
+        "enabled": bool(configured.get("enabled", True)),
+        "positive_weight": int(configured.get("positive_weight", 4)),
+        "negative_weight": int(configured.get("negative_weight", 5)),
+        "min_overlap": max(2, int(configured.get("min_overlap", 3))),
+        "max_seed_papers": max(1, int(configured.get("max_seed_papers", 40))),
+        "seed_tiers": [str(tier) for tier in configured.get("seed_tiers", ["Must read"])],
+    }
+
+
+def feedback_paper_record(feedback: dict[str, Any] | None, paper_id: str) -> dict[str, Any]:
+    if not isinstance(feedback, dict):
+        return {}
+    record = feedback.get("papers", {}).get(paper_id, {})
+    return record if isinstance(record, dict) else {}
+
+
+def positive_seed_paper(paper: Paper, feedback: dict[str, Any] | None, seed_tiers: set[str]) -> bool:
+    record = feedback_paper_record(feedback, paper.id)
+    signals = record.get("signals", {}) if isinstance(record.get("signals", {}), dict) else {}
+    reading_status = str(record.get("reading_status", "") or "")
+    if record.get("status") == "archive" or reading_status == "not-relevant" or signals.get("less_like_this"):
+        return False
+    if record.get("status") == "interested" or signals.get("more_like_this"):
+        return True
+    if reading_status in {"reading", "read", "must-cite", "method-reference"}:
+        return True
+    return paper.tier in seed_tiers
+
+
+def negative_seed_paper(record: dict[str, Any]) -> bool:
+    signals = record.get("signals", {}) if isinstance(record.get("signals", {}), dict) else {}
+    return record.get("status") == "archive" or record.get("reading_status") == "not-relevant" or signals.get("less_like_this")
+
+
+def feedback_record_to_paper(paper_id: str, record: dict[str, Any]) -> Paper:
+    return Paper(
+        id=paper_id,
+        title=str(record.get("title", "") or paper_id),
+        authors_source="",
+        snippet=str(record.get("note", "") or ""),
+        url=str(record.get("url", "") or ""),
+        scholar_url="",
+        first_seen="",
+        last_seen="",
+        alerts=[],
+        occurrences=1,
+    )
+
+
+def adaptive_ranking_adjustment(
+    paper: Paper,
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None,
+    library: list[Paper] | None,
+) -> tuple[int, list[str], set[str], list[str]]:
+    settings = adaptive_ranking_settings(profile)
+    if not settings["enabled"]:
+        return 0, [], set(), []
+
+    seed_tiers = set(settings["seed_tiers"])
+    library_positive_seeds: list[Paper] = []
+    feedback_positive_seeds: list[Paper] = []
+    negative_seeds: list[Paper] = []
+    library_by_id = {seed.id: seed for seed in library or [] if seed.id != paper.id}
+    for seed in library_by_id.values():
+        if positive_seed_paper(seed, feedback, seed_tiers):
+            library_positive_seeds.append(seed)
+
+    for paper_id, record in (feedback or {}).get("papers", {}).items():
+        if not isinstance(record, dict) or str(paper_id) == paper.id:
+            continue
+        signals = record.get("signals", {}) if isinstance(record.get("signals", {}), dict) else {}
+        seed = library_by_id.get(str(paper_id)) or feedback_record_to_paper(str(paper_id), record)
+        if negative_seed_paper(record):
+            negative_seeds.append(seed)
+        elif record.get("status") == "interested" or signals.get("more_like_this"):
+            feedback_positive_seeds.append(seed)
+
+    positive_seeds = list({seed.id: seed for seed in feedback_positive_seeds + library_positive_seeds}.values())[
+        : settings["max_seed_papers"]
+    ]
+    negative_seeds = negative_seeds[: settings["max_seed_papers"]]
+    if not positive_seeds and not negative_seeds:
+        return 0, [], set(), []
+
+    target_tokens = paper_affinity_tokens(paper)
+    if len(target_tokens) < settings["min_overlap"]:
+        return 0, [], set(), []
+
+    def best(seed_papers: list[Paper]) -> tuple[Paper | None, list[str], int]:
+        best_seed: Paper | None = None
+        best_overlap: list[str] = []
+        best_score = 0
+        for seed in seed_papers:
+            seed_tokens = paper_affinity_tokens(seed)
+            overlap = sorted(target_tokens & seed_tokens)
+            overlap_count = len(overlap)
+            if overlap_count < settings["min_overlap"]:
+                continue
+            score = overlap_count * 100 + (50 if seed.tier == "Must read" else 0)
+            if score > best_score:
+                best_seed = seed
+                best_overlap = overlap
+                best_score = score
+        return best_seed, best_overlap, best_score
+
+    positive_seed, positive_overlap, _ = best(positive_seeds)
+    negative_seed, negative_overlap, _ = best(negative_seeds)
+
+    delta = 0
+    matched_terms: list[str] = []
+    tags: set[str] = set()
+    reasons: list[str] = []
+    if positive_seed:
+        strength = min(1.5, len(positive_overlap) / settings["min_overlap"])
+        boost = max(1, round(settings["positive_weight"] * strength))
+        delta += boost
+        matched_terms.append(f"similar:{positive_seed.title}")
+        tags.add("adaptive")
+        reasons.append(
+            f"反馈相似度加权：和已关注论文 `{positive_seed.title}` 共享 {len(positive_overlap)} 个关键词"
+            f"（{', '.join(positive_overlap[:6])}）。"
+        )
+    if negative_seed:
+        strength = min(1.5, len(negative_overlap) / settings["min_overlap"])
+        penalty = max(1, round(settings["negative_weight"] * strength))
+        delta -= penalty
+        matched_terms.append(f"dissimilar:{negative_seed.title}")
+        tags.add("adaptive")
+        reasons.append(
+            f"反馈相似度降权：和已归档论文 `{negative_seed.title}` 共享 {len(negative_overlap)} 个关键词"
+            f"（{', '.join(negative_overlap[:6])}）。"
+        )
+
+    return delta, matched_terms, tags, reasons[:3]
+
+
 def score_paper(
     paper: Paper,
     profile: dict[str, Any],
     boost: str | None,
     feedback: dict[str, Any] | None = None,
+    library: list[Paper] | None = None,
 ) -> None:
     positive, negative = profile_terms(profile, boost)
     fields = text_fields(paper)
@@ -575,6 +732,10 @@ def score_paper(
 
     feedback_delta, feedback_terms, feedback_tags, feedback_reasons, forced_tier = feedback_adjustment(paper, feedback)
     score += feedback_delta
+    adaptive_delta, adaptive_terms, adaptive_tags, adaptive_reasons = adaptive_ranking_adjustment(
+        paper, profile, feedback, library
+    )
+    score += adaptive_delta
 
     thresholds = profile.get("tier_thresholds", {})
     must = int(thresholds.get("must_read", 8))
@@ -588,9 +749,13 @@ def score_paper(
     elif forced_tier == "Archive":
         paper.score = min(paper.score, -20)
         paper.tier = "Archive"
-    paper.matched_terms = sorted({hit.term for hit in hits} | set(feedback_terms), key=lambda t: t.lower())
-    paper.tags = sorted({tag for hit in hits for tag in hit.tags} | set(feedback_tags))
-    paper.reasons = feedback_reasons + build_reasons(hits, paper)
+    paper.matched_terms = sorted(
+        {hit.term for hit in hits} | set(feedback_terms) | set(adaptive_terms),
+        key=lambda t: t.lower(),
+    )
+    paper.tags = sorted({tag for hit in hits for tag in hit.tags} | set(feedback_tags) | set(adaptive_tags))
+    profile_reasons = build_reasons(hits, paper) if hits or not (feedback_reasons or adaptive_reasons) else []
+    paper.reasons = feedback_reasons + adaptive_reasons + profile_reasons
 
 
 def build_reasons(hits: list[TermHit], paper: Paper) -> list[str]:
@@ -1971,9 +2136,10 @@ def rank_papers(
     profile: dict[str, Any],
     boost: str | None,
     feedback: dict[str, Any] | None = None,
+    library: list[Paper] | None = None,
 ) -> list[Paper]:
     for paper in papers:
-        score_paper(paper, profile, boost, feedback)
+        score_paper(paper, profile, boost, feedback, library)
     tier_order = {"Must read": 0, "Skim": 1, "Archive": 2}
     return sorted(
         papers,
@@ -2468,7 +2634,7 @@ def kb_settings(profile: dict[str, Any]) -> dict[str, Any]:
 
 
 def paper_directions(paper: Paper) -> list[str]:
-    directions = [tag for tag in paper.tags if tag not in {"boost", "watchlist"}]
+    directions = [tag for tag in paper.tags if tag not in {"adaptive", "boost", "feedback", "watchlist"}]
     if not directions:
         directions = ["uncategorized"]
     return sorted(set(directions))
@@ -2572,7 +2738,7 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
         "## Layers",
         "",
         "- `seen_papers.json` is the dedupe baseline. It can contain every alert item, including papers you do not want to read.",
-        "- `feedback.json` stores explicit user paper marks and more-like-this / less-like-this ranking signals.",
+        "- `feedback.json` stores explicit user paper marks and more-like-this / less-like-this ranking signals; later runs can also use retained/interested papers as adaptive ranking seeds.",
         f"- `library.json` is the cumulative retained library for tiers: {', '.join(settings['foundation_tiers'])}.",
         "- `foundation.md` is rendered from cumulative `library.json`, grouped by direction.",
         f"- `interested.md` is rendered from cumulative `library.json` for tiers: {', '.join(settings['interested_tiers'])}.",
@@ -3127,7 +3293,7 @@ def render_project_guide(
         "",
         "This project can run as a standalone Codex skill. Obsidian and Zotero are optional integrations, not required dependencies.",
         "",
-        "Capability boundary: ranking and deep-read reports use available alert metadata, bibliography fields, snippets, profile terms, feedback, and retained-library context. They are triage aids until a full paper/PDF has been read.",
+        "Capability boundary: ranking and deep-read reports use available alert metadata, bibliography fields, snippets, profile terms, local feedback similarity, and retained-library context. They are triage aids until a full paper/PDF has been read.",
         "",
         "## Product Modes",
         "",
@@ -3907,7 +4073,7 @@ def feedback_terms_from_paper(paper: Paper) -> list[tuple[str, int]]:
     terms: list[tuple[str, int]] = []
     for term in paper.matched_terms:
         cleaned = re.sub(r"^user:", "", term).strip()
-        if not cleaned or cleaned.startswith("-"):
+        if not cleaned or cleaned.startswith("-") or cleaned.startswith(("similar:", "dissimilar:")):
             continue
         terms.append((cleaned, 4))
     terms.extend((keyword, 2) for keyword in title_keywords(paper.title))
@@ -4074,7 +4240,7 @@ def apply_feedback_to_knowledge_base(
 
     reranked: list[Paper] = []
     for paper in target_papers:
-        score_paper(paper, profile, None, feedback)
+        score_paper(paper, profile, None, feedback, existing_library)
         reranked.append(paper)
 
     additions = [
@@ -4613,6 +4779,7 @@ def run(args: argparse.Namespace) -> None:
     kb_dir = args.kb_dir or default_kb_dir(args.profile, args.out_dir)
     feedback_file = args.feedback_file or default_feedback_file(kb_dir)
     feedback = empty_feedback() if args.no_feedback else load_feedback(feedback_file)
+    ranking_library = [] if args.no_feedback else load_paper_library(kb_dir)
     seen = load_seen(state_file)
 
     if getattr(args, "source_mail_app", False):
@@ -4648,7 +4815,7 @@ def run(args: argparse.Namespace) -> None:
         source_label = str(args.source_mbox)
     total_unique = len(papers)
     papers = apply_state(papers, seen, args.only_new)
-    papers = rank_papers(papers, profile, args.boost, feedback)
+    papers = rank_papers(papers, profile, args.boost, feedback, ranking_library)
 
     tier_counts = counts_by_tier(papers)
     summary = {
@@ -4674,6 +4841,8 @@ def run(args: argparse.Namespace) -> None:
         "feedback_file": "" if args.no_feedback else str(feedback_file),
         "feedback_terms": len(feedback.get("terms", [])) if not args.no_feedback else 0,
         "feedback_papers": len(feedback.get("papers", {})) if not args.no_feedback else 0,
+        "adaptive_ranking": adaptive_ranking_settings(profile)["enabled"] and not args.no_feedback,
+        "adaptive_seed_papers": len(ranking_library),
         "boost": args.boost or "",
     }
     write_outputs(args.out_dir, kb_dir, papers, profile, summary, update_knowledge_base=not getattr(args, "no_kb_update", False))

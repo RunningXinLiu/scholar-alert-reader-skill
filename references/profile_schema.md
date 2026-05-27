@@ -50,6 +50,14 @@ python3 scripts/scholar_reader.py init-profile \
     "must_read": 8,
     "skim": 3
   },
+  "adaptive_ranking": {
+    "enabled": true,
+    "positive_weight": 4,
+    "negative_weight": 5,
+    "min_overlap": 3,
+    "max_seed_papers": 40,
+    "seed_tiers": ["Must read"]
+  },
   "limits": {
     "must_read": 5,
     "skim": 12,
@@ -72,6 +80,8 @@ python3 scripts/scholar_reader.py init-profile \
 
 `term` matching is case-insensitive substring matching over title, author/source, alert name, and snippet. A title hit counts more than a snippet hit. If a list item is a plain string, default weight is `1`.
 
+`semantic_queries` use local token-overlap matching between short natural-language intent statements and the paper title/snippet/source fields. `adaptive_ranking` then uses retained/interested library papers and feedback records as seeds: similar papers receive `positive_weight`, while papers similar to archive / less-like-this seeds receive `negative_weight`. Set `"enabled": false` to disable this feedback-similarity layer.
+
 ## Feedback Updates
 
 Use the `feedback` command for paper-level feedback. It writes `knowledge_base/feedback.json` by default, refreshes the retained knowledge base immediately for selected papers, and later runs read that file automatically:
@@ -89,6 +99,8 @@ The feedback file has two layers:
 
 - `papers`: exact paper marks such as `interested`, `archive`, `more_like_this`, and `less_like_this`.
 - `terms`: reusable positive/negative terms inferred from manual feedback or selected papers.
+
+Later runs also compare new papers with retained/interested papers and feedback records when `adaptive_ranking.enabled` is true. Use `--no-feedback` to temporarily ignore feedback terms and adaptive ranking seeds.
 
 Broad preference changes can still edit the profile:
 

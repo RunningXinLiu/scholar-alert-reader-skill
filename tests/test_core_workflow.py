@@ -378,6 +378,87 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertIn("semantic", paper.tags)
         self.assertTrue(any("语义匹配" in reason for reason in paper.reasons))
 
+    def test_adaptive_ranking_uses_interested_library_seed(self) -> None:
+        seed = core.Paper(
+            id="seed1",
+            title="Foundation model for continuous seismic monitoring",
+            authors_source="Journal, 2026",
+            snippet="Self-supervised waveform representation learning for seismic monitoring.",
+            url="https://example.org/seed1",
+            scholar_url="",
+            first_seen="2026-05-27",
+            last_seen="2026-05-27",
+            alerts=["AI seismology"],
+            occurrences=1,
+            score=20,
+            tier="Must read",
+            matched_terms=["foundation model", "continuous seismic"],
+            tags=["ai", "foundation-model"],
+        )
+        paper = core.Paper(
+            id="candidate1",
+            title="Continuous waveform representations for seismic monitoring",
+            authors_source="Journal, 2026",
+            snippet="A scalable approach for earthquake waveform monitoring.",
+            url="https://example.org/candidate1",
+            scholar_url="",
+            first_seen="2026-05-27",
+            last_seen="2026-05-27",
+            alerts=["new methods"],
+            occurrences=1,
+        )
+        profile = {
+            "adaptive_ranking": {"enabled": True, "min_overlap": 2, "positive_weight": 4},
+            "tier_thresholds": {"must_read": 8, "skim": 3},
+        }
+        feedback = {
+            "papers": {
+                "seed1": {
+                    "status": "interested",
+                    "signals": {"more_like_this": True},
+                }
+            }
+        }
+        core.score_paper(paper, profile, None, feedback, [seed])
+        self.assertGreaterEqual(paper.score, 3)
+        self.assertEqual(paper.tier, "Skim")
+        self.assertIn("adaptive", paper.tags)
+        self.assertTrue(any(term.startswith("similar:") for term in paper.matched_terms))
+        self.assertTrue(any("反馈相似度加权" in reason for reason in paper.reasons))
+
+    def test_adaptive_ranking_penalizes_archive_like_papers(self) -> None:
+        paper = core.Paper(
+            id="candidate2",
+            title="Medical imaging education benchmark for seismic data",
+            authors_source="Journal, 2026",
+            snippet="A course-style benchmark for medical imaging education.",
+            url="https://example.org/candidate2",
+            scholar_url="",
+            first_seen="2026-05-27",
+            last_seen="2026-05-27",
+            alerts=["new methods"],
+            occurrences=1,
+        )
+        profile = {
+            "adaptive_ranking": {"enabled": True, "min_overlap": 2, "negative_weight": 5},
+            "tier_thresholds": {"must_read": 8, "skim": 3},
+        }
+        feedback = {
+            "papers": {
+                "bad1": {
+                    "title": "Medical imaging education course announcement",
+                    "status": "archive",
+                    "signals": {"less_like_this": True},
+                }
+            }
+        }
+        core.score_paper(paper, profile, None, feedback, [])
+        self.assertLess(paper.score, 0)
+        self.assertEqual(paper.tier, "Archive")
+        self.assertIn("adaptive", paper.tags)
+        self.assertTrue(any(term.startswith("dissimilar:") for term in paper.matched_terms))
+        self.assertTrue(any("反馈相似度降权" in reason for reason in paper.reasons))
+
     def test_profile_tune_reports_and_applies_feedback_suggestions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
