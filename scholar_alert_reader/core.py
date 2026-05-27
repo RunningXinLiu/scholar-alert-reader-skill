@@ -3814,6 +3814,7 @@ def render_project_guide(
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
+        "- `./review_workflow.sh --paper-id <ID>`: run local full-text extraction when possible, then write a workup and review pack.",
         "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
         "- `./reading_plan.sh`: choose what to read next and which paper IDs to send into review packs.",
         "- `./advice_reader.sh`: generate reading strategy and gap advice.",
@@ -4034,9 +4035,9 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "",
             "1. Open the latest digest and mark obvious interested/archive papers in `./serve_reader.sh`.",
             "2. Open the reading plan to choose the next few IDs.",
-            "3. Run `./workup_paper.sh --paper-id ID` for a human-readable decision brief on one paper.",
-            "4. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
-            "5. If Zotero has local PDFs, run `./zotero_sync.sh` first so review packs can include full-text briefs.",
+            "3. If Zotero has local PDFs, run `./zotero_sync.sh` so review packs can include full-text briefs.",
+            "4. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
+            "5. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
             "6. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
@@ -4277,6 +4278,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "workup_paper.sh": 'exec "${SKILL_CMD[@]}" workup --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "full_text_paper.sh": 'exec "${SKILL_CMD[@]}" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_paper.sh": 'exec "${SKILL_CMD[@]}" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "review_workflow.sh": 'exec "${SKILL_CMD[@]}" review-workflow --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
@@ -4441,6 +4443,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./workup_paper.sh --paper-id <ID>",
                     "./full_text_paper.sh --paper-id <ID>",
                     "./review_paper.sh --paper-id <ID>",
+                    "./review_workflow.sh --paper-id <ID>",
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
                     "./tune_profile.sh",
                     "./reading_plan.sh",
@@ -6928,22 +6931,49 @@ def deep_read_command(args: argparse.Namespace) -> None:
     print(f"Deep-read report: {output}")
 
 
-def full_text_command(args: argparse.Namespace) -> None:
+def write_full_text_brief_report(
+    profile_path: Path,
+    kb_dir: Path,
+    paper_id: str | None = None,
+    title: str | None = None,
+    papers_json: Path | None = None,
+    pdf_path: Path | None = None,
+    text_output: Path | None = None,
+    output: Path | None = None,
+    max_chars: int = 120000,
+    timeout: int = 30,
+) -> tuple[Path, Path, Path, str]:
     from .fulltext import extract_local_text, first_full_text_path, render_full_text_brief
 
-    profile = load_profile(args.profile)
-    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
-    records = merged_paper_records(kb_dir, args.papers_json)
-    target = select_paper_record(records, args.paper_id, args.title)
-    source_path = first_full_text_path(target, args.pdf_path)
-    extracted = extract_local_text(source_path, max_chars=args.max_chars, timeout=args.timeout)
+    profile = load_profile(profile_path)
+    records = merged_paper_records(kb_dir, papers_json)
+    target = select_paper_record(records, paper_id, title)
+    source_path = first_full_text_path(target, pdf_path)
+    extracted = extract_local_text(source_path, max_chars=max_chars, timeout=timeout)
     stem = str(target.get("id", "paper") or "paper")
-    text_output = args.text_output or (kb_dir / "full_text" / f"{stem}.txt")
-    report_output = args.output or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
-    write_report(text_output, extracted.text)
-    write_report(report_output, render_full_text_brief(target, extracted, profile, text_output))
+    text_output_path = text_output or (kb_dir / "full_text" / f"{stem}.txt")
+    report_output = output or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
+    write_report(text_output_path, extracted.text)
+    write_report(report_output, render_full_text_brief(target, extracted, profile, text_output_path))
+    return text_output_path, report_output, source_path, extracted.method
+
+
+def full_text_command(args: argparse.Namespace) -> None:
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    text_output, report_output, source_path, extraction_method = write_full_text_brief_report(
+        profile_path=args.profile,
+        kb_dir=kb_dir,
+        paper_id=args.paper_id,
+        title=args.title,
+        papers_json=args.papers_json,
+        pdf_path=args.pdf_path,
+        text_output=args.text_output,
+        output=args.output,
+        max_chars=args.max_chars,
+        timeout=args.timeout,
+    )
     print(f"Full-text source: {source_path}")
-    print(f"Extraction method: {extracted.method}")
+    print(f"Extraction method: {extraction_method}")
     print(f"Text cache: {text_output}")
     print(f"Full-text brief: {report_output}")
 
@@ -7116,6 +7146,118 @@ def paper_workup_command(args: argparse.Namespace) -> None:
         print(f"Full-text cache: {actual_full_text_path}")
     else:
         print("Full-text cache: none")
+
+
+def review_workflow_command(args: argparse.Namespace) -> None:
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    target = select_paper_record(records, args.paper_id, args.title)
+    stem = str(target.get("id", "paper") or "paper")
+    text_output = kb_dir / "full_text" / f"{stem}.txt"
+    brief_output = kb_dir / "analysis" / f"{stem}_full_text_brief.md"
+    workup_output = args.workup_output or (kb_dir / "analysis" / f"{stem}_workup.md")
+    review_pack_output = args.review_pack_output or (kb_dir / "analysis" / f"{stem}_review_pack.md")
+    workflow_output = args.output or (kb_dir / "analysis" / f"{stem}_review_workflow.md")
+
+    extraction_status = "skipped by --no-extract"
+    extraction_source = ""
+    if not args.no_extract:
+        if text_output.exists() and brief_output.exists() and not args.force_extract:
+            extraction_status = "cached local full-text text and brief"
+        else:
+            try:
+                source_arg = args.pdf_path
+                if text_output.exists() and not brief_output.exists() and not source_arg:
+                    source_arg = text_output
+                text_output, brief_output, source_path, method = write_full_text_brief_report(
+                    profile_path=args.profile,
+                    kb_dir=kb_dir,
+                    paper_id=args.paper_id,
+                    title=args.title,
+                    papers_json=args.papers_json,
+                    pdf_path=source_arg,
+                    text_output=text_output,
+                    output=brief_output,
+                    max_chars=args.max_chars,
+                    timeout=args.timeout,
+                )
+                extraction_source = str(source_path)
+                extraction_status = f"extracted with {method}"
+            except Exception as exc:
+                extraction_status = f"unavailable: {exc}"
+    if args.strict_full_text and not text_output.exists():
+        raise SystemExit(f"Full-text cache is required but unavailable for {stem}: {extraction_status}")
+
+    workup_path, _, _ = write_paper_workup_report(
+        profile_path=args.profile,
+        kb_dir=kb_dir,
+        paper_id=args.paper_id,
+        title=args.title,
+        papers_json=args.papers_json,
+        output=workup_output,
+        feedback_file=args.feedback_file,
+        full_text_path=text_output,
+        full_text_brief_path=brief_output,
+        limit=args.related_limit,
+        max_full_text_brief_chars=args.max_workup_brief_chars,
+    )
+    review_pack_path, pack_brief_path, pack_text_path = write_review_context_pack_report(
+        profile_path=args.profile,
+        kb_dir=kb_dir,
+        paper_id=args.paper_id,
+        title=args.title,
+        papers_json=args.papers_json,
+        output=review_pack_output,
+        feedback_file=args.feedback_file,
+        full_text_path=text_output,
+        full_text_brief_path=brief_output,
+        limit=args.related_limit,
+        max_full_text_chars=args.max_full_text_chars,
+        max_full_text_brief_chars=args.max_full_text_brief_chars,
+    )
+
+    next_action = (
+        "Open the review pack with Codex, Claude, ChatGPT, or another assistant, then verify methods/results before citing."
+        if pack_text_path and pack_brief_path
+        else "Attach or sync a local PDF/text file, rerun this workflow, then use the review pack for deeper discussion."
+    )
+    lines = [
+        "# Selected Paper Review Workflow",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Paper: {target.get('title', 'Untitled')}",
+        f"- Paper ID: `{stem}`",
+        "",
+        "## What This Is",
+        "",
+        "This is a local-first selected-paper workflow. It can extract a local PDF/text file when available, then builds a human-readable workup and an assistant-ready review pack. It is not an autonomous expert review, and final citation decisions still require checking the paper evidence.",
+        "",
+        "## Outputs",
+        "",
+        f"- Full-text extraction: {extraction_status}",
+        f"- Full-text source: `{extraction_source}`" if extraction_source else "- Full-text source: none",
+        f"- Full-text cache: {dashboard_link('text cache', text_output, workflow_output.parent)}",
+        f"- Full-text brief: {dashboard_link('full-text brief', brief_output, workflow_output.parent)}",
+        f"- Workup: {dashboard_link('paper workup', workup_path, workflow_output.parent)}",
+        f"- Review pack: {dashboard_link('review pack', review_pack_path, workflow_output.parent)}",
+        "",
+        "## Next Action",
+        "",
+        f"- {next_action}",
+        "",
+        "## Useful Follow-Up Commands",
+        "",
+        f"- `./full_text_paper.sh --paper-id {stem}`",
+        f"- `./workup_paper.sh --paper-id {stem}`",
+        f"- `./review_paper.sh --paper-id {stem}`",
+        f"- `./review_workflow.sh --paper-id {stem}`",
+        "",
+    ]
+    write_report(workflow_output, "\n".join(lines))
+    print(f"Review workflow: {workflow_output}")
+    print(f"Full-text extraction: {extraction_status}")
+    print(f"Paper workup: {workup_path}")
+    print(f"Review context pack: {review_pack_path}")
 
 
 def review_queue_command(args: argparse.Namespace) -> None:
@@ -7563,6 +7705,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, and method-reference labels.",
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
+        "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
         "",
         "## Capability Boundary",
@@ -7587,12 +7730,12 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "3. Run `source-check --live` before expecting non-empty daily results.",
         "4. Build an initial `foundation`, then use `daily` for new papers only.",
         "5. Mark interested/archive papers and rerun `profile-tune` after several feedback rounds.",
-        "6. Sync Zotero local PDF paths when available, then run `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
+        "6. Sync Zotero local PDF paths when available, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
         "",
         "## Practical Upgrade Path",
         "",
         "- For better ranking: tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
-        "- For closer reading: use Zotero or explicit local PDF paths with `full-text`, then run `workup` for a human decision brief or `review-pack` for an assistant context pack.",
+        "- For closer reading: use Zotero or explicit local PDF paths with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
         "- For public support: run `support-bundle` and review the redacted output before posting a GitHub issue.",
         "",
@@ -8143,6 +8286,32 @@ def build_parser() -> argparse.ArgumentParser:
     review_pack.add_argument("--limit", type=int, default=12, help="Related/interested papers to include")
     review_pack.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_review_pack.md")
     review_pack.set_defaults(func=review_pack_command)
+
+    review_workflow = sub.add_parser(
+        "review-workflow",
+        aliases=["paper-review"],
+        help="Run full-text extraction, workup, and review-pack for one selected paper",
+    )
+    review_workflow.add_argument("--profile", type=Path, required=True)
+    review_workflow.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    review_workflow.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    review_workflow.add_argument("--papers-json", type=Path, help="Optional digest papers.json to select a paper that is not yet retained")
+    review_workflow.add_argument("--paper-id", help="Paper ID from a digest or paper note")
+    review_workflow.add_argument("--title", help="Case-insensitive title substring")
+    review_workflow.add_argument("--pdf-path", type=Path, help="Explicit local PDF/text path. Defaults to metadata.zotero.pdf_paths")
+    review_workflow.add_argument("--no-extract", action="store_true", help="Do not attempt local full-text extraction; use existing caches only")
+    review_workflow.add_argument("--force-extract", action="store_true", help="Regenerate full-text cache and brief even when they already exist")
+    review_workflow.add_argument("--strict-full-text", action="store_true", help="Exit non-zero if no local full-text cache is available")
+    review_workflow.add_argument("--max-chars", type=int, default=120000, help="Maximum extracted text characters to cache")
+    review_workflow.add_argument("--timeout", type=int, default=30, help="PDF extraction timeout in seconds")
+    review_workflow.add_argument("--max-full-text-chars", type=int, default=40000, help="Maximum cached text characters to include in the review pack")
+    review_workflow.add_argument("--max-full-text-brief-chars", type=int, default=16000, help="Maximum full-text brief characters to include in the review pack")
+    review_workflow.add_argument("--max-workup-brief-chars", type=int, default=7000, help="Maximum full-text brief characters to include in the workup")
+    review_workflow.add_argument("--related-limit", type=int, default=12, help="Related/interested papers to include")
+    review_workflow.add_argument("--output", type=Path, help="Output workflow markdown path. Defaults to kb-dir/analysis/<paper-id>_review_workflow.md")
+    review_workflow.add_argument("--workup-output", type=Path, help="Output workup markdown path. Defaults to kb-dir/analysis/<paper-id>_workup.md")
+    review_workflow.add_argument("--review-pack-output", type=Path, help="Output review-pack markdown path. Defaults to kb-dir/analysis/<paper-id>_review_pack.md")
+    review_workflow.set_defaults(func=review_workflow_command)
 
     review_queue = sub.add_parser("review-queue", help="Build review packs for a queue of selected papers")
     review_queue.add_argument("--profile", type=Path, required=True)

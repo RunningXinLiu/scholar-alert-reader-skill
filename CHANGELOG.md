@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.42 - 2026-05-28
+
+- Add `review-workflow` / `paper-review` plus generated `review_workflow.sh` to run the selected-paper path from optional local full-text extraction to workup and review pack in one command.
+- Write `knowledge_base/analysis/<paper-id>_review_workflow.md` with extraction status, generated artifacts, capability boundary, and next actions.
+- Cover the one-paper review workflow and generated helper script in regression tests.
+
 ## v0.2.41 - 2026-05-28
 
 - Add a `Profile Health` section to `DASHBOARD.md/html` with profile-doctor status, link, and refresh command.

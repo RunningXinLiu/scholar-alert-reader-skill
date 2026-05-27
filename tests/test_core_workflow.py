@@ -223,6 +223,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "workup_paper.sh").exists())
             self.assertTrue((project / "full_text_paper.sh").exists())
             self.assertTrue((project / "review_paper.sh").exists())
+            self.assertTrue((project / "review_workflow.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "reading_plan.sh").exists())
@@ -1553,6 +1554,39 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("What To Check Before Citing", workup_content)
             self.assertIn("Visual/data/code signals: Figures, Tables, Data Availability, Code / Software", workup_content)
             self.assertIn("review-pack", workup_content)
+
+            workflow = root / "review_workflow.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "review-workflow",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--pdf-path",
+                    str(full_text_source),
+                    "--force-extract",
+                    "--output",
+                    str(workflow),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            workflow_content = workflow.read_text(encoding="utf-8")
+            self.assertIn("Selected Paper Review Workflow", workflow_content)
+            self.assertIn("Full-text extraction: extracted with text-file", workflow_content)
+            self.assertIn("paper workup", workflow_content)
+            self.assertIn("review pack", workflow_content)
+            self.assertTrue((kb / "full_text" / "p1.txt").exists())
+            self.assertTrue((kb / "analysis" / "p1_full_text_brief.md").exists())
+            self.assertTrue((kb / "analysis" / "p1_workup.md").exists())
+            self.assertTrue((kb / "analysis" / "p1_review_pack.md").exists())
+            self.assertIn("Local Full Text", (kb / "analysis" / "p1_review_pack.md").read_text(encoding="utf-8"))
 
             default_full_text_dir = kb / "full_text"
             default_full_text_dir.mkdir(parents=True, exist_ok=True)
