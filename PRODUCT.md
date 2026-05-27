@@ -21,13 +21,13 @@ Turn noisy Google Scholar Alert emails into a personalized reading queue and a c
 
 For users who do not use Obsidian or Zotero.
 
-- Input: Gmail API, Mail.app, or exported `.mbox`.
+- Input: Gmail API, Mail.app, exported `.mbox`, BibTeX, or RIS.
 - Output: `digest.html`, `digest.md`, `papers.json`, `knowledge_base/`.
 - Main actions: feedback UI, deep-read, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
-- Gmail API and exported mbox are the portable sources.
+- Gmail API, exported mbox, BibTeX, and RIS are the portable sources.
 - Mail.app integration is macOS-only.
 - macOS LaunchAgent scheduling is currently the packaged scheduler; other platforms should use their native scheduler around the same CLI commands.
 - Codex is the intended skill interface, but the repository also exposes a plain Python CLI for users who want to run it outside Codex.
@@ -53,6 +53,7 @@ For users who want citation/PDF management.
 
 - A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
+- A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - Obsidian and Zotero must remain optional.
 - Raw mailbox contents, OAuth secrets, Gmail tokens, feedback, and generated personal knowledge bases must not be committed.
 - The default workflow should prefer local files and local browser UI over hosted services.

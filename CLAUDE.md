@@ -18,6 +18,7 @@ Do not treat generated user data as source code.
 Do not commit or print sensitive user data:
 
 - raw `.mbox` or `.eml` mailbox exports
+- personal `import.bib` or `import.ris` bibliography files
 - Gmail OAuth credentials or token files
 - `seen_papers.json`
 - `feedback.json`
@@ -49,6 +50,8 @@ Check input sources:
 ```bash
 ./source_check.sh --source auto
 ./source_check.sh --source mbox --mbox-path examples/sample_scholar_alerts.mbox --live
+./source_check.sh --source bibtex --bibtex-path import.bib --live
+./source_check.sh --source ris --ris-path import.ris --live
 ```
 
 Run a daily workflow after setup:
@@ -56,6 +59,15 @@ Run a daily workflow after setup:
 ```bash
 ./run_reader.sh
 ./serve_reader.sh
+```
+
+Import bibliography files without Gmail:
+
+```bash
+cp ~/Downloads/export.bib import.bib
+./bibtex_import.sh
+cp ~/Downloads/export.ris import.ris
+./ris_import.sh
 ```
 
 Use literature-copilot commands:

@@ -1,6 +1,6 @@
 # Automation Notes
 
-Use the local mbox path for the first reliable version. For a true daily pipeline, choose one source connector:
+Use the local mbox or BibTeX/RIS path for the first reliable version. For a true daily pipeline, choose one source connector:
 
 For a new workspace, initialize the local project first:
 
@@ -20,7 +20,7 @@ Suggested flow:
 3. Fetch messages since last run.
 4. Save only extracted paper metadata, not raw emails.
 
-The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token exists; otherwise it falls back to Mail.app.
+The default `run_reader.sh` uses `SOURCE=auto`: Gmail API is used when the token exists; otherwise it checks `INBOX.mbox`, `import.bib`, `import.ris`, and then optional Mail.app fallback.
 
 If the workflow uses `--kb-dir knowledge_base`, saved paper feedback is read from `knowledge_base/feedback.json` automatically. Pass `--no-feedback` only for a diagnostic run that should ignore personal ranking signals.
 
@@ -49,6 +49,17 @@ python3 scripts/scholar_reader.py doctor --profile profiles/research_profile.jso
 Possible but more brittle. AppleScript can ask Mail.app for messages from Scholar Alerts, but macOS may require Automation permission and Mail.app search behavior can vary.
 
 Use only if the user prefers Mail.app over Gmail API.
+
+## BibTeX/RIS Imports
+
+Best fallback when the user has no Gmail access or wants to triage a Zotero, EndNote, Google Scholar library, publisher, or database export.
+
+```bash
+SOURCE=bibtex BIBTEX_PATH=~/Downloads/export.bib MODE=run ./run_reader.sh
+SOURCE=ris RIS_PATH=~/Downloads/export.ris MODE=run ./run_reader.sh
+```
+
+Project scaffolds also include `./bibtex_import.sh` and `./ris_import.sh`, which default to `import.bib` and `import.ris` inside the project directory.
 
 ## Codex Automation
 

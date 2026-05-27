@@ -31,7 +31,7 @@ Use this reference when changing the skill implementation rather than a user's p
 
 ## Feature Roadmap
 
-- Source adapters: Gmail, Mail.app, mbox now; add Zotero, RSS, Semantic Scholar alerts, or arXiv saved searches as separate source modules.
+- Source adapters: Gmail, Mail.app, mbox, BibTeX, and RIS now; add RSS, Semantic Scholar alerts, or arXiv saved searches as separate source modules.
 - Ranking adapters: current term scoring now; future versions can add embeddings or an LLM reranker after local dedupe.
 - Feedback adapters: CLI and local UI now; future versions can add browser extension buttons or email reply parsing.
 - Exports: Markdown now; future versions can add Zotero collections, Obsidian vault sync, BibTeX, and Notion/Readwise exports.

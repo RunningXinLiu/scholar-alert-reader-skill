@@ -70,9 +70,13 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Project initialized", result.stdout)
             self.assertTrue((project / "profiles" / "research_profile.json").exists())
             self.assertTrue((project / "examples" / "sample_scholar_alerts.mbox").exists())
+            self.assertTrue((project / "examples" / "sample_import.bib").exists())
+            self.assertTrue((project / "examples" / "sample_import.ris").exists())
             self.assertTrue((project / "demo_reader.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
+            self.assertTrue((project / "bibtex_import.sh").exists())
+            self.assertTrue((project / "ris_import.sh").exists())
             self.assertTrue((project / "doctor_reader.sh").exists())
             self.assertTrue((project / "guide_reader.sh").exists())
             self.assertTrue((project / "compare_papers.sh").exists())
@@ -96,6 +100,98 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("mbox parse", source_check.stdout)
+
+    def test_bibtex_source_runs_full_workflow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            bib = root / "papers.bib"
+            bib.write_text(
+                """
+@article{liu2026ambient,
+  title = {Ambient noise tomography of the Taiwan crust},
+  author = {Xin Liu and A Researcher},
+  journal = {Journal of Geophysics},
+  year = {2026},
+  doi = {10.0000/taiwan-noise},
+  url = {https://example.org/taiwan-noise},
+  abstract = {We present ambient noise tomography for Taiwan crustal structure.},
+  keywords = {ambient noise; tomography; Taiwan}
+}
+""".strip(),
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "run",
+                    "--source-bibtex",
+                    str(bib),
+                    "--profile",
+                    str(profile),
+                    "--out-dir",
+                    str(root / "out"),
+                    "--kb-dir",
+                    str(root / "kb"),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            papers = json.loads((root / "out" / "papers.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(papers), 1)
+            self.assertEqual(papers[0]["title"], "Ambient noise tomography of the Taiwan crust")
+            self.assertEqual(papers[0]["metadata"]["bibtex"]["doi"], "10.0000/taiwan-noise")
+            self.assertTrue((root / "out" / "digest.html").exists())
+
+    def test_ris_source_runs_full_workflow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            ris = root / "papers.ris"
+            ris.write_text(
+                """
+TY  - JOUR
+TI  - Receiver functions across the Tibetan Plateau
+AU  - Xin Liu
+AU  - B Researcher
+JO  - Earth Structure Letters
+PY  - 2026
+DO  - 10.0000/tibet-rf
+UR  - https://example.org/tibet-rf
+AB  - We use receiver functions to image crustal structure beneath Tibet.
+KW  - receiver function
+KW  - Tibet
+ER  -
+""".strip(),
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "run",
+                    "--source-ris",
+                    str(ris),
+                    "--profile",
+                    str(profile),
+                    "--out-dir",
+                    str(root / "out"),
+                    "--kb-dir",
+                    str(root / "kb"),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            papers = json.loads((root / "out" / "papers.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(papers), 1)
+            self.assertEqual(papers[0]["title"], "Receiver functions across the Tibetan Plateau")
+            self.assertEqual(papers[0]["metadata"]["ris"]["doi"], "10.0000/tibet-rf")
+            self.assertTrue((root / "out" / "digest.html").exists())
 
     def test_feedback_updates_knowledge_base(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

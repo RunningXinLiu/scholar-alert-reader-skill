@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader architecture</title>
-<desc id="desc">Scholar Alert Reader 中文宣传架构图：从 Scholar Alert 邮件到每日简报、重点阅读、个人知识库、深读问答和 Obsidian/Zotero 导出。</desc>
+<desc id="desc">Scholar Alert Reader 中文宣传架构图：从 Scholar Alert 邮件和 BibTeX/RIS 导入到每日简报、重点阅读、个人知识库、深读问答和 Obsidian/Zotero 导出。</desc>
 <defs>
   <linearGradient id="hero" x1="0" x2="1" y1="0" y2="1">
     <stop offset="0" stop-color="#101827"/>
@@ -42,18 +42,21 @@
 <text x="835" y="123" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="14">Codex / Claude / 终端均可使用</text>
 
 <g font-family="PingFang SC, Inter, Arial, sans-serif">
-  <rect x="62" y="205" width="302" height="318" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
+  <rect x="62" y="205" width="302" height="338" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
   <text x="92" y="246" fill="#0f172a" font-size="25" font-weight="850">1. 汇聚来源</text>
-  <text x="92" y="276" fill="#64748b" font-size="16">自动读取 Scholar Alert</text>
-  <rect x="92" y="314" width="216" height="58" rx="14" fill="#dbeafe" stroke="#bfdbfe"/>
-  <text x="116" y="350" fill="#1d4ed8" font-size="18" font-weight="800">Gmail API</text>
-  <rect x="114" y="394" width="216" height="58" rx="14" fill="#dcfce7" stroke="#bbf7d0"/>
-  <text x="138" y="430" fill="#047857" font-size="18" font-weight="800">邮件归档</text>
-  <rect x="92" y="474" width="216" height="58" rx="14" fill="#fef3c7" stroke="#fde68a"/>
-  <text x="116" y="510" fill="#92400e" font-size="18" font-weight="800">Apple Mail</text>
-  <path d="M285 318l32 18 -32 18z" fill="#93c5fd" opacity=".7"/>
-  <path d="M307 398l32 18 -32 18z" fill="#86efac" opacity=".7"/>
-  <path d="M285 478l32 18 -32 18z" fill="#fcd34d" opacity=".7"/>
+  <text x="92" y="276" fill="#64748b" font-size="16">邮件读取 + 文献导入</text>
+  <rect x="92" y="306" width="216" height="46" rx="13" fill="#dbeafe" stroke="#bfdbfe"/>
+  <text x="116" y="335" fill="#1d4ed8" font-size="17" font-weight="800">Gmail API</text>
+  <rect x="114" y="366" width="216" height="46" rx="13" fill="#dcfce7" stroke="#bbf7d0"/>
+  <text x="138" y="395" fill="#047857" font-size="17" font-weight="800">邮件归档</text>
+  <rect x="92" y="426" width="216" height="46" rx="13" fill="#fef3c7" stroke="#fde68a"/>
+  <text x="116" y="455" fill="#92400e" font-size="17" font-weight="800">Apple Mail</text>
+  <rect x="114" y="486" width="216" height="46" rx="13" fill="#ede9fe" stroke="#ddd6fe"/>
+  <text x="138" y="515" fill="#6d28d9" font-size="17" font-weight="800">BibTeX / RIS</text>
+  <path d="M285 310l32 18 -32 18z" fill="#93c5fd" opacity=".7"/>
+  <path d="M307 370l32 18 -32 18z" fill="#86efac" opacity=".7"/>
+  <path d="M285 430l32 18 -32 18z" fill="#fcd34d" opacity=".7"/>
+  <path d="M307 490l32 18 -32 18z" fill="#c4b5fd" opacity=".7"/>
 
   <rect x="449" y="188" width="302" height="352" rx="28" fill="#ffffff" stroke="#2563eb" stroke-width="2.5" filter="url(#shadow)"/>
   <rect x="477" y="216" width="246" height="70" rx="18" fill="#eff6ff"/>

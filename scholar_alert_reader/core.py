@@ -582,6 +582,406 @@ def parse_eml_dir(eml_dir: Path, since_days: int | None = None) -> tuple[list[Pa
     return list(papers_by_key.values()), dict(counts)
 
 
+def file_seen_date(path: Path) -> str:
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime).date().isoformat()
+    except OSError:
+        return datetime.now().date().isoformat()
+
+
+def strip_wrapping_pairs(value: str) -> str:
+    value = value.strip()
+    changed = True
+    while changed and len(value) >= 2:
+        changed = False
+        if (value[0], value[-1]) in {("{", "}"), ("\"", "\"")}:
+            value = value[1:-1].strip()
+            changed = True
+    return value
+
+
+def clean_bibliography_value(value: str) -> str:
+    value = strip_wrapping_pairs(value)
+    replacements = {
+        "\\&": "&",
+        "\\%": "%",
+        "\\_": "_",
+        "\\textendash": "-",
+        "\\textemdash": "-",
+        "---": "-",
+        "--": "-",
+    }
+    for old, new in replacements.items():
+        value = value.replace(old, new)
+    value = re.sub(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?(?:\{([^{}]*)\})", r"\1", value)
+    value = value.replace("{", "").replace("}", "")
+    return " ".join(html.unescape(value).split())
+
+
+def bibliography_paths(path: Path, suffix: str) -> list[Path]:
+    path = path.expanduser()
+    if not path.exists():
+        raise SystemExit(f"Cannot find bibliography source: {path}")
+    if path.is_dir():
+        paths = sorted(path.glob(f"*{suffix}"))
+        if not paths:
+            raise SystemExit(f"No {suffix} files found in directory: {path}")
+        return paths
+    return [path]
+
+
+def read_balanced_value(text: str, start: int, opener: str, closer: str) -> tuple[str, int]:
+    depth = 1
+    pos = start + 1
+    value_chars: list[str] = []
+    while pos < len(text):
+        char = text[pos]
+        previous = text[pos - 1] if pos > 0 else ""
+        if char == opener and previous != "\\":
+            depth += 1
+            value_chars.append(char)
+        elif char == closer and previous != "\\":
+            depth -= 1
+            if depth == 0:
+                return "".join(value_chars), pos + 1
+            value_chars.append(char)
+        else:
+            value_chars.append(char)
+        pos += 1
+    return "".join(value_chars), pos
+
+
+def split_top_level_comma(text: str) -> tuple[str, str]:
+    brace_depth = 0
+    quote_open = False
+    for pos, char in enumerate(text):
+        previous = text[pos - 1] if pos > 0 else ""
+        if char == '"' and previous != "\\":
+            quote_open = not quote_open
+        elif not quote_open:
+            if char == "{":
+                brace_depth += 1
+            elif char == "}":
+                brace_depth = max(0, brace_depth - 1)
+            elif char == "," and brace_depth == 0:
+                return text[:pos], text[pos + 1 :]
+    return text, ""
+
+
+def read_bibtex_field_value(text: str, start: int) -> tuple[str, int]:
+    pos = start
+    while pos < len(text) and text[pos].isspace():
+        pos += 1
+    if pos >= len(text):
+        return "", pos
+    if text[pos] == "{":
+        return read_balanced_value(text, pos, "{", "}")
+    if text[pos] == '"':
+        pos += 1
+        value_chars: list[str] = []
+        while pos < len(text):
+            char = text[pos]
+            previous = text[pos - 1] if pos > 0 else ""
+            if char == '"' and previous != "\\":
+                return "".join(value_chars), pos + 1
+            value_chars.append(char)
+            pos += 1
+        return "".join(value_chars), pos
+
+    start_value = pos
+    while pos < len(text) and text[pos] != ",":
+        pos += 1
+    return text[start_value:pos], pos
+
+
+def parse_bibtex_fields(body: str) -> dict[str, str]:
+    key_part, fields_part = split_top_level_comma(body)
+    fields: dict[str, str] = {"_key": clean_bibliography_value(key_part)}
+    pos = 0
+    while pos < len(fields_part):
+        while pos < len(fields_part) and fields_part[pos] in ", \n\r\t":
+            pos += 1
+        match = re.match(r"([A-Za-z][A-Za-z0-9_-]*)\s*=", fields_part[pos:])
+        if not match:
+            break
+        field_name = match.group(1).lower()
+        pos += match.end()
+        raw_value, pos = read_bibtex_field_value(fields_part, pos)
+        fields[field_name] = clean_bibliography_value(raw_value)
+        while pos < len(fields_part) and fields_part[pos].isspace():
+            pos += 1
+        if pos < len(fields_part) and fields_part[pos] == ",":
+            pos += 1
+    return fields
+
+
+def parse_bibtex_entries(text: str) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    pos = 0
+    while True:
+        at = text.find("@", pos)
+        if at == -1:
+            break
+        match = re.match(r"@([A-Za-z]+)\s*([\{\(])", text[at:])
+        if not match:
+            pos = at + 1
+            continue
+        entry_type = match.group(1).lower()
+        opener = match.group(2)
+        closer = "}" if opener == "{" else ")"
+        body_start = at + match.end()
+        body, next_pos = read_balanced_value(text, body_start - 1, opener, closer)
+        if entry_type not in {"comment", "preamble", "string"}:
+            fields = parse_bibtex_fields(body)
+            fields["_type"] = entry_type
+            entries.append(fields)
+        pos = max(next_pos, at + 1)
+    return entries
+
+
+def coerce_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    if not text:
+        return []
+    return [text]
+
+
+def split_authors(value: str) -> list[str]:
+    return [
+        clean_bibliography_value(part)
+        for part in re.split(r"\s+\band\b\s+|;\s*", value)
+        if clean_bibliography_value(part)
+    ]
+
+
+def split_keywords(value: Any) -> list[str]:
+    keywords: list[str] = []
+    for item in coerce_list(value):
+        for part in re.split(r"\s*;\s*|\s*,\s*", item):
+            cleaned = clean_bibliography_value(part)
+            if cleaned and cleaned not in keywords:
+                keywords.append(cleaned)
+    return keywords
+
+
+def first_value(fields: dict[str, Any], names: list[str]) -> str:
+    for name in names:
+        value = fields.get(name)
+        if isinstance(value, list):
+            if value:
+                return clean_bibliography_value(str(value[0]))
+        elif value:
+            return clean_bibliography_value(str(value))
+    return ""
+
+
+def year_from_fields(fields: dict[str, Any], names: list[str]) -> str:
+    for name in names:
+        value = first_value(fields, [name])
+        match = re.search(r"\b(18|19|20|21)\d{2}\b", value)
+        if match:
+            return match.group(0)
+    return ""
+
+
+def bibliography_authors_source(authors: list[str], source: str, year: str) -> str:
+    parts: list[str] = []
+    if authors:
+        parts.append(", ".join(authors[:6]) + (" et al." if len(authors) > 6 else ""))
+    if source:
+        parts.append(source)
+    if year:
+        parts.append(year)
+    return " - ".join(parts)
+
+
+def doi_url(doi: str) -> str:
+    doi = doi.strip()
+    if not doi:
+        return ""
+    if doi.lower().startswith(("http://", "https://")):
+        return doi
+    return f"https://doi.org/{doi}"
+
+
+def merge_bibliography_paper(papers_by_key: dict[str, Paper], paper: Paper) -> None:
+    key = normalize_title(paper.title)
+    existing = papers_by_key.get(key)
+    if existing is None:
+        papers_by_key[key] = paper
+        return
+    existing.occurrences += paper.occurrences
+    for alert in paper.alerts:
+        if alert not in existing.alerts:
+            existing.alerts.append(alert)
+    dates = [date for date in [existing.first_seen, existing.last_seen, paper.first_seen, paper.last_seen] if date]
+    if dates:
+        existing.first_seen = min(dates)
+        existing.last_seen = max(dates)
+    if len(paper.snippet) > len(existing.snippet):
+        existing.snippet = paper.snippet
+    if not existing.url and paper.url:
+        existing.url = paper.url
+    if not existing.authors_source and paper.authors_source:
+        existing.authors_source = paper.authors_source
+    existing.metadata = {**existing.metadata, **paper.metadata}
+
+
+def paper_from_bibtex_entry(fields: dict[str, str], source_path: Path) -> Paper | None:
+    title = first_value(fields, ["title"])
+    if not title:
+        return None
+    authors = split_authors(first_value(fields, ["author", "editor"]))
+    source = first_value(fields, ["journal", "journaltitle", "booktitle", "publisher", "school", "institution"])
+    year = year_from_fields(fields, ["year", "date"])
+    doi = first_value(fields, ["doi"])
+    url = first_value(fields, ["url", "link"]) or doi_url(doi)
+    keywords = split_keywords(first_value(fields, ["keywords", "keyword"]))
+    abstract = first_value(fields, ["abstract", "annote", "note"])
+    snippet = abstract or ("Keywords: " + ", ".join(keywords) if keywords else "Imported from BibTeX.")
+    seen_date = file_seen_date(source_path)
+    metadata = {
+        "bibtex": {
+            "entry_type": fields.get("_type", ""),
+            "key": fields.get("_key", ""),
+            "doi": doi,
+            "year": year,
+            "source": source,
+            "authors": authors,
+            "keywords": keywords,
+        }
+    }
+    return Paper(
+        id=stable_id(title),
+        title=title,
+        authors_source=bibliography_authors_source(authors, source, year),
+        snippet=snippet,
+        url=url,
+        scholar_url="",
+        first_seen=seen_date,
+        last_seen=seen_date,
+        alerts=[source_path.name, "BibTeX import"],
+        occurrences=1,
+        metadata=metadata,
+    )
+
+
+def parse_bibtex_source(bibtex_path: Path) -> tuple[list[Paper], dict[str, int]]:
+    papers_by_key: dict[str, Paper] = {}
+    counts = Counter()
+    for path in bibliography_paths(bibtex_path, ".bib"):
+        counts["bibliography_files"] += 1
+        text = path.read_text(encoding="utf-8", errors="replace")
+        entries = parse_bibtex_entries(text)
+        counts["bibliography_entries"] += len(entries)
+        for entry in entries:
+            paper = paper_from_bibtex_entry(entry, path)
+            if paper is None:
+                counts["bibliography_skipped_no_title"] += 1
+                continue
+            merge_bibliography_paper(papers_by_key, paper)
+    counts["bibliography_unique_papers"] = len(papers_by_key)
+    return list(papers_by_key.values()), dict(counts)
+
+
+def parse_ris_entries(text: str) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    last_tag = ""
+    for raw_line in text.splitlines():
+        if not raw_line.strip():
+            continue
+        tag_match = re.match(r"^([A-Z0-9]{2})\s{2}-\s?(.*)$", raw_line)
+        if tag_match:
+            tag = tag_match.group(1)
+            value = clean_bibliography_value(tag_match.group(2))
+            if tag == "TY":
+                current = {"TY": value}
+            elif tag == "ER":
+                if current:
+                    entries.append(current)
+                current = {}
+            elif current:
+                existing = current.get(tag)
+                if existing is None:
+                    current[tag] = value
+                elif isinstance(existing, list):
+                    existing.append(value)
+                else:
+                    current[tag] = [existing, value]
+            last_tag = tag
+        elif current and last_tag:
+            continuation = clean_bibliography_value(raw_line)
+            existing = current.get(last_tag)
+            if isinstance(existing, list) and existing:
+                existing[-1] = " ".join([existing[-1], continuation]).strip()
+            elif isinstance(existing, str):
+                current[last_tag] = " ".join([existing, continuation]).strip()
+    if current:
+        entries.append(current)
+    return entries
+
+
+def paper_from_ris_entry(fields: dict[str, Any], source_path: Path) -> Paper | None:
+    title = first_value(fields, ["TI", "T1", "CT"])
+    if not title:
+        return None
+    authors = coerce_list(fields.get("AU") or fields.get("A1") or fields.get("A2"))
+    source = first_value(fields, ["JO", "JF", "JA", "T2", "PB"])
+    year = year_from_fields(fields, ["PY", "Y1", "DA"])
+    doi = first_value(fields, ["DO"])
+    url = first_value(fields, ["UR", "L1", "LK"]) or doi_url(doi)
+    keywords = split_keywords(fields.get("KW"))
+    abstract = first_value(fields, ["AB", "N2"])
+    snippet = abstract or ("Keywords: " + ", ".join(keywords) if keywords else "Imported from RIS.")
+    seen_date = file_seen_date(source_path)
+    metadata = {
+        "ris": {
+            "type": first_value(fields, ["TY"]),
+            "doi": doi,
+            "year": year,
+            "source": source,
+            "authors": authors,
+            "keywords": keywords,
+        }
+    }
+    return Paper(
+        id=stable_id(title),
+        title=title,
+        authors_source=bibliography_authors_source(authors, source, year),
+        snippet=snippet,
+        url=url,
+        scholar_url="",
+        first_seen=seen_date,
+        last_seen=seen_date,
+        alerts=[source_path.name, "RIS import"],
+        occurrences=1,
+        metadata=metadata,
+    )
+
+
+def parse_ris_source(ris_path: Path) -> tuple[list[Paper], dict[str, int]]:
+    papers_by_key: dict[str, Paper] = {}
+    counts = Counter()
+    for path in bibliography_paths(ris_path, ".ris"):
+        counts["bibliography_files"] += 1
+        text = path.read_text(encoding="utf-8", errors="replace")
+        entries = parse_ris_entries(text)
+        counts["bibliography_entries"] += len(entries)
+        for entry in entries:
+            paper = paper_from_ris_entry(entry, path)
+            if paper is None:
+                counts["bibliography_skipped_no_title"] += 1
+                continue
+            merge_bibliography_paper(papers_by_key, paper)
+    counts["bibliography_unique_papers"] = len(papers_by_key)
+    return list(papers_by_key.values()), dict(counts)
+
+
 def apple_script_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -889,6 +1289,23 @@ def counts_by_tier(papers: list[Paper]) -> Counter:
     return Counter(p.tier for p in papers)
 
 
+def source_item_count(summary: dict[str, Any]) -> int:
+    counts = summary.get("source_counts", {})
+    if not isinstance(counts, dict):
+        return 0
+    for key in [
+        "scholar_messages",
+        "bibliography_entries",
+        "gmail_raw_messages",
+        "mail_app_exported",
+        "messages",
+    ]:
+        value = counts.get(key)
+        if isinstance(value, int):
+            return value
+    return 0
+
+
 def limits(profile: dict[str, Any]) -> dict[str, int]:
     configured = profile.get("limits", {})
     return {
@@ -948,7 +1365,7 @@ def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summa
         f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"- Papers in digest: {len(papers)}",
         f"- Must read: {tier_counts.get('Must read', 0)}; Skim: {tier_counts.get('Skim', 0)}; Archive: {tier_counts.get('Archive', 0)}",
-        f"- Source Scholar messages: {summary.get('source_counts', {}).get('scholar_messages', 0)}",
+        f"- Source items: {source_item_count(summary)}",
         f"- Feedback file: {summary.get('feedback_file', '')}",
         "",
         "## 反馈入口",
@@ -1166,7 +1583,7 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
         f'<div class="stat">Must read: {tier_counts.get("Must read", 0)}</div>',
         f'<div class="stat">Skim: {tier_counts.get("Skim", 0)}</div>',
         f'<div class="stat">Archive: {tier_counts.get("Archive", 0)}</div>',
-        f'<div class="stat">Scholar emails: {summary.get("source_counts", {}).get("scholar_messages", 0)}</div>',
+        f'<div class="stat">Source items: {source_item_count(summary)}</div>',
         "</div>",
         "</header>",
         "<main>",
@@ -1843,11 +2260,12 @@ def render_project_guide(
         "",
         "## First Run",
         "",
-        "0. Try the demo without Gmail or Obsidian: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
+        "0. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
         "1. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
         "2. Choose an input source:",
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
         "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
+        "   - Bibliography import: place `import.bib` or `import.ris` in this project, then run `./bibtex_import.sh` or `./ris_import.sh`.",
         "3. Build the baseline with `MODE=foundation ./run_reader.sh`.",
         "4. Run daily triage with `./run_reader.sh`.",
         "5. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
@@ -1855,7 +2273,7 @@ def render_project_guide(
         "## Daily Loop",
         "",
         "- `./run_reader.sh`: fetch and rank new alert papers.",
-        "- `./source_check.sh --source auto`: check Gmail, mbox, or optional Mail.app source readiness.",
+        "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, or optional Mail.app source readiness.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
@@ -1874,6 +2292,8 @@ def render_project_guide(
         f"- Gmail credentials: {status_marker(DEFAULT_GMAIL_CREDENTIALS)}",
         f"- Gmail token: {status_marker(DEFAULT_GMAIL_TOKEN)}",
         f"- Local mbox: {status_marker(project_dir / 'INBOX.mbox')}",
+        f"- BibTeX import: {status_marker(project_dir / 'import.bib')}",
+        f"- RIS import: {status_marker(project_dir / 'import.ris')}",
         f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
         f"- Daily papers JSON: {count_marker(daily_dir / 'papers.json')}",
         f"- Foundation digest HTML: {status_marker(foundation_dir / 'digest.html')}",
@@ -1934,11 +2354,19 @@ def init_project(args: argparse.Namespace) -> None:
         sample_target = project_dir / "examples" / "sample_scholar_alerts.mbox"
         if not sample_target.exists() or args.force:
             shutil.copyfile(sample_mbox, sample_target)
+    for sample_name in ["sample_import.bib", "sample_import.ris"]:
+        sample_source = SCRIPT_DIR.parent / "examples" / sample_name
+        if sample_source.exists():
+            sample_target = project_dir / "examples" / sample_name
+            if not sample_target.exists() or args.force:
+                shutil.copyfile(sample_source, sample_target)
 
     common = project_script_common(project_dir, profile_path, kb_dir)
     run_reader = generated_script_header() + common + """MODE="${MODE:-daily}"
 SOURCE="${SOURCE:-auto}"
 MBOX_PATH="${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}"
+BIBTEX_PATH="${BIBTEX_PATH:-$PROJECT_DIR/import.bib}"
+RIS_PATH="${RIS_PATH:-$PROJECT_DIR/import.ris}"
 GMAIL_CREDENTIALS="${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}"
 GMAIL_TOKEN="${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}"
 
@@ -1947,11 +2375,15 @@ if [[ "$SOURCE" == "auto" ]]; then
     SOURCE="gmail"
   elif [[ -f "$MBOX_PATH" || -d "$MBOX_PATH" ]]; then
     SOURCE="mbox"
+  elif [[ -f "$BIBTEX_PATH" || -d "$BIBTEX_PATH" ]]; then
+    SOURCE="bibtex"
+  elif [[ -f "$RIS_PATH" || -d "$RIS_PATH" ]]; then
+    SOURCE="ris"
   elif [[ "${AUTO_ALLOW_MAIL_APP:-0}" == "1" && "$(uname -s)" == "Darwin" && -x "/usr/bin/osascript" ]]; then
     SOURCE="mail-app"
   else
     echo "No Scholar Alert source is ready." >&2
-    echo "Set up Gmail OAuth, place an INBOX.mbox at $MBOX_PATH, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2
+    echo "Set up Gmail OAuth, place INBOX.mbox/import.bib/import.ris in this project, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2
     exit 2
   fi
 fi
@@ -1973,6 +2405,10 @@ if [[ "$SOURCE" == "gmail" ]]; then
 elif [[ "$SOURCE" == "mail-app" ]]; then
   cmd+=(--source-mail-app)
   if [[ -n "${MAIL_TIMEOUT:-}" ]]; then cmd+=(--mail-timeout "$MAIL_TIMEOUT"); fi
+elif [[ "$SOURCE" == "bibtex" ]]; then
+  cmd+=(--source-bibtex "$BIBTEX_PATH")
+elif [[ "$SOURCE" == "ris" ]]; then
+  cmd+=(--source-ris "$RIS_PATH")
 else
   cmd+=(--source-mbox "$MBOX_PATH")
 fi
@@ -1991,7 +2427,9 @@ exec "${cmd[@]}"
 
     helper_specs = {
         "demo_reader.sh": 'SOURCE=mbox MBOX_PATH="$PROJECT_DIR/examples/sample_scholar_alerts.mbox" MODE=run OUT_DIR="$PROJECT_DIR/reader_out/demo" NO_KB_UPDATE=1 "$PROJECT_DIR/run_reader.sh"\n',
-        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
+        "bibtex_import.sh": 'SOURCE=bibtex BIBTEX_PATH="${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/bibtex}" "$PROJECT_DIR/run_reader.sh"\n',
+        "ris_import.sh": 'SOURCE=ris RIS_PATH="${RIS_PATH:-$PROJECT_DIR/import.ris}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/ris}" "$PROJECT_DIR/run_reader.sh"\n',
+        "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
         "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
@@ -2029,6 +2467,8 @@ exec "${cmd[@]}"
                     "*.mbox",
                     "*.mbox/",
                     "*.eml",
+                    "import.bib",
+                    "import.ris",
                     "gmail_credentials.json",
                     "gmail_token.json",
                     "client_secret*.json",
@@ -2063,6 +2503,17 @@ exec "${cmd[@]}"
                     "./demo_reader.sh",
                     "./source_check.sh --source auto",
                     "./run_reader.sh",
+                    "```",
+                    "",
+                    "## Import from bibliography files",
+                    "",
+                    "Place Zotero/Scholar/publisher exports at `import.bib` or `import.ris`, then run:",
+                    "",
+                    "```bash",
+                    "./bibtex_import.sh",
+                    "./ris_import.sh",
+                    "BIBTEX_PATH=examples/sample_import.bib ./bibtex_import.sh",
+                    "RIS_PATH=examples/sample_import.ris ./ris_import.sh",
                     "```",
                     "",
                     "## Review recent alerts",
@@ -2456,18 +2907,29 @@ def default_feedback_file(kb_dir: Path) -> Path:
     return kb_dir / "feedback.json"
 
 
-def choose_auto_source(project_dir: Path, mbox_path: Path, gmail_token: Path, allow_mail_app: bool) -> tuple[str, str]:
+def choose_auto_source(
+    project_dir: Path,
+    mbox_path: Path,
+    bibtex_path: Path,
+    ris_path: Path,
+    gmail_token: Path,
+    allow_mail_app: bool,
+) -> tuple[str, str]:
     if gmail_token.exists() and gmail_dependencies_available():
         return "gmail", f"Gmail token found at {gmail_token}"
     if mbox_path.exists():
         return "mbox", f"mbox file found at {mbox_path}"
+    if bibtex_path.exists():
+        return "bibtex", f"BibTeX file or directory found at {bibtex_path}"
+    if ris_path.exists():
+        return "ris", f"RIS file or directory found at {ris_path}"
     if allow_mail_app and mail_app_available():
         return "mail-app", "Mail.app fallback allowed and osascript is available"
     if gmail_token.exists() and not gmail_dependencies_available():
         return "gmail", "Gmail token exists but Python Gmail dependencies are missing"
     return "none", (
-        "No automatic source is ready. Configure Gmail OAuth, place an INBOX.mbox in the project, "
-        "or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 on macOS after granting Mail Automation permission."
+        "No automatic source is ready. Configure Gmail OAuth, place an INBOX.mbox/import.bib/import.ris "
+        "in the project, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 on macOS after granting Mail Automation permission."
     )
 
 
@@ -2475,6 +2937,8 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
     project_dir = args.project_dir.expanduser().resolve()
     source = args.source
     mbox_path = (args.mbox_path or (project_dir / "INBOX.mbox")).expanduser()
+    bibtex_path = (args.bibtex_path or (project_dir / "import.bib")).expanduser()
+    ris_path = (args.ris_path or (project_dir / "import.ris")).expanduser()
     gmail_credentials = args.gmail_credentials.expanduser()
     gmail_token = args.gmail_token.expanduser()
     checks: list[tuple[str, bool, str]] = []
@@ -2484,7 +2948,7 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
         return str(exc) or exc.__class__.__name__
 
     if source == "auto":
-        source, reason = choose_auto_source(project_dir, mbox_path, gmail_token, args.allow_mail_app)
+        source, reason = choose_auto_source(project_dir, mbox_path, bibtex_path, ris_path, gmail_token, args.allow_mail_app)
         notes.append(f"Auto selected `{source}`: {reason}")
 
     if source == "gmail":
@@ -2527,6 +2991,24 @@ def render_source_check(args: argparse.Namespace) -> tuple[str, bool]:
                 checks.append(("mbox parse", True, f"{len(papers)} papers from {counts.get('scholar_messages', 0)} Scholar messages"))
             except (SystemExit, Exception) as exc:
                 checks.append(("mbox parse", False, exc_detail(exc)))
+    elif source == "bibtex":
+        checks.append(("BibTeX path", bibtex_path.exists(), str(bibtex_path)))
+        if args.live and bibtex_path.exists():
+            try:
+                papers, counts = parse_bibtex_source(bibtex_path)
+                checks.append(("BibTeX parse", True, f"{len(papers)} papers from {counts.get('bibliography_entries', 0)} entries"))
+            except (SystemExit, Exception) as exc:
+                checks.append(("BibTeX parse", False, exc_detail(exc)))
+        notes.append("BibTeX import is useful for Zotero, Google Scholar library exports, and publisher bibliography downloads.")
+    elif source == "ris":
+        checks.append(("RIS path", ris_path.exists(), str(ris_path)))
+        if args.live and ris_path.exists():
+            try:
+                papers, counts = parse_ris_source(ris_path)
+                checks.append(("RIS parse", True, f"{len(papers)} papers from {counts.get('bibliography_entries', 0)} entries"))
+            except (SystemExit, Exception) as exc:
+                checks.append(("RIS parse", False, exc_detail(exc)))
+        notes.append("RIS import is useful for Zotero, EndNote, publisher exports, and many academic databases.")
     else:
         checks.append(("source selection", False, "No source could be selected automatically."))
 
@@ -2585,6 +3067,12 @@ def run(args: argparse.Namespace) -> None:
             allow_auth=False,
         )
         source_label = "Gmail API"
+    elif getattr(args, "source_bibtex", None):
+        papers, source_counts = parse_bibtex_source(args.source_bibtex)
+        source_label = f"BibTeX: {args.source_bibtex}"
+    elif getattr(args, "source_ris", None):
+        papers, source_counts = parse_ris_source(args.source_ris)
+        source_label = f"RIS: {args.source_ris}"
     else:
         papers, source_counts = parse_mbox(args.source_mbox, args.since_days)
         source_label = str(args.source_mbox)
@@ -2600,6 +3088,8 @@ def run(args: argparse.Namespace) -> None:
         "source_mbox": str(args.source_mbox) if getattr(args, "source_mbox", None) else "",
         "source_mail_app": bool(getattr(args, "source_mail_app", False)),
         "source_gmail": bool(getattr(args, "source_gmail", False)),
+        "source_bibtex": str(args.source_bibtex) if getattr(args, "source_bibtex", None) else "",
+        "source_ris": str(args.source_ris) if getattr(args, "source_ris", None) else "",
         "source_counts": source_counts,
         "unique_papers_before_state_filter": total_unique,
         "papers_in_digest": len(papers),
@@ -2632,6 +3122,8 @@ def add_source_profile_args(cmd: argparse.ArgumentParser, default_out_dir: str) 
     source.add_argument("--source-mbox", type=Path, help="Path to mbox file or Apple Mail .mbox package")
     source.add_argument("--source-mail-app", action="store_true", help="Read Google Scholar Alert messages directly from Mail.app Inbox")
     source.add_argument("--source-gmail", action="store_true", help="Read Google Scholar Alert messages through Gmail API")
+    source.add_argument("--source-bibtex", type=Path, help="Path to a BibTeX .bib file or a directory of .bib files")
+    source.add_argument("--source-ris", type=Path, help="Path to an RIS .ris file or a directory of .ris files")
     cmd.add_argument("--profile", type=Path, help="JSON research profile")
     cmd.add_argument("--out-dir", type=Path, default=Path(default_out_dir))
     cmd.add_argument("--boost", help="Comma-separated temporary priority terms, e.g. 'Taiwan,receiver function'")
@@ -3162,10 +3654,12 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--output", type=Path, help="Write guide markdown to this path instead of stdout")
     guide.set_defaults(func=guide_command)
 
-    source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, or auto source readiness")
-    source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox"], default="auto")
+    source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, BibTeX, RIS, or auto source readiness")
+    source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris"], default="auto")
     source_check.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
     source_check.add_argument("--mbox-path", type=Path, help="mbox path. Defaults to project-dir/INBOX.mbox")
+    source_check.add_argument("--bibtex-path", type=Path, help="BibTeX path. Defaults to project-dir/import.bib")
+    source_check.add_argument("--ris-path", type=Path, help="RIS path. Defaults to project-dir/import.ris")
     source_check.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
     source_check.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
     source_check.add_argument("--gmail-query", help="Additional Gmail search query terms")

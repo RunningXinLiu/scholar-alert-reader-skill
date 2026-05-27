@@ -38,9 +38,10 @@ Use the scholar-alert-reader skill to initialize a Scholar Alert project for me.
 
 Good next prompts:
 
-- "Check whether my Gmail/Mail.app/mbox source is ready."
+- "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS source is ready."
 - "Build my first foundation from existing Scholar Alert emails."
 - "Run today's new-paper digest."
+- "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
 - "Open the feedback UI so I can mark interested papers."
 - "Deep-read this paper against my foundation."
 - "Export my retained library to Obsidian and Zotero."
@@ -91,7 +92,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 
 ## What It Does
 
-- Reads Google Scholar Alert emails from Gmail API, Mail.app, or exported `.mbox`.
+- Reads Google Scholar Alert emails from Gmail API, Mail.app, exported `.mbox`, or bibliography files (`.bib` / `.ris`).
 - Extracts paper title, author/source line, snippet, alert source, and link.
 - Deduplicates papers across alerts.
 - Scores papers against a JSON research profile.
@@ -105,7 +106,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 
 Scholar Alert Reader is useful without any external note app:
 
-1. **Codex-only**: read alerts, rank papers, write HTML/Markdown digests, maintain a local knowledge base, and use deep-read/Q&A/advice commands.
+1. **Codex-only**: read alerts or bibliography exports, rank papers, write HTML/Markdown digests, maintain a local knowledge base, and use deep-read/Q&A/advice commands.
 2. **Codex + Obsidian**: sync generated notes, maps, reading status, answers, comparisons, and deep reads into a generated Obsidian folder.
 3. **Codex + Zotero + Obsidian**: use Zotero for citations/PDFs and Obsidian for durable human-written notes and synthesis.
 
@@ -119,6 +120,7 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 - Gmail API source: macOS, Linux, and Windows, as long as Python can open the OAuth browser flow once and store the token.
 - Exported `.mbox` source: macOS, Linux, and Windows.
+- BibTeX/RIS source: macOS, Linux, and Windows. Useful when the user has Zotero, EndNote, publisher exports, Google Scholar library exports, or no Gmail access.
 - Mail.app source: macOS only, because it uses AppleScript and requires Automation permission.
 - LaunchAgent scheduling: macOS only. Other platforms can use cron, systemd timers, or Task Scheduler around `run_reader.sh` / the Python CLI.
 - Codex skill mode is the intended UX, but the Python CLI can also be run directly from this repository.
@@ -127,7 +129,7 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 ```text
 scholar_alert_reader/
-├── core.py        # CLI, parsing/ranking pipeline, knowledge-base writes
+├── core.py        # CLI, source parsing/ranking pipeline, knowledge-base writes
 ├── copilot.py     # deep-read, Q&A, advice, maps, Obsidian rendering
 ├── diagnostics.py # setup checks
 ├── enrich.py      # OpenAlex/Crossref enrichment
@@ -221,6 +223,27 @@ Run daily triage:
 ./run_reader.sh
 ```
 
+Import from BibTeX or RIS without Gmail:
+
+```bash
+cp ~/Downloads/my_papers.bib import.bib
+./bibtex_import.sh
+open reader_out/bibtex/digest.html
+```
+
+```bash
+cp ~/Downloads/my_papers.ris import.ris
+./ris_import.sh
+open reader_out/ris/digest.html
+```
+
+You can also test the import route with sanitized examples:
+
+```bash
+BIBTEX_PATH=examples/sample_import.bib ./bibtex_import.sh
+RIS_PATH=examples/sample_import.ris ./ris_import.sh
+```
+
 Open the feedback UI:
 
 ```bash
@@ -238,6 +261,13 @@ You can still run directly from this repository:
 
 ```bash
 python3 scripts/scholar_reader.py daily --source-gmail --profile profiles/research_profile.json --out-dir out/daily --kb-dir knowledge_base
+```
+
+Direct BibTeX/RIS imports use the same ranking and knowledge-base pipeline:
+
+```bash
+python3 scripts/scholar_reader.py run --source-bibtex ~/Downloads/export.bib --profile profiles/research_profile.json --out-dir out/bibtex --kb-dir knowledge_base
+python3 scripts/scholar_reader.py run --source-ris ~/Downloads/export.ris --profile profiles/research_profile.json --out-dir out/ris --kb-dir knowledge_base
 ```
 
 ## Feedback Loop
@@ -366,6 +396,8 @@ Check input-source readiness without running the full workflow:
 ./source_check.sh --source gmail --live
 ./source_check.sh --source mail-app --live
 ./source_check.sh --source mbox --mbox-path examples/sample_scholar_alerts.mbox --live
+./source_check.sh --source bibtex --bibtex-path import.bib --live
+./source_check.sh --source ris --ris-path import.ris --live
 ```
 
 `mail-app` is intentionally explicit because it can trigger macOS Automation permission prompts.
@@ -450,6 +482,7 @@ Do not commit:
 
 - Gmail OAuth credentials or token files
 - raw mailbox exports
+- personal `import.bib` / `import.ris` files
 - `seen_papers.json`
 - `feedback.json`
 - generated `out/`
