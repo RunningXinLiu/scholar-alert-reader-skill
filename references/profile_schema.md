@@ -2,6 +2,25 @@
 
 Profile files are JSON so the bundled script works with macOS Python without extra packages.
 
+## Starting Templates
+
+List bundled templates:
+
+```bash
+python3 scripts/scholar_reader.py list-profile-templates
+```
+
+Copy one into a project profile:
+
+```bash
+python3 scripts/scholar_reader.py init-profile \
+  --profile ~/scholar_alerts/profiles/research_profile.json \
+  --template ai-seismology \
+  --force
+```
+
+`init-project` also accepts `--profile-template`. Bundled templates live in `assets/profile_templates/` and are copied into each generated project under `profiles/templates/` for local editing.
+
 ## Fields
 
 ```json

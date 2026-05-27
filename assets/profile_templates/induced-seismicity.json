@@ -1,0 +1,69 @@
+{
+  "name": "Induced seismicity and monitoring triage",
+  "language": "zh-CN",
+  "research_questions": [
+    "哪些新论文和诱发地震、注采活动、流体扩散或断层再激活有关？",
+    "哪些 dense array 或 microseismic monitoring 方法值得用于区域监测？",
+    "哪些论文能支持机制解释、风险评估或案例对比？"
+  ],
+  "focus_terms": [
+    {"term": "induced seismicity", "weight": 8, "tags": ["induced"]},
+    {"term": "microseismicity", "weight": 6, "tags": ["monitoring"]},
+    {"term": "fluid injection", "weight": 6, "tags": ["mechanism"]},
+    {"term": "wastewater injection", "weight": 5, "tags": ["mechanism"]},
+    {"term": "hydraulic fracturing", "weight": 6, "tags": ["mechanism"]},
+    {"term": "fault reactivation", "weight": 6, "tags": ["mechanism"]},
+    {"term": "pore pressure", "weight": 5, "tags": ["mechanism"]},
+    {"term": "earthquake swarm", "weight": 5, "tags": ["seismicity"]},
+    {"term": "seismic hazard", "weight": 4, "tags": ["hazard"]},
+    {"term": "monitoring", "weight": 3, "tags": ["monitoring"]}
+  ],
+  "regions": [
+    {"term": "Sichuan Basin", "weight": 8},
+    {"term": "Weiyuan", "weight": 8},
+    {"term": "Oklahoma", "weight": 4},
+    {"term": "Texas", "weight": 3},
+    {"term": "Western Canada", "weight": 3},
+    {"term": "North China", "weight": 5}
+  ],
+  "methods": [
+    {"term": "earthquake relocation", "weight": 5},
+    {"term": "template matching", "weight": 4},
+    {"term": "focal mechanism", "weight": 4},
+    {"term": "stress inversion", "weight": 5},
+    {"term": "rate-and-state", "weight": 4},
+    {"term": "dense seismic array", "weight": 5}
+  ],
+  "watch_authors": [
+    {"term": "Cliff Frohlich", "weight": 3},
+    {"term": "William Ellsworth", "weight": 3},
+    {"term": "Matthew Weingarten", "weight": 3}
+  ],
+  "exclude_terms": [
+    {"term": "volunteer", "weight": 3},
+    {"term": "education", "weight": 4},
+    {"term": "conference program", "weight": 4},
+    {"term": "job opening", "weight": 5}
+  ],
+  "tier_thresholds": {
+    "must_read": 18,
+    "skim": 6
+  },
+  "limits": {
+    "must_read": 10,
+    "skim": 18,
+    "deep_read": 6
+  },
+  "knowledge_base": {
+    "foundation_tiers": ["Must read", "Skim"],
+    "interested_tiers": ["Must read"],
+    "interested_limit": 60,
+    "foundation_limit_per_direction": 45,
+    "write_archive_index": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "default_time": "09:00",
+    "default_days": ["Monday", "Wednesday", "Friday"]
+  }
+}

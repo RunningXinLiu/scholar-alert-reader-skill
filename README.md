@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.0`
+Version: `0.2.1`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -221,6 +221,23 @@ Try the built-in demo without Gmail, Obsidian, or Zotero:
 open reader_out/demo/digest.html
 ```
 
+Choose a starting research profile:
+
+```bash
+python3 scripts/scholar_reader.py list-profile-templates
+./copy_profile_template.sh --template ai-seismology --force
+```
+
+Bundled templates include:
+
+- `general-geophysics`: broad seismology/geophysics triage.
+- `ai-seismology`: foundation models, phase picking, association, relocation, continuous waveform learning, and benchmarks.
+- `induced-seismicity`: injection-induced seismicity, microseismic monitoring, mechanisms, hazards, and case comparison.
+- `seismic-imaging`: surface waves, ambient noise, receiver functions, anisotropy, FWI, and inversion uncertainty.
+- `dense-array-monitoring`: dense arrays, DAS, urban monitoring, continuous detection, and array processing.
+
+The template is only the starting point. Edit `profiles/research_profile.json` to add your own regions, authors, methods, exclusions, and temporary boost terms.
+
 Run daily triage:
 
 ```bash
@@ -340,6 +357,8 @@ python3 scripts/scholar_reader.py deep-read \
   --papers-json out/recent/papers.json \
   --paper-id <ID>
 ```
+
+Capability boundary: `deep-read`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, feedback, and the retained local library. They are designed for triage and research planning. Current releases do not automatically download and read full PDFs, so use the deep-read output as a scaffold before final citation or manuscript decisions.
 
 Ask a question against the local literature base:
 

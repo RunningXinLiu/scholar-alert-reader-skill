@@ -19,7 +19,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
    - `.mbox`: works from exported Gmail/Apple Mail archives.
    - BibTeX/RIS: works from Zotero, EndNote, Google Scholar library, publisher, and database exports.
    - RSS/Atom or arXiv: works for structured web monitoring without scraping arbitrary pages.
-4. Load or create a JSON research profile.
+4. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the terms.
 5. First run: use `foundation` to build the seen-paper baseline.
 6. Later runs: use `daily` so only papers not already in the state file are reported.
 7. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
@@ -31,6 +31,8 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
+
+Capability boundary: ranking and literature-copilot commands are currently based on alert metadata, bibliography fields, snippets, profile terms, feedback, and retained-library context. Treat `deep-read` as a triage/planning brief unless a future full-text/PDF pipeline is explicitly added.
 
 ## Outputs
 
@@ -62,7 +64,17 @@ Archive-tier papers should not enter the knowledge base by default; they stay in
 Create a local project:
 
 ```bash
-python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts --profile-template ai-seismology
+```
+
+List or copy bundled profile templates:
+
+```bash
+python3 scripts/scholar_reader.py list-profile-templates
+python3 scripts/scholar_reader.py init-profile \
+  --profile ~/scholar_alerts/profiles/research_profile.json \
+  --template seismic-imaging \
+  --force
 ```
 
 Render or refresh the local onboarding guide:

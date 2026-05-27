@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.1 - 2026-05-27
+
+- Add bundled research-profile templates for general geophysics, AI seismology, induced seismicity, seismic imaging, and dense-array monitoring.
+- Add `list-profile-templates`, `init-profile --template`, `init-project --profile-template`, and generated `copy_profile_template.sh`.
+- Clarify that deep-read/Q&A/advice are metadata and retained-library triage aids until a full-text/PDF pipeline is added.
+
 ## v0.2.0 - 2026-05-27
 
 - Add a product-oriented `guide` command and generated `START_HERE.md` for local projects.

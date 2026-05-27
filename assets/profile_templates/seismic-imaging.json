@@ -1,0 +1,70 @@
+{
+  "name": "Seismic imaging and inversion triage",
+  "language": "zh-CN",
+  "research_questions": [
+    "哪些论文能改进面波、背景噪声或全波形反演？",
+    "哪些论文和各向异性、不确定性、地壳-上地幔结构解释相关？",
+    "哪些成像方法适合纳入文献综述或方法对比？"
+  ],
+  "focus_terms": [
+    {"term": "surface wave tomography", "weight": 8, "tags": ["method"]},
+    {"term": "ambient noise tomography", "weight": 7, "tags": ["method"]},
+    {"term": "full waveform inversion", "weight": 7, "tags": ["method"]},
+    {"term": "adjoint tomography", "weight": 6, "tags": ["method"]},
+    {"term": "azimuthal anisotropy", "weight": 7, "tags": ["structure"]},
+    {"term": "radial anisotropy", "weight": 5, "tags": ["structure"]},
+    {"term": "receiver function", "weight": 5, "tags": ["method"]},
+    {"term": "uncertainty quantification", "weight": 6, "tags": ["uncertainty"]},
+    {"term": "Bayesian inversion", "weight": 5, "tags": ["uncertainty"]},
+    {"term": "crustal structure", "weight": 4, "tags": ["structure"]}
+  ],
+  "regions": [
+    {"term": "Tibet", "weight": 6},
+    {"term": "Himalaya", "weight": 5},
+    {"term": "Taiwan", "weight": 5},
+    {"term": "North China", "weight": 5},
+    {"term": "Sichuan Basin", "weight": 5},
+    {"term": "East Asia", "weight": 4}
+  ],
+  "methods": [
+    {"term": "joint inversion", "weight": 5},
+    {"term": "Monte Carlo", "weight": 4},
+    {"term": "finite frequency", "weight": 4},
+    {"term": "dispersion", "weight": 3},
+    {"term": "DAS", "weight": 4},
+    {"term": "distributed acoustic sensing", "weight": 4}
+  ],
+  "watch_authors": [
+    {"term": "Andreas Fichtner", "weight": 4},
+    {"term": "Robert D. van der Hilst", "weight": 4},
+    {"term": "Yao Huajian", "weight": 4},
+    {"term": "Dapeng Zhao", "weight": 3}
+  ],
+  "exclude_terms": [
+    {"term": "medical tomography", "weight": 6},
+    {"term": "education", "weight": 4},
+    {"term": "course", "weight": 3},
+    {"term": "call for papers", "weight": 5}
+  ],
+  "tier_thresholds": {
+    "must_read": 18,
+    "skim": 6
+  },
+  "limits": {
+    "must_read": 10,
+    "skim": 18,
+    "deep_read": 6
+  },
+  "knowledge_base": {
+    "foundation_tiers": ["Must read", "Skim"],
+    "interested_tiers": ["Must read"],
+    "interested_limit": 60,
+    "foundation_limit_per_direction": 45,
+    "write_archive_index": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "default_time": "09:00",
+    "default_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  }
+}

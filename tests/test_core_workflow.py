@@ -52,6 +52,40 @@ class CoreWorkflowTests(unittest.TestCase):
     def test_version_is_set(self) -> None:
         self.assertRegex(__version__, r"^\d+\.\d+\.\d+")
 
+    def test_profile_template_commands(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "scholar_reader.py"),
+                "list-profile-templates",
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertIn("ai-seismology", result.stdout)
+        self.assertIn("general-geophysics", result.stdout)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            profile = Path(tmp) / "profile.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "init-profile",
+                    "--profile",
+                    str(profile),
+                    "--template",
+                    "ai-seismology",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            data = json.loads(profile.read_text(encoding="utf-8"))
+            self.assertIn("AI seismology", data["name"])
+            self.assertTrue(any(item["term"] == "seismic foundation model" for item in data["focus_terms"]))
+
     def test_init_project_creates_scripts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "reader"
@@ -69,12 +103,15 @@ class CoreWorkflowTests(unittest.TestCase):
             )
             self.assertIn("Project initialized", result.stdout)
             self.assertTrue((project / "profiles" / "research_profile.json").exists())
+            self.assertTrue((project / "profiles" / "templates" / "ai-seismology.json").exists())
+            self.assertTrue((project / "profiles" / "templates" / "induced-seismicity.json").exists())
             self.assertTrue((project / "examples" / "sample_scholar_alerts.mbox").exists())
             self.assertTrue((project / "examples" / "sample_import.bib").exists())
             self.assertTrue((project / "examples" / "sample_import.ris").exists())
             self.assertTrue((project / "examples" / "sample_feed.atom").exists())
             self.assertTrue((project / "examples" / "feeds.example.txt").exists())
             self.assertTrue((project / "demo_reader.sh").exists())
+            self.assertTrue((project / "copy_profile_template.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "bibtex_import.sh").exists())
@@ -86,7 +123,10 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
-            self.assertIn("Product Modes", (project / "START_HERE.md").read_text(encoding="utf-8"))
+            start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
+            self.assertIn("Product Modes", start_here)
+            self.assertIn("Capability boundary", start_here)
+            self.assertIn("Bundled templates", start_here)
             subprocess.run(
                 [str(project / "demo_reader.sh")],
                 cwd=project,
@@ -113,6 +153,27 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("RSS/Atom live read", rss_check.stdout)
+
+    def test_init_project_accepts_profile_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "reader"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "init-project",
+                    "--project-dir",
+                    str(project),
+                    "--profile-template",
+                    "induced-seismicity",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            data = json.loads((project / "profiles" / "research_profile.json").read_text(encoding="utf-8"))
+            self.assertIn("Induced seismicity", data["name"])
+            self.assertTrue(any(item["term"] == "induced seismicity" for item in data["focus_terms"]))
 
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -343,6 +404,8 @@ ER  -
             self.assertIn("Product Modes", content)
             self.assertIn("Codex-only", content)
             self.assertIn("Optional Integrations", content)
+            self.assertIn("Capability boundary", content)
+            self.assertIn("ai-seismology", content)
 
     def test_copilot_commands_write_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

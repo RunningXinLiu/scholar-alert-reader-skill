@@ -1,0 +1,70 @@
+{
+  "name": "AI seismology and foundation-model triage",
+  "language": "zh-CN",
+  "research_questions": [
+    "哪些新论文和 AI 地震学、地震基础模型或连续波形建模直接相关？",
+    "哪些 phase picking、association、relocation 或 monitoring 方法值得复现或引用？",
+    "哪些数据集、benchmark 或 foundation model 论文能支撑当前项目？"
+  ],
+  "focus_terms": [
+    {"term": "seismic foundation model", "weight": 8, "tags": ["ai", "foundation-model"]},
+    {"term": "foundation model", "weight": 6, "tags": ["ai"]},
+    {"term": "self-supervised learning", "weight": 6, "tags": ["ai"]},
+    {"term": "representation learning", "weight": 5, "tags": ["ai"]},
+    {"term": "seismic waveform", "weight": 5, "tags": ["waveform"]},
+    {"term": "continuous seismic", "weight": 5, "tags": ["monitoring"]},
+    {"term": "earthquake monitoring", "weight": 5, "tags": ["monitoring"]},
+    {"term": "phase picking", "weight": 6, "tags": ["method"]},
+    {"term": "earthquake association", "weight": 6, "tags": ["method"]},
+    {"term": "earthquake relocation", "weight": 5, "tags": ["method"]},
+    {"term": "benchmark", "weight": 4, "tags": ["benchmark"]},
+    {"term": "dataset", "weight": 4, "tags": ["dataset"]}
+  ],
+  "regions": [
+    {"term": "China", "weight": 3},
+    {"term": "California", "weight": 2},
+    {"term": "Japan", "weight": 2}
+  ],
+  "methods": [
+    {"term": "transformer", "weight": 5},
+    {"term": "graph neural network", "weight": 4},
+    {"term": "contrastive learning", "weight": 4},
+    {"term": "diffusion model", "weight": 4},
+    {"term": "uncertainty quantification", "weight": 5},
+    {"term": "domain adaptation", "weight": 4},
+    {"term": "large language model", "weight": 3}
+  ],
+  "watch_authors": [
+    {"term": "Greg Beroza", "weight": 4},
+    {"term": "Zachary Ross", "weight": 4},
+    {"term": "Daniel Trugman", "weight": 3},
+    {"term": "Yangkang Chen", "weight": 3}
+  ],
+  "exclude_terms": [
+    {"term": "medical ultrasound", "weight": 6},
+    {"term": "social network", "weight": 4},
+    {"term": "course", "weight": 3},
+    {"term": "job opening", "weight": 5}
+  ],
+  "tier_thresholds": {
+    "must_read": 18,
+    "skim": 6
+  },
+  "limits": {
+    "must_read": 10,
+    "skim": 18,
+    "deep_read": 6
+  },
+  "knowledge_base": {
+    "foundation_tiers": ["Must read", "Skim"],
+    "interested_tiers": ["Must read"],
+    "interested_limit": 60,
+    "foundation_limit_per_direction": 45,
+    "write_archive_index": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "default_time": "09:00",
+    "default_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  }
+}

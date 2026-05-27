@@ -42,6 +42,8 @@ from . import __version__
 SCHOLAR_SENDER = "scholaralerts-noreply@google.com"
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PROFILE = SCRIPT_DIR.parent / "assets" / "default_profile.json"
+PROFILE_TEMPLATE_DIR = SCRIPT_DIR.parent / "assets" / "profile_templates"
+DEFAULT_PROFILE_TEMPLATE = "general-geophysics"
 DEFAULT_PRIVATE_DIR = Path.home() / ".codex" / "scholar-alert-reader"
 DEFAULT_GMAIL_CREDENTIALS = DEFAULT_PRIVATE_DIR / "gmail_credentials.json"
 DEFAULT_GMAIL_TOKEN = DEFAULT_PRIVATE_DIR / "gmail_token.json"
@@ -198,6 +200,38 @@ def load_profile(profile_path: Path | None) -> dict[str, Any]:
     if not path.exists():
         raise SystemExit(f"Profile not found: {path}")
     return load_json(path)
+
+
+def available_profile_templates() -> list[str]:
+    if not PROFILE_TEMPLATE_DIR.exists():
+        return []
+    return sorted(path.stem for path in PROFILE_TEMPLATE_DIR.glob("*.json"))
+
+
+def resolve_profile_template(template: str | Path | None) -> Path:
+    if not template:
+        template = DEFAULT_PROFILE_TEMPLATE
+    template_text = str(template)
+    if template_text in {"default", DEFAULT_PROFILE_TEMPLATE}:
+        candidate = PROFILE_TEMPLATE_DIR / f"{DEFAULT_PROFILE_TEMPLATE}.json"
+        return candidate if candidate.exists() else DEFAULT_PROFILE
+    path_candidate = Path(template_text).expanduser()
+    if path_candidate.exists():
+        return path_candidate
+    slug_candidate = PROFILE_TEMPLATE_DIR / f"{template_text}.json"
+    if slug_candidate.exists():
+        return slug_candidate
+    names = ", ".join(available_profile_templates()) or "none"
+    raise SystemExit(f"Unknown profile template: {template_text}. Available templates: {names}. You can also pass a JSON file path.")
+
+
+def copy_profile_template(profile_path: Path, template: str | Path | None, force: bool) -> Path:
+    if profile_path.exists() and not force:
+        raise SystemExit(f"Profile already exists: {profile_path}. Use --force to overwrite.")
+    source = resolve_profile_template(template)
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, profile_path)
+    return source
 
 
 def coerce_terms(items: Iterable[Any], section: str, default_weight: int = 1) -> list[dict[str, Any]]:
@@ -2411,12 +2445,10 @@ def write_outputs(
     save_json(out_dir / "summary.json", summary)
 
 
-def init_profile(profile_path: Path, force: bool) -> None:
-    if profile_path.exists() and not force:
-        raise SystemExit(f"Profile already exists: {profile_path}. Use --force to overwrite.")
-    profile_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(DEFAULT_PROFILE, profile_path)
+def init_profile(profile_path: Path, force: bool, template: str | Path | None = None) -> None:
+    source = copy_profile_template(profile_path, template, force)
     print(f"Profile written: {profile_path}")
+    print(f"Template: {source}")
 
 
 def shell_double_default(value: Path | str) -> str:
@@ -2505,10 +2537,20 @@ def render_project_guide(
     recent_dir = out_dir / "recent"
     foundation_dir = out_dir / "foundation"
     zotero_dir = zotero_dir or (kb_dir / "zotero")
+    profile_name = "unknown"
+    if profile_path.exists():
+        try:
+            profile_name = str(load_json(profile_path).get("name", "unnamed"))
+        except Exception:
+            profile_name = "invalid profile JSON"
+    template_names = available_profile_templates()
+    template_line = ", ".join(f"`{name}`" for name in template_names) if template_names else "No bundled templates found."
     lines = [
         "# Scholar Alert Reader Start Here",
         "",
         "This project can run as a standalone Codex skill. Obsidian and Zotero are optional integrations, not required dependencies.",
+        "",
+        "Capability boundary: ranking and deep-read reports use available alert metadata, bibliography fields, snippets, profile terms, feedback, and retained-library context. They are triage aids until a full paper/PDF has been read.",
         "",
         "## Product Modes",
         "",
@@ -2520,6 +2562,9 @@ def render_project_guide(
         "",
         "0. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
         "1. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
+        f"   - Current profile: `{profile_name}`.",
+        f"   - Bundled templates copied to `profiles/templates/`: {template_line}.",
+        "   - To reset from a template, run for example: `./copy_profile_template.sh --template ai-seismology --force`.",
         "2. Choose an input source:",
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
         "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
@@ -2599,6 +2644,7 @@ def init_project(args: argparse.Namespace) -> None:
     for directory in [
         project_dir,
         project_dir / "profiles",
+        project_dir / "profiles" / "templates",
         project_dir / "examples",
         kb_dir,
         out_dir / "daily",
@@ -2608,7 +2654,12 @@ def init_project(args: argparse.Namespace) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
     if not profile_path.exists() or args.force:
-        shutil.copyfile(DEFAULT_PROFILE, profile_path)
+        copy_profile_template(profile_path, args.profile_template, True)
+    if PROFILE_TEMPLATE_DIR.exists():
+        for template_source in PROFILE_TEMPLATE_DIR.glob("*.json"):
+            template_target = project_dir / "profiles" / "templates" / template_source.name
+            if not template_target.exists() or args.force:
+                shutil.copyfile(template_source, template_target)
     sample_mbox = SCRIPT_DIR.parent / "examples" / "sample_scholar_alerts.mbox.sample"
     if sample_mbox.exists():
         sample_target = project_dir / "examples" / "sample_scholar_alerts.mbox"
@@ -2724,6 +2775,7 @@ exec "${cmd[@]}"
         "rss_import.sh": 'SOURCE=rss RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/rss}" "$PROJECT_DIR/run_reader.sh"\n',
         "arxiv_search.sh": 'if [[ -z "${ARXIV_QUERY:-}" ]]; then echo "Set ARXIV_QUERY before running arxiv_search.sh" >&2; exit 2; fi\nSOURCE=arxiv MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/arxiv}" "$PROJECT_DIR/run_reader.sh"\n',
         "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
+        "copy_profile_template.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" init-profile --profile "$PROFILE_PATH" "$@"\n',
         "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
@@ -2798,6 +2850,14 @@ exec "${cmd[@]}"
                     "./demo_reader.sh",
                     "./source_check.sh --source auto",
                     "./run_reader.sh",
+                    "```",
+                    "",
+                    "## Choose a profile template",
+                    "",
+                    "Bundled templates are copied to `profiles/templates/`. Reset the active profile with:",
+                    "",
+                    "```bash",
+                    "./copy_profile_template.sh --template ai-seismology --force",
                     "```",
                     "",
                     "## Import from bibliography files",
@@ -3990,11 +4050,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = sub.add_parser("init-profile", help="Copy the default profile to a writable path")
     init.add_argument("--profile", type=Path, required=True)
+    init.add_argument(
+        "--template",
+        default=DEFAULT_PROFILE_TEMPLATE,
+        help="Bundled template slug or JSON path. Use list-profile-templates to inspect bundled choices.",
+    )
     init.add_argument("--force", action="store_true")
-    init.set_defaults(func=lambda args: init_profile(args.profile, args.force))
+    init.set_defaults(func=lambda args: init_profile(args.profile, args.force, args.template))
+
+    list_templates = sub.add_parser("list-profile-templates", help="List bundled research profile templates")
+    list_templates.set_defaults(func=lambda args: print("\n".join(available_profile_templates())))
 
     init_project_cmd = sub.add_parser("init-project", help="Create a runnable local Scholar Alert Reader project")
     init_project_cmd.add_argument("--project-dir", type=Path, required=True)
+    init_project_cmd.add_argument(
+        "--profile-template",
+        default=DEFAULT_PROFILE_TEMPLATE,
+        help="Bundled template slug or JSON path used for profiles/research_profile.json",
+    )
     init_project_cmd.add_argument("--force", action="store_true", help="Add/update scaffold files in a non-empty directory")
     init_project_cmd.set_defaults(func=init_project)
 

@@ -18,6 +18,10 @@ Scholar Alert Reader should feel like a small local literature product, not a pi
 
 Turn scattered paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research memory.
 
+## Capability Boundary
+
+Current releases are strongest as a triage and research-memory layer. Ranking, deep-read briefs, Q&A, comparisons, maps, and advice use metadata, snippets, bibliography fields, profile terms, feedback, and retained-library context. They do not yet automatically download and read complete PDFs, so public copy should not promise full-paper understanding until that pipeline exists.
+
 ## User Tiers
 
 ### Codex-only
@@ -56,6 +60,7 @@ For users who want citation/PDF management.
 
 - A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
+- A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - A user without Gmail or Zotero can monitor structured web feeds through `feeds.txt` or run targeted arXiv queries.
 - A user can tune ranking with focus terms, methods, regions, authors, exclusions, temporary boosts, and explicit paper feedback.
