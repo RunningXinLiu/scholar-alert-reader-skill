@@ -92,6 +92,7 @@ For users who want citation/PDF management.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
 - A user can run one selected-paper review workflow that attempts local full-text extraction when possible, writes a workup, writes a review pack, and records next actions in one report.
 - A user can trigger selected-paper deep-read/full-review/workup/review-pack reports from the local feedback UI, see and filter current feedback/reading-status badges, save personal reading notes that carry into deep-read/workup/reading-status reports, knowledge-base paper pages, and Obsidian paper notes, mark papers as background-only or not-relevant after reading, and open generated markdown reports from local browser links.
+- A user can see saved feedback status, reading labels, and personal note excerpts in `foundation.md`, `interested.md`, and direction-specific indexes, so the main knowledge-base entry points reflect the user's own reading memory.
 - A user can ask the retained library a question and retrieve papers through alert metadata, profile terms, reading status, labels, and saved personal notes.
 - A user can see saved personal notes in research advice, paper comparisons, and topic maps, so synthesis reports reflect the user's own reading memory rather than only alert metadata.
 - A user can generate a weekly review that includes retained-library signals, reading status, labels, and saved personal notes.

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.61 - 2026-05-28
+
+- Add saved feedback status, reading labels, more/less-like-this signals, and personal note excerpts to `foundation.md`, `interested.md`, and direction pages.
+- Refresh foundation, interested, and direction indexes after `feedback` and `status` updates so cumulative knowledge-base entry points stay aligned with user judgment.
+- Make installed `self-test` fall back to `python -m scholar_alert_reader` when the source-checkout wrapper script is unavailable.
+- Cover feedback-aware cumulative indexes in workflow tests.
+
 ## v0.2.60 - 2026-05-28
 
 - Make `weekly` / `weekly_review.md` load feedback by default and accept `--feedback-file`.

@@ -2956,8 +2956,50 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
     (kb_dir / "index.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def write_kb_foundation(kb_dir: Path, papers: list[Paper], profile: dict[str, Any]) -> None:
+def kb_feedback_markdown_lines(
+    paper: Paper,
+    feedback: dict[str, Any] | None,
+    indent: str = "  ",
+) -> list[str]:
+    from .copilot import feedback_note_summary, feedback_record, reading_labels, reading_status
+
+    record = asdict(paper)
+    item = feedback_record(record, feedback)
+    labels = reading_labels(record, feedback)
+    note = feedback_note_summary(record, feedback)
+    status = reading_status(record, feedback)
+    if not item and not labels and not note and status == "unread":
+        return []
+
+    lines = [f"{indent}- Reading status: {status}"]
+    if labels:
+        lines.append(f"{indent}- Labels: {', '.join(labels)}")
+    feedback_status = str(item.get("status", "") or "")
+    signals = item.get("signals", {})
+    active_signals: list[str] = []
+    if isinstance(signals, dict):
+        if signals.get("more_like_this"):
+            active_signals.append("more-like-this")
+        if signals.get("less_like_this"):
+            active_signals.append("less-like-this")
+    if feedback_status in {"interested", "archive"} or active_signals:
+        signal_text = ", ".join(active_signals) if active_signals else "none"
+        status_text = feedback_status or "neutral"
+        lines.append(f"{indent}- Feedback: {status_text}; signals: {signal_text}")
+    if note:
+        lines.append(f"{indent}- Note: {note}")
+    return lines
+
+
+def write_kb_foundation(
+    kb_dir: Path,
+    papers: list[Paper],
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
+) -> None:
     settings = kb_settings(profile)
+    if feedback is None:
+        feedback = load_feedback(default_feedback_file(kb_dir))
     tiers = set(settings["foundation_tiers"])
     kept = [paper for paper in papers if paper.tier in tiers]
     grouped: dict[str, list[Paper]] = {}
@@ -2976,6 +3018,7 @@ def write_kb_foundation(kb_dir: Path, papers: list[Paper], profile: dict[str, An
         lines.extend([f"## {direction} ({len(items)})", ""])
         for paper in items[: settings["foundation_limit_per_direction"]]:
             lines.append(paper_md_line(paper))
+            lines.extend(kb_feedback_markdown_lines(paper, feedback))
         if len(items) > settings["foundation_limit_per_direction"]:
             lines.append(f"- ... {len(items) - settings['foundation_limit_per_direction']} more in papers.json")
         lines.append("")
@@ -2984,8 +3027,15 @@ def write_kb_foundation(kb_dir: Path, papers: list[Paper], profile: dict[str, An
     (kb_dir / "foundation.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def write_kb_interested(kb_dir: Path, papers: list[Paper], profile: dict[str, Any]) -> None:
+def write_kb_interested(
+    kb_dir: Path,
+    papers: list[Paper],
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
+) -> None:
     settings = kb_settings(profile)
+    if feedback is None:
+        feedback = load_feedback(default_feedback_file(kb_dir))
     tiers = set(settings["interested_tiers"])
     kept = [paper for paper in papers if paper.tier in tiers][: settings["interested_limit"]]
     lines = [
@@ -3005,9 +3055,10 @@ def write_kb_interested(kb_dir: Path, papers: list[Paper], profile: dict[str, An
                 f"- Source: {paper.authors_source}",
                 f"- Matched: {', '.join(paper.matched_terms)}",
                 f"- Snippet: {paper.snippet}",
-                "- Why:",
             ]
         )
+        lines.extend(kb_feedback_markdown_lines(paper, feedback, indent=""))
+        lines.append("- Why:")
         for reason in paper.reasons[:4]:
             lines.append(f"  - {reason}")
         lines.append("")
@@ -3137,7 +3188,14 @@ def write_kb_paper_pages(kb_dir: Path, papers: list[Paper], feedback: dict[str, 
         (paper_dir / f"{paper.id}.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def write_kb_direction_pages(kb_dir: Path, papers: list[Paper], profile: dict[str, Any]) -> None:
+def write_kb_direction_pages(
+    kb_dir: Path,
+    papers: list[Paper],
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
+) -> None:
+    if feedback is None:
+        feedback = load_feedback(default_feedback_file(kb_dir))
     direction_dir = kb_dir / "directions"
     direction_dir.mkdir(parents=True, exist_ok=True)
     grouped: dict[str, list[Paper]] = {}
@@ -3158,6 +3216,7 @@ def write_kb_direction_pages(kb_dir: Path, papers: list[Paper], profile: dict[st
         ]
         for paper in items:
             lines.append(paper_md_line(paper) + f" [notes](../papers/{paper.id}.md)")
+            lines.extend(kb_feedback_markdown_lines(paper, feedback))
         (direction_dir / filename).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     if not grouped:
         index_lines.append("No retained directions yet.")
@@ -3372,11 +3431,12 @@ def write_knowledge_base(kb_dir: Path, papers: list[Paper], profile: dict[str, A
     if summary.get("mode") == "daily" and not had_library and not additions:
         pass
     else:
+        feedback = load_feedback(default_feedback_file(kb_dir))
         save_paper_library(kb_dir, library)
-        write_kb_foundation(kb_dir, library, profile)
-        write_kb_interested(kb_dir, library, profile)
-        write_kb_paper_pages(kb_dir, library)
-        write_kb_direction_pages(kb_dir, library, profile)
+        write_kb_foundation(kb_dir, library, profile, feedback)
+        write_kb_interested(kb_dir, library, profile, feedback)
+        write_kb_paper_pages(kb_dir, library, feedback)
+        write_kb_direction_pages(kb_dir, library, profile, feedback)
         write_weekly_review(kb_dir, library, profile)
     if summary.get("mode") == "daily":
         write_kb_daily_additions(kb_dir, papers, profile)
@@ -3445,6 +3505,13 @@ def shell_double_default(value: Path | str) -> str:
 
 def skill_wrapper_path() -> Path:
     return SCRIPT_DIR.parent / "scripts" / "scholar_reader.py"
+
+
+def skill_cli_command() -> list[str]:
+    script = skill_wrapper_path()
+    if script.exists():
+        return [sys.executable, str(script)]
+    return [sys.executable, "-m", "scholar_alert_reader"]
 
 
 def generated_script_header() -> str:
@@ -6327,10 +6394,10 @@ def apply_feedback_to_knowledge_base(
     kb_dir.mkdir(parents=True, exist_ok=True)
     save_paper_library(kb_dir, library)
     write_kb_index(kb_dir, library, profile, summary)
-    write_kb_foundation(kb_dir, library, profile)
-    write_kb_interested(kb_dir, library, profile)
+    write_kb_foundation(kb_dir, library, profile, feedback)
+    write_kb_interested(kb_dir, library, profile, feedback)
     write_kb_paper_pages(kb_dir, library, feedback)
-    write_kb_direction_pages(kb_dir, library, profile)
+    write_kb_direction_pages(kb_dir, library, profile, feedback)
     write_weekly_review(kb_dir, library, profile)
     write_run_snapshot(kb_dir, reranked, summary)
     return len(additions)
@@ -6836,7 +6903,6 @@ def self_test_command(args: argparse.Namespace) -> None:
         keep_project = False
 
     checks: list[tuple[str, bool, str]] = []
-    script = skill_wrapper_path()
     profile = project_dir / "profiles" / "research_profile.json"
     kb_dir = project_dir / "knowledge_base"
     demo_out = project_dir / "reader_out" / "self_test_demo"
@@ -6851,10 +6917,10 @@ def self_test_command(args: argparse.Namespace) -> None:
         checks.append(("init-project", False, str(exc) or exc.__class__.__name__))
 
     if checks[-1][1]:
+        cli = skill_cli_command()
         ok, detail = self_test_run_command(
             [
-                sys.executable,
-                str(script),
+                *cli,
                 "run",
                 "--source-mbox",
                 str(mbox),
@@ -6883,8 +6949,7 @@ def self_test_command(args: argparse.Namespace) -> None:
 
         ok, detail = self_test_run_command(
             [
-                sys.executable,
-                str(script),
+                *cli,
                 "source-check",
                 "--project-dir",
                 str(project_dir),
@@ -6900,8 +6965,7 @@ def self_test_command(args: argparse.Namespace) -> None:
 
         ok, detail = self_test_run_command(
             [
-                sys.executable,
-                str(script),
+                *cli,
                 "source-check",
                 "--project-dir",
                 str(project_dir),
@@ -6917,8 +6981,7 @@ def self_test_command(args: argparse.Namespace) -> None:
 
         ok, detail = self_test_run_command(
             [
-                sys.executable,
-                str(script),
+                *cli,
                 "doctor",
                 "--profile",
                 str(profile),
@@ -9117,7 +9180,10 @@ def update_reading_status_command(args: argparse.Namespace) -> None:
     save_feedback(feedback_file, feedback)
     library = load_paper_library(kb_dir)
     profile = load_profile(args.profile)
+    write_kb_foundation(kb_dir, library, profile, feedback)
+    write_kb_interested(kb_dir, library, profile, feedback)
     write_kb_paper_pages(kb_dir, library, feedback)
+    write_kb_direction_pages(kb_dir, library, profile, feedback)
     write_weekly_review(kb_dir, library, profile)
     report = write_reading_status_report(kb_dir, [asdict(paper) for paper in library], feedback)
     print(f"Feedback updated: {feedback_file}")

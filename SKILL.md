@@ -54,12 +54,12 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
 - `knowledge_base/profile_tuning.md`: suggested profile updates from interested/archive feedback patterns.
 - `knowledge_base/library.json`: cumulative retained papers, usually Must read + Skim.
-- `knowledge_base/foundation.md`: cumulative retained library grouped by direction.
-- `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read.
+- `knowledge_base/foundation.md`: cumulative retained library grouped by direction, including saved feedback state and personal note excerpts when present.
+- `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read, including saved feedback state and personal note excerpts when present.
 - `knowledge_base/daily_additions.md`: retained additions from the latest daily run.
 - `knowledge_base/pdfs/<paper-id>.pdf`: local PDF downloaded from an explicit/open PDF URL.
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
-- `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
+- `knowledge_base/directions/*.md`: direction-specific retained-paper indexes with links to paper pages and saved feedback context when present.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library, feedback state, and saved personal notes.
 - `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`: prioritized next-reading queue from retained/recent papers and feedback, refreshed automatically by runs that update the knowledge base.
 - `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation, including cached local full-text evidence when available.

@@ -74,6 +74,14 @@ class CoreWorkflowTests(unittest.TestCase):
         )
         self.assertIn(__version__, result.stdout)
 
+    def test_skill_cli_command_falls_back_to_module_without_source_script(self) -> None:
+        original = core.skill_wrapper_path
+        try:
+            setattr(core, "skill_wrapper_path", lambda: ROOT / "missing" / "scripts" / "scholar_reader.py")
+            self.assertEqual(core.skill_cli_command(), [sys.executable, "-m", "scholar_alert_reader"])
+        finally:
+            setattr(core, "skill_wrapper_path", original)
+
     def test_profile_template_commands(self) -> None:
         result = subprocess.run(
             [
@@ -1510,6 +1518,8 @@ ER  -
                     "--mark",
                     "interested",
                     "--more-like-this",
+                    "--note",
+                    "Strong candidate for the Taiwan manuscript.",
                     "--no-profile-update",
                 ],
                 text=True,
@@ -1519,6 +1529,15 @@ ER  -
             self.assertIn("Feedback updated", result.stdout)
             self.assertTrue((root / "kb" / "library.json").exists())
             self.assertTrue((root / "kb" / "papers" / "p1.md").exists())
+            foundation = (root / "kb" / "foundation.md").read_text(encoding="utf-8")
+            self.assertIn("Feedback: interested; signals: more-like-this", foundation)
+            self.assertIn("Strong candidate for the Taiwan manuscript.", foundation)
+            interested = (root / "kb" / "interested.md").read_text(encoding="utf-8")
+            self.assertIn("Feedback: interested; signals: more-like-this", interested)
+            self.assertIn("Strong candidate for the Taiwan manuscript.", interested)
+            direction_path = next(path for path in (root / "kb" / "directions").glob("*.md") if path.name != "index.md")
+            direction = direction_path.read_text(encoding="utf-8")
+            self.assertIn("Strong candidate for the Taiwan manuscript.", direction)
 
     def test_export_and_weekly_renderers(self) -> None:
         records = [sample_paper()]
@@ -1880,6 +1899,13 @@ SCHEDULE_TIME=09:00
             paper_page_content = (kb / "papers" / "p1.md").read_text(encoding="utf-8")
             self.assertIn("## Saved Feedback", paper_page_content)
             self.assertIn("Useful comparison for the Taiwan manuscript.", paper_page_content)
+            foundation_content = (kb / "foundation.md").read_text(encoding="utf-8")
+            self.assertIn("Reading status: reading", foundation_content)
+            self.assertIn("Labels: must-cite", foundation_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", foundation_content)
+            interested_content = (kb / "interested.md").read_text(encoding="utf-8")
+            self.assertIn("Reading status: reading", interested_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", interested_content)
             weekly_content = (kb / "weekly_review.md").read_text(encoding="utf-8")
             self.assertIn("Personal Notes Review", weekly_content)
             self.assertIn("Useful comparison for the Taiwan manuscript.", weekly_content)
