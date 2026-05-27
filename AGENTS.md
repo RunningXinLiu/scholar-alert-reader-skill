@@ -6,6 +6,7 @@
 - Documentation lives in `README.md`, `SKILL.md`, `PRODUCT.md`, `PRIVACY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, and `references/`.
 - Generated personal data, OAuth files, mailbox exports, `reader_out/`, and `knowledge_base/` must not be committed.
 - Marketing assets in `docs/assets/` are checked-in project assets. Regenerate them with `python3 scripts/generate_marketing_assets.py`.
+- Marketing screenshots in `docs/screenshots/` are checked-in sanitized demo assets. Regenerate them with `python3 scripts/generate_marketing_screenshots.py`.
 
 ## CodeGraph
 

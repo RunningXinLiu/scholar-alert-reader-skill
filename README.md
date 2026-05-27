@@ -20,6 +20,8 @@ Created by [Xin Liu](https://github.com/RunningXinLiu).
 
 ## Start Here
 
+Scholar Alert Reader works as a normal local Python CLI. Codex is the most guided entry point, but it is not required.
+
 If you are a Codex user, install the skill and then talk to Codex in plain language:
 
 ```bash
@@ -44,6 +46,32 @@ Good next prompts:
 - "Export my retained library to Obsidian and Zotero."
 
 The skill works without Obsidian or Zotero. Those are optional upgrades for people who want a larger personal knowledge system.
+
+## Use Without Codex
+
+You can run the core tool from any terminal or from any coding agent that can access local files and execute shell commands.
+
+```bash
+git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
+cd scholar-alert-reader-skill
+python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
+cd ~/scholar_alerts
+./demo_reader.sh
+open reader_out/demo/digest.html
+```
+
+Agent compatibility:
+
+- **Claude Code**: supported through the Python CLI. This repo includes `CLAUDE.md` with Claude-specific operating notes.
+- **Cursor, Windsurf, Gemini CLI, and similar local agents**: supported if they can run shell commands and read/write local files.
+- **Claude Desktop or web chat**: can help interpret outputs, but needs a local tool/MCP/file bridge to run the workflow on your machine.
+- **Plain terminal**: fully supported through `scripts/scholar_reader.py` and the generated project scripts.
+
+What is agent-specific:
+
+- `SKILL.md` is for Codex skill loading and guided operation.
+- `CLAUDE.md` is for Claude Code orientation.
+- The durable source of truth is the Python CLI plus local project files, not any one agent.
 
 ## Screenshots
 
