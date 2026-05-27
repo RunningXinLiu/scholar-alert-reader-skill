@@ -30,7 +30,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 13. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-14. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
+14. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -103,6 +103,15 @@ Run the bundled-data self-test:
 
 ```bash
 python3 -m scholar_alert_reader self-test --strict
+```
+
+Explain product capabilities and boundaries:
+
+```bash
+python3 -m scholar_alert_reader capabilities
+python3 -m scholar_alert_reader capabilities \
+  --project-dir ~/scholar_alerts \
+  --output ~/scholar_alerts/CAPABILITIES.md
 ```
 
 After `python3 -m pip install .` or a GitHub install, `scholar-alert-reader quickstart ...` and `scholar-reader quickstart ...` are equivalent. When running from a source checkout, `python3 scripts/scholar_reader.py ...` remains supported for backward compatibility.

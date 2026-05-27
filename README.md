@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.22`
+Version: `0.2.23`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -38,6 +38,7 @@ Use the scholar-alert-reader skill to initialize a Scholar Alert project for me.
 
 Good next prompts:
 
+- "Explain what this tool can and cannot do before I connect my data."
 - "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS/web/RSS/arXiv source is ready."
 - "Run the setup wizard and configure my source/profile/schedule."
 - "Build my first foundation from existing Scholar Alert emails."
@@ -119,8 +120,22 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
-- Adds a literature-copilot layer: selected-paper deep reads, local-library Q&A, paper comparison, research maps, and gap/advice reports.
+- Adds a literature-copilot layer: selected-paper metadata briefs, local-library Q&A, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
 - Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
+
+## Capability Boundary
+
+For a concise product-boundary report, run:
+
+```bash
+python3 -m scholar_alert_reader capabilities
+# or inside an initialized project
+./capabilities.sh
+```
+
+The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, and adaptive similarity to retained/interested papers. It is not a hosted embedding service or autonomous reviewer.
+
+`deep-read`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, and the retained library. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, run `full-text`, then build `review-pack` / `review-queue` for Codex, Claude, ChatGPT, or another assistant.
 
 ## Product Modes
 
@@ -269,6 +284,12 @@ Run the bundled-data self-test. It does not read Gmail, Mail.app, Zotero, Obsidi
 
 ```bash
 ./self_test.sh
+```
+
+Read the capability boundary before connecting private data:
+
+```bash
+./capabilities.sh
 ```
 
 Open the generated onboarding guide:
@@ -656,6 +677,9 @@ Check a local setup:
 
 ```bash
 python3 -m scholar_alert_reader self-test --strict
+python3 -m scholar_alert_reader capabilities \
+  --project-dir ~/scholar_alerts \
+  --output ~/scholar_alerts/CAPABILITIES.md
 python3 -m scholar_alert_reader doctor \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \

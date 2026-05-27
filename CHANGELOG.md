@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.23 - 2026-05-27
+
+- Add `capabilities` / generated `capabilities.sh` to explain product strengths, boundaries, non-promises, and recommended workflows.
+- Include a redacted local project snapshot when `--project-dir` is provided.
+- Tighten README/SKILL wording around metadata-based triage, local full-text extraction, and LLM-ready review packs.
+- Add tests for the capability report and generated helper script.
+
 ## v0.2.22 - 2026-05-27
 
 - Add `support-bundle` / generated `support_bundle.sh` for sanitized GitHub issue diagnostics.

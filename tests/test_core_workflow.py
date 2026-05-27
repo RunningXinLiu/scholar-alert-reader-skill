@@ -143,6 +143,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "arxiv_search.sh").exists())
             self.assertTrue((project / "doctor_reader.sh").exists())
             self.assertTrue((project / "support_bundle.sh").exists())
+            self.assertTrue((project / "capabilities.sh").exists())
             self.assertTrue((project / "guide_reader.sh").exists())
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
@@ -160,6 +161,7 @@ class CoreWorkflowTests(unittest.TestCase):
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Product Modes", start_here)
             self.assertIn("Capability boundary", start_here)
+            self.assertIn("./capabilities.sh", start_here)
             self.assertIn("Bundled templates", start_here)
             subprocess.run(
                 [
@@ -845,6 +847,46 @@ SCHEDULE_TIME=09:00
             self.assertNotIn(str(root), content)
             self.assertNotIn("secret-token-value", content)
             self.assertNotIn("private.example.invalid", content)
+
+    def test_capabilities_command_describes_product_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "reader"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "init-project",
+                    "--project-dir",
+                    str(project),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            report = project / "CAPABILITIES.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "capabilities",
+                    "--project-dir",
+                    str(project),
+                    "--output",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Scholar Alert Reader Capabilities", content)
+            self.assertIn("Capability Boundary", content)
+            self.assertIn("Not Promised", content)
+            self.assertIn("publisher access", content)
+            self.assertIn("review-pack", content)
+            self.assertIn("<project>", content)
+            self.assertNotIn(str(root), content)
 
     def test_self_test_command_runs_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -3543,19 +3543,20 @@ def render_project_guide(
         "0. Verify the install with bundled sample data: `./self_test.sh`.",
         "1. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
         "   - To test every bundled non-private source path, run `./demo_sources.sh`.",
-        "2. Configure your local defaults once with `./setup_wizard.sh`, or non-interactively with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
-        "3. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
+        "2. Read the product boundary and best workflow with `./capabilities.sh`.",
+        "3. Configure your local defaults once with `./setup_wizard.sh`, or non-interactively with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
+        "4. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
         f"   - Current profile: `{profile_name}`.",
         f"   - Bundled templates copied to `profiles/templates/`: {template_line}.",
         "   - To reset from a template, run for example: `./copy_profile_template.sh --template ai-seismology --force`.",
-        "4. Choose an input source:",
+        "5. Choose an input source:",
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
         "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
         "   - Bibliography import: place `import.bib` or `import.ris` in this project, then run `./bibtex_import.sh` or `./ris_import.sh`.",
         "   - Structured web sources: place webpage URLs or saved HTML paths in `web_sources.txt` and run `./web_import.sh`, feed URLs in `feeds.txt` and run `./rss_import.sh`, or set `ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh`.",
-        "5. Build the baseline with `MODE=foundation ./run_reader.sh`.",
-        "6. Run daily triage with `./run_reader.sh`.",
-        "7. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
+        "6. Build the baseline with `MODE=foundation ./run_reader.sh`.",
+        "7. Run daily triage with `./run_reader.sh`.",
+        "8. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
         "",
         "## Persistent Configuration",
         "",
@@ -3827,6 +3828,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "export_reader.sh": 'exec "${SKILL_CMD[@]}" export --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --format "${FORMAT:-bibtex}" --tiers "${TIERS:-Must read,Skim}" "$@"\n',
         "doctor_reader.sh": 'exec "${SKILL_CMD[@]}" doctor --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" --gmail-deps "$@"\n',
         "support_bundle.sh": 'exec "${SKILL_CMD[@]}" support-bundle --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" "$@"\n',
+        "capabilities.sh": 'exec "${SKILL_CMD[@]}" capabilities --project-dir "$PROJECT_DIR" "$@"\n',
     }
     for filename, body in helper_specs.items():
         write_executable(project_dir / filename, generated_script_header() + common + body)
@@ -3972,6 +3974,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "## Useful commands",
                     "",
                     "```bash",
+                    "./capabilities.sh",
                     "./doctor_reader.sh",
                     "./support_bundle.sh",
                     "./guide_reader.sh",
@@ -5906,6 +5909,94 @@ def support_bundle_command(args: argparse.Namespace) -> None:
     print("Review before posting publicly. Do not attach reader.env, tokens, raw mailboxes, feedback.json, or generated knowledge bases.")
 
 
+def render_capability_report(project_dir: Path | None = None) -> str:
+    project_dir = project_dir.expanduser().resolve(strict=False) if project_dir else None
+    lines = [
+        "# Scholar Alert Reader Capabilities",
+        "",
+        f"- Version: {__version__}",
+        "- Product shape: local literature triage, reading queues, and research-memory maintenance.",
+        "- Privacy shape: local-first files and optional local browser UI; no hosted account or cloud database is required.",
+        "",
+        "## Good At",
+        "",
+        "- Reading Scholar Alert emails through Gmail API, Apple Mail, or exported `.mbox` archives.",
+        "- Importing BibTeX/RIS exports, structured scholarly webpage metadata, RSS/Atom feeds, and arXiv queries.",
+        "- Deduplicating repeated papers across alerts and sources.",
+        "- Ranking papers with profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, and adaptive local feedback similarity.",
+        "- Producing HTML/Markdown digests, CSV/JSON outputs, and a retained local knowledge base.",
+        "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, and method-reference labels.",
+        "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
+        "",
+        "## Capability Boundary",
+        "",
+        "- `deep-read`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, and feedback signals.",
+        "- `semantic_queries` and adaptive ranking are lightweight local matching features, not a hosted embedding service or a neural reranker.",
+        "- `full-text` works when a local PDF/text path is provided directly or synced from Zotero; it does not automatically bypass publisher access or download paywalled PDFs.",
+        "- `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant. It does not upload data or claim autonomous expert peer review.",
+        "- Web import reads structured scholarly metadata from configured URLs, saved HTML, or URL/path lists. It is not a general-purpose crawler.",
+        "",
+        "## Not Promised",
+        "",
+        "- No automatic full-paper understanding unless the user provides local full text and an assistant reviews the generated context pack.",
+        "- No guarantee that title-based metadata enrichment from OpenAlex/Crossref is perfect; ambiguous matches still need human review.",
+        "- No team server, multi-user permissions, hosted sync, or shared OAuth client in the public repo.",
+        "- No need for Obsidian, Zotero, Gmail, or Codex if the user only wants the Python CLI and local files.",
+        "",
+        "## Best Next Workflow",
+        "",
+        "1. Run `self-test` or `./self_test.sh` with bundled data.",
+        "2. Run `setup-wizard` or `./setup_wizard.sh` to pick source, profile, schedule, and optional integrations.",
+        "3. Run `source-check --live` before expecting non-empty daily results.",
+        "4. Build an initial `foundation`, then use `daily` for new papers only.",
+        "5. Mark interested/archive papers and rerun `profile-tune` after several feedback rounds.",
+        "6. Sync Zotero local PDF paths when available, then run `full-text`, `review-pack`, or `review-queue` for selected papers.",
+        "",
+        "## Practical Upgrade Path",
+        "",
+        "- For better ranking: tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
+        "- For closer reading: use Zotero or explicit local PDF paths with `full-text` and `review-pack`.",
+        "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
+        "- For public support: run `support-bundle` and review the redacted output before posting a GitHub issue.",
+        "",
+    ]
+    if project_dir:
+        env_values = read_project_env(project_env_path(project_dir))
+        lines.extend(
+            [
+                "## Local Project Snapshot",
+                "",
+                f"- Project: `{safe_display_path(project_dir, project_dir)}`",
+                f"- Profile: {path_status(str(project_dir / 'profiles' / 'research_profile.json'), project_dir)}",
+                f"- Run script: {path_status(str(project_dir / 'run_reader.sh'), project_dir)}",
+                f"- Setup wizard: {path_status(str(project_dir / 'setup_wizard.sh'), project_dir)}",
+                f"- Source check: {path_status(str(project_dir / 'SOURCE_CHECK.md'), project_dir)}",
+                f"- Daily digest: {path_status(str(project_dir / 'reader_out' / 'daily' / 'digest.html'), project_dir)}",
+                f"- Retained library: {json_summary(project_dir / 'knowledge_base' / 'library.json')}",
+                f"- Feedback records: {json_summary(project_dir / 'knowledge_base' / 'feedback.json')}",
+                "",
+            ]
+        )
+        if env_values:
+            lines.extend(["### Configured Defaults", ""])
+            for key in ["SOURCE", "MODE", "SCHEDULE_TIME", "SCHEDULE_DAYS", "SCHEDULE_TIMEZONE"]:
+                if env_values.get(key):
+                    lines.append(f"- {key}: {support_env_value(key, env_values[key], project_dir)}")
+            lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def capabilities_command(args: argparse.Namespace) -> None:
+    report = render_capability_report(args.project_dir)
+    if args.output:
+        output = args.output.expanduser()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report, encoding="utf-8")
+        print(f"Capability report: {output}")
+    else:
+        print(report.rstrip())
+
+
 def guide_command(args: argparse.Namespace) -> None:
     project_dir = args.project_dir.expanduser().resolve()
     profile_path = (args.profile or (project_dir / "profiles" / "research_profile.json")).expanduser()
@@ -6433,6 +6524,11 @@ def build_parser() -> argparse.ArgumentParser:
     support.add_argument("--no-report-excerpts", action="store_true", help="Do not include sanitized SOURCE_CHECK/DOCTOR excerpts")
     support.add_argument("--output", type=Path, help="Output markdown path. Defaults to project-dir/SUPPORT_BUNDLE.md")
     support.set_defaults(func=support_bundle_command)
+
+    capabilities = sub.add_parser("capabilities", help="Explain product capabilities, boundaries, and recommended workflows")
+    capabilities.add_argument("--project-dir", type=Path, help="Optional local project directory to include a redacted setup snapshot")
+    capabilities.add_argument("--output", type=Path, help="Write markdown report to this path instead of stdout")
+    capabilities.set_defaults(func=capabilities_command)
 
     return parser
 
