@@ -298,6 +298,169 @@ def render_deep_read(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def markdown_block(value: str) -> str:
+    return value.replace("```", "` ` `")
+
+
+def limited_text(value: str, limit: int) -> str:
+    value = value.strip()
+    if limit <= 0 or len(value) <= limit:
+        return value
+    return value[:limit].rstrip() + f"\n\n[Truncated to {limit} characters for this context pack.]"
+
+
+def render_review_context_pack(
+    target: dict[str, Any],
+    library: list[dict[str, Any]],
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
+    full_text: str = "",
+    full_text_path: Path | None = None,
+    limit: int = 12,
+    max_full_text_chars: int = 40000,
+) -> str:
+    related = related_records(target, library, limit)
+    target_id = text(target.get("id"))
+    target_feedback = feedback_record(target, feedback)
+    interested = [
+        record
+        for record in library
+        if text(record.get("id")) != target_id
+        and (
+            record.get("tier") == "Must read"
+            or feedback_record(record, feedback).get("status") == "interested"
+            or reading_status(record, feedback) in {"reading", "must-cite", "method-reference"}
+        )
+    ]
+    interested = sorted(
+        interested,
+        key=lambda record: (
+            {"must-cite": 0, "method-reference": 1, "reading": 2, "unread": 3}.get(reading_status(record, feedback), 9),
+            -int(record.get("score", 0) or 0),
+            text(record.get("title")).lower(),
+        ),
+    )[:limit]
+    profile_lines = []
+    for section in ["focus_terms", "regions", "methods", "watch_authors", "exclude_terms"]:
+        values = []
+        for item in profile.get(section, []):
+            if isinstance(item, dict):
+                term = text(item.get("term"))
+                weight = item.get("weight", "")
+                values.append(f"{term} ({weight})" if weight != "" else term)
+            else:
+                values.append(text(item))
+        if values:
+            profile_lines.append(f"- {section}: " + "; ".join(values[:18]))
+
+    title = text(target.get("title", "Untitled"))
+    full_text_excerpt = limited_text(full_text, max_full_text_chars) if full_text else ""
+    lines = [
+        f"# Paper Review Context Pack: {title}",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: {profile.get('name', 'unnamed')}",
+        f"- Target ID: `{target_id}`",
+        f"- Intended use: paste this file into Codex, Claude, ChatGPT, or another assistant for a focused paper discussion.",
+        "",
+        "## Source Boundary",
+        "",
+        "- This pack is assembled from local Scholar Alert Reader data: alert metadata, bibliography fields, feedback, retained foundation papers, and optional local full-text cache.",
+        "- Do not treat missing information as negative evidence. If the full text is absent or truncated, ask for the PDF/text before making final citation decisions.",
+        "- The assistant using this pack should separate quoted/observed evidence from inference and should not invent methods, datasets, claims, or results.",
+        "",
+        "## Review Task For The Assistant",
+        "",
+        "Use the context below to produce a focused research review for the user:",
+        "",
+        "1. State the paper's likely contribution and why it may matter to the user's current research profile.",
+        "2. Extract the method, data, region, assumptions, and evidence only when supported by the provided text.",
+        "3. Compare it against the closest foundation/interested papers and explain whether it is novel, redundant, complementary, or mainly background.",
+        "4. Decide whether the user should mark it `must-cite`, `method-reference`, `background-only`, `reading`, or `not-relevant`.",
+        "5. List concrete next checks before citing it in a manuscript or proposal.",
+        "",
+        "## Target Paper",
+        "",
+        f"- Title: {title}",
+        f"- Link: {target.get('url', '')}",
+        f"- Source: {target.get('authors_source', '')}",
+        f"- Tier: {target.get('tier', '')}; score: {target.get('score', 0)}",
+        f"- Matched terms: {', '.join(str(term) for term in target.get('matched_terms', [])) or 'none'}",
+        f"- Tags: {', '.join(str(tag) for tag in target.get('tags', [])) or 'none'}",
+        f"- Reading status: {reading_status(target, feedback)}",
+    ]
+    if target_feedback.get("note"):
+        lines.append(f"- User note: {target_feedback.get('note')}")
+    lines.extend(["", "## User Research Profile", ""])
+    lines.extend(profile_lines or ["- No explicit profile terms found."])
+    lines.extend(["", "## Alert Or Bibliography Signal", "", text(target.get("snippet", "No snippet available.")), ""])
+    reasons = [str(reason) for reason in target.get("reasons", []) if str(reason).strip()]
+    if reasons:
+        lines.extend(["## Ranking Reasons", ""])
+        lines.extend(f"- {reason}" for reason in reasons[:8])
+        lines.append("")
+
+    lines.extend(["## Local Full Text", ""])
+    if full_text_excerpt:
+        source = str(full_text_path) if full_text_path else "provided text"
+        lines.extend(
+            [
+                f"- Source: `{source}`",
+                f"- Included characters: {len(full_text_excerpt)} of {len(full_text)}",
+                "",
+                "```text",
+                markdown_block(full_text_excerpt),
+                "```",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "No local full text was included. Run `full-text` first, or pass `--full-text-path`, for a stronger review pack.",
+                "",
+            ]
+        )
+
+    lines.extend(["## Closest Foundation Context", ""])
+    if related:
+        for score, record, shared in related:
+            lines.append(paper_line(record))
+            lines.append(f"  - Relation score: {score}; overlap: {', '.join(shared) if shared else 'metadata similarity'}")
+            snippet = text(record.get("snippet"))
+            if snippet:
+                lines.append(f"  - Signal: {snippet[:360]}")
+    else:
+        lines.append("No close retained-paper context found.")
+    lines.append("")
+
+    lines.extend(["## Interested / Active Reading Context", ""])
+    if interested:
+        for record in interested:
+            labels = reading_labels(record, feedback)
+            suffix = f"; labels: {', '.join(labels)}" if labels else ""
+            lines.append(paper_line(record) + f" - status: {reading_status(record, feedback)}{suffix}")
+    else:
+        lines.append("No separate interested/active-reading papers found yet.")
+    lines.extend(
+        [
+            "",
+            "## Suggested Output Format",
+            "",
+            "Ask the assistant to answer in this structure:",
+            "",
+            "1. **One-paragraph take**: what this paper appears to contribute and why it matters.",
+            "2. **Evidence table**: claim, supporting text/source, confidence, missing check.",
+            "3. **Relation to my foundation**: closest papers, novelty/redundancy/complementarity.",
+            "4. **Use in my work**: cite in introduction/method/discussion, or do not cite yet.",
+            "5. **Next actions**: exact sections/figures/equations/data to inspect.",
+            "6. **Feedback command**: suggest the `status`/label command the user should run next.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def render_literature_answer(
     question: str,
     records: list[dict[str, Any]],

@@ -90,6 +90,16 @@ After Zotero read-back has added local PDF paths, generate a local full-text cac
 
 The command uses local files only. It tries `pdftotext`, then optional Python PDF libraries, and can also accept a text export through `--pdf-path`. Treat the generated text cache as private research material.
 
+## Selected-paper Review Pack
+
+After `deep-read` or `full-text`, create a context pack that can be pasted into Codex, Claude, ChatGPT, or another assistant:
+
+```bash
+./review_paper.sh --paper-id <ID>
+```
+
+The pack includes the selected paper, research profile, feedback status, closest foundation papers, active interested papers, and any cached local full text. Treat the generated review pack as private because it can contain extracted full text and personal research notes.
+
 ## RSS/Atom And arXiv
 
 Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer RSS/Atom feeds and the arXiv public Atom API over arbitrary webpage scraping.

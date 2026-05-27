@@ -25,7 +25,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 7. Later runs: use `daily` so only papers not already in the state file are reported.
 8. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
 9. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-10. Use `deep-read`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+10. Use `deep-read`, `full-text`, `review-pack`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 11. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 12. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` when diagnosing local setup problems.
 
@@ -33,7 +33,7 @@ Platform rule: Gmail API, exported mbox, BibTeX/RIS, RSS/Atom, and arXiv work cr
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
-Capability boundary: ranking and literature-copilot commands are currently based on alert metadata, bibliography fields, snippets, profile terms, feedback, and retained-library context. Treat `deep-read` as a triage/planning brief unless a future full-text/PDF pipeline is explicitly added.
+Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, feedback, and retained-library context. `full-text` can extract local PDF/text files when the user provides them or when Zotero sync supplies a local path. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files or claim autonomous expert review.
 
 ## Outputs
 
@@ -52,6 +52,7 @@ Capability boundary: ranking and literature-copilot commands are currently based
 - `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation.
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
 - `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief for a selected paper.
+- `knowledge_base/analysis/<paper-id>_review_pack.md`: LLM-ready context pack for selected-paper review against the user's profile, foundation, interested papers, and optional full-text cache.
 - `knowledge_base/answers/*.md`: local-library answers to user research questions.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
 - `knowledge_base/reading_status.md`: reading tracker grouped by status.
@@ -241,6 +242,15 @@ Extract local PDF/text content and write a full-text brief:
 
 ```bash
 python3 scripts/scholar_reader.py full-text \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --paper-id <ID>
+```
+
+Build a selected-paper review context pack for Codex, Claude, ChatGPT, or another assistant:
+
+```bash
+python3 scripts/scholar_reader.py review-pack \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \
   --paper-id <ID>

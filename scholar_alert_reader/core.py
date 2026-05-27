@@ -2991,6 +2991,7 @@ exec "${cmd[@]}"
         "serve_recent.sh": 'PAPERS_JSON="${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" exec "$PROJECT_DIR/serve_reader.sh" "$@"\n',
         "deep_read_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "full_text_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "review_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "advice_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "guide_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
@@ -3115,6 +3116,7 @@ exec "${cmd[@]}"
                     "```bash",
                     "./deep_read_paper.sh --paper-id <ID>",
                     "./full_text_paper.sh --paper-id <ID>",
+                    "./review_paper.sh --paper-id <ID>",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
                     "./advice_reader.sh",
                     "```",
@@ -4236,6 +4238,46 @@ def full_text_command(args: argparse.Namespace) -> None:
     print(f"Full-text brief: {report_output}")
 
 
+def read_context_text(path: Path | None, max_chars: int) -> tuple[str, Path | None]:
+    if not path or not path.exists():
+        return "", None
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        return handle.read(max_chars + 1), path
+
+
+def review_pack_command(args: argparse.Namespace) -> None:
+    from .copilot import render_review_context_pack
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    target = select_paper_record(records, args.paper_id, args.title)
+    library = paper_records_from_library(kb_dir) or records
+    stem = str(target.get("id", "paper") or "paper")
+    full_text_path = args.full_text_path or (kb_dir / "full_text" / f"{stem}.txt")
+    full_text, actual_full_text_path = read_context_text(full_text_path, args.max_full_text_chars)
+    output = args.output or (kb_dir / "analysis" / f"{stem}_review_pack.md")
+    write_report(
+        output,
+        render_review_context_pack(
+            target,
+            library,
+            profile,
+            feedback=feedback,
+            full_text=full_text,
+            full_text_path=actual_full_text_path,
+            limit=args.limit,
+            max_full_text_chars=args.max_full_text_chars,
+        ),
+    )
+    print(f"Review context pack: {output}")
+    if actual_full_text_path:
+        print(f"Included full-text cache: {actual_full_text_path}")
+    else:
+        print("Included full-text cache: none")
+
+
 def ask_library_command(args: argparse.Namespace) -> None:
     from .copilot import render_literature_answer
 
@@ -4682,6 +4724,19 @@ def build_parser() -> argparse.ArgumentParser:
     full_text.add_argument("--text-output", type=Path, help="Output text cache. Defaults to kb-dir/full_text/<paper-id>.txt")
     full_text.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md")
     full_text.set_defaults(func=full_text_command)
+
+    review_pack = sub.add_parser("review-pack", help="Build an LLM-ready paper review context pack")
+    review_pack.add_argument("--profile", type=Path, required=True)
+    review_pack.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    review_pack.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    review_pack.add_argument("--papers-json", type=Path, help="Optional digest papers.json to select a paper that is not yet retained")
+    review_pack.add_argument("--paper-id", help="Paper ID from a digest or paper note")
+    review_pack.add_argument("--title", help="Case-insensitive title substring")
+    review_pack.add_argument("--full-text-path", type=Path, help="Optional local text cache to include. Defaults to kb-dir/full_text/<paper-id>.txt")
+    review_pack.add_argument("--max-full-text-chars", type=int, default=40000, help="Maximum full-text characters to include")
+    review_pack.add_argument("--limit", type=int, default=12, help="Related/interested papers to include")
+    review_pack.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_review_pack.md")
+    review_pack.set_defaults(func=review_pack_command)
 
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
     ask.add_argument("--profile", type=Path, required=True)

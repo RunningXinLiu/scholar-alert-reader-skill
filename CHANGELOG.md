@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.5 - 2026-05-27
+
+- Add `review-pack` / generated `review_paper.sh` for creating LLM-ready selected-paper review context packs.
+- Include target metadata, user profile, feedback status, optional local full-text cache, closest foundation papers, and interested/active-reading context in review packs.
+- Document the cross-assistant workflow for using Scholar Alert Reader with Codex, Claude, ChatGPT, or any other markdown-capable assistant.
+
 ## v0.2.4 - 2026-05-27
 
 - Add `full-text` / generated `full_text_paper.sh` for local PDF/text extraction and full-text reading briefs.

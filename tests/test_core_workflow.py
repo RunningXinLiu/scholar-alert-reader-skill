@@ -125,6 +125,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "obsidian_export.sh").exists())
             self.assertTrue((project / "zotero_sync.sh").exists())
             self.assertTrue((project / "full_text_paper.sh").exists())
+            self.assertTrue((project / "review_paper.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
@@ -684,6 +685,33 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Full-Text Brief", full_text_content)
             self.assertIn("Profile Overlap", full_text_content)
             self.assertIn("Methods Excerpt", full_text_content)
+
+            review_pack = root / "review_pack.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "review-pack",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--full-text-path",
+                    str(full_text_cache),
+                    "--output",
+                    str(review_pack),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            review_pack_content = review_pack.read_text(encoding="utf-8")
+            self.assertIn("Paper Review Context Pack", review_pack_content)
+            self.assertIn("Review Task For The Assistant", review_pack_content)
+            self.assertIn("Local Full Text", review_pack_content)
+            self.assertIn("ambient noise tomography", review_pack_content)
 
             obsidian_dir = root / "obsidian"
             subprocess.run(
