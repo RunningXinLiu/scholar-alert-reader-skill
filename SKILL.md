@@ -25,6 +25,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 6. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the exact terms, `semantic_queries`, and `adaptive_ranking` settings.
 7. First run: use `foundation` to build the seen-paper baseline.
 8. Later runs: use `daily` so only papers not already in the state file are reported.
+   - If the digest has zero papers, inspect `empty_run_diagnosis` in `summary.json` or the `No-paper diagnosis` section in `digest.md/html` / `DASHBOARD.html` before assuming Gmail/Mail parsing failed.
 9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
@@ -43,6 +44,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 
 - `digest.md` and `digest.html`: human-readable triage reports.
 - `papers.json` and `papers.csv`: structured run output.
+- `summary.json`: run metadata, source counts, seen-state filtering counts, and `empty_run_diagnosis` when no papers are written.
 - `deep_read_queue.md`: top papers for actual reading.
 - `seen_papers.json`: dedupe state; can include every alert item.
 - `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, library files, setup reports, and next actions.

@@ -324,6 +324,87 @@ class CoreWorkflowTests(unittest.TestCase):
             )
             self.assertIn("RSS/Atom live read", check.stdout)
 
+    def test_daily_zero_run_explains_all_seen_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "reader"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "init-project",
+                    "--project-dir",
+                    str(project),
+                    "--profile-template",
+                    "ai-seismology",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            env = {
+                **os.environ,
+                "SOURCE": "mbox",
+                "MBOX_PATH": str(project / "examples" / "sample_scholar_alerts.mbox"),
+                "MODE": "foundation",
+            }
+            subprocess.run([str(project / "run_reader.sh")], cwd=project, env=env, text=True, capture_output=True, check=True)
+            env["MODE"] = "daily"
+            result = subprocess.run(
+                [str(project / "run_reader.sh")],
+                cwd=project,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("No-paper diagnosis:", result.stdout)
+            summary = json.loads((project / "reader_out" / "daily" / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["papers_in_digest"], 0)
+            self.assertGreater(summary["unique_papers_before_state_filter"], 0)
+            self.assertEqual(summary["empty_run_diagnosis"]["reason"], "all_seen")
+            digest = (project / "reader_out" / "daily" / "digest.md").read_text(encoding="utf-8")
+            self.assertIn("No-paper diagnosis", digest)
+            self.assertIn("No new papers after the seen-state filter", digest)
+            dashboard = (project / "DASHBOARD.md").read_text(encoding="utf-8")
+            self.assertIn("No-Paper Diagnosis", dashboard)
+            self.assertIn("all_seen", dashboard)
+
+    def test_zero_web_run_explains_parser_empty_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            no_metadata = root / "no_metadata.html"
+            no_metadata.write_text("<html><body>No citation metadata here.</body></html>", encoding="utf-8")
+            out_dir = root / "out"
+            kb_dir = root / "kb"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "run",
+                    "--source-web",
+                    str(no_metadata),
+                    "--profile",
+                    str(profile),
+                    "--out-dir",
+                    str(out_dir),
+                    "--kb-dir",
+                    str(kb_dir),
+                    "--no-kb-update",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["source_items"], 1)
+            self.assertEqual(summary["unique_papers_before_state_filter"], 0)
+            self.assertEqual(summary["empty_run_diagnosis"]["reason"], "parsed_no_papers")
+            self.assertIn("webpage source was read", "\n".join(summary["empty_run_diagnosis"]["next_steps"]))
+            self.assertIn("Source was readable", (out_dir / "digest.md").read_text(encoding="utf-8"))
+            self.assertIn("Source was readable", (out_dir / "digest.html").read_text(encoding="utf-8"))
+
     def test_quickstart_command_creates_project_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "quickstart-reader"

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.34 - 2026-05-28
+
+- Add structured zero-paper diagnostics to `summary.json`, terminal output, `digest.md/html`, and `DASHBOARD.md/html`.
+- Separate all-seen daily runs from empty sources, parser/source metadata misses, and unknown empty-result states.
+- Add regression coverage for all-seen daily runs and readable webpage sources with no citation metadata.
+
 ## v0.2.33 - 2026-05-27
 
 - Add `dashboard` / generated `dashboard_reader.sh` as a project home page linking the latest digest, reading plan, review queue, knowledge-base files, setup reports, and next actions.

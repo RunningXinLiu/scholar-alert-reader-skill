@@ -61,6 +61,9 @@ SKILL_SCRIPT=/path/to/scholar-alert-reader-skill/scripts/scholar_reader.py ./sou
 
 ## `Papers in digest: 0`
 
+First open `reader_out/daily/digest.html` or `DASHBOARD.html` and read `No-paper diagnosis`.
+The same structured result is in `reader_out/daily/summary.json` under `empty_run_diagnosis`.
+
 Common causes:
 
 - `daily` mode filters out papers already recorded in `seen_papers.json`.
@@ -81,10 +84,19 @@ Look at:
 
 ```text
 reader_out/daily/summary.json
+reader_out/daily/digest.html
+DASHBOARD.html
 reader_out/daily/papers.json
 profiles/seen_papers.json
 knowledge_base/feedback.json
 ```
+
+How to interpret `empty_run_diagnosis.reason`:
+
+- `all_seen`: the source produced papers, but daily mode filtered them because they were already in `seen_papers.json`.
+- `source_no_items`: the configured source returned no messages, entries, feeds, or webpage sources. Check paths, OAuth, feed URLs, arXiv query, or `SINCE_DAYS`.
+- `parsed_no_papers`: the source was readable but no paper records were extracted. For Scholar Alert emails this can mean the mailbox is wrong, the sender did not match, or Google changed the alert HTML. For webpages it usually means the page lacks citation metadata or JSON-LD.
+- `empty_unknown`: inspect `source_counts` manually and open a GitHub issue with a sanitized support bundle.
 
 ## Gmail OAuth Shows `access_denied` Or App Not Verified
 

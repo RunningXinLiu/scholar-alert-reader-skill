@@ -2198,6 +2198,7 @@ def source_item_count(summary: dict[str, Any]) -> int:
         "scholar_messages",
         "bibliography_entries",
         "feed_entries",
+        "web_sources",
         "gmail_raw_messages",
         "mail_app_exported",
         "messages",
@@ -2206,6 +2207,99 @@ def source_item_count(summary: dict[str, Any]) -> int:
         if isinstance(value, int):
             return value
     return 0
+
+
+def empty_run_diagnosis(summary: dict[str, Any]) -> dict[str, Any]:
+    papers_in_digest = int(summary.get("papers_in_digest") or 0)
+    if papers_in_digest > 0:
+        return {}
+
+    counts = summary.get("source_counts", {})
+    counts = counts if isinstance(counts, dict) else {}
+    source_items = int(summary.get("source_items") or source_item_count(summary))
+    unique_before = int(summary.get("unique_papers_before_state_filter") or 0)
+    filtered_seen = int(summary.get("seen_papers_filtered_out") or 0)
+    source = str(summary.get("source", "the configured source"))
+
+    if summary.get("only_new") and unique_before > 0:
+        return {
+            "reason": "all_seen",
+            "title": "No new papers after the seen-state filter",
+            "summary": (
+                f"The source produced {unique_before} unique papers, but {filtered_seen or unique_before} "
+                "were already in the foundation/seen state."
+            ),
+            "next_steps": [
+                "This is normal after a foundation run or when alerts repeat the same papers.",
+                "To inspect recent already-seen papers, run `./review_recent.sh` or rerun with `MODE=run NO_KB_UPDATE=1`.",
+                "If this is your first real run, build the baseline intentionally with `MODE=foundation ./run_reader.sh`, then use daily mode afterward.",
+            ],
+        }
+
+    if unique_before == 0 and source_items > 0:
+        next_steps = [
+            "Run `./source_check.sh --source auto --live` to confirm the selected source and item counts.",
+            "Open the source file/feed/email and confirm it contains scholarly paper titles, not only notification text or unrelated mail.",
+            "If this is a Scholar Alert email source, Google may have changed the alert HTML; generate `./support_bundle.sh` and report sanitized counts, not raw mail.",
+        ]
+        if int(counts.get("messages", 0)) > 0 and int(counts.get("scholar_messages", 0)) == 0:
+            next_steps.insert(1, "The mailbox had messages, but none from `scholaralerts-noreply@google.com`; check the folder, Gmail query, or exported mbox.")
+        if int(counts.get("scholar_messages", 0)) > 0 and int(counts.get("entries", 0)) == 0:
+            next_steps.insert(1, "Scholar Alert messages were found, but no paper entries matched the parser; keep a sanitized sample for parser maintenance.")
+        if int(counts.get("bibliography_entries", 0)) > 0 and int(counts.get("bibliography_unique_papers", 0)) == 0:
+            next_steps.insert(1, "The bibliography file had entries but no usable titles; export BibTeX/RIS again with title fields included.")
+        if int(counts.get("web_sources", 0)) > 0 and int(counts.get("web_unique_papers", 0)) == 0:
+            next_steps.insert(1, "The webpage source was read, but no citation metadata/JSON-LD title was found; use article pages or RSS feeds instead of search-result pages.")
+        return {
+            "reason": "parsed_no_papers",
+            "title": "Source was readable, but no paper records were parsed",
+            "summary": f"`{source}` returned {source_items} source items, but none became paper records.",
+            "next_steps": next_steps,
+        }
+
+    if unique_before == 0 and source_items == 0:
+        return {
+            "reason": "source_no_items",
+            "title": "Source returned no items",
+            "summary": f"`{source}` did not return Scholar Alert messages, bibliography entries, feed entries, or webpage sources.",
+            "next_steps": [
+                "Run `./source_check.sh --source auto --live` before expecting daily digests.",
+                "Check `reader.env`, source paths, Gmail OAuth token, Gmail query, feed URLs, arXiv query, and any `SINCE_DAYS` window.",
+                "Run `./demo_reader.sh` or `./demo_sources.sh` to verify the installation with bundled non-private data.",
+            ],
+        }
+
+    return {
+        "reason": "empty_unknown",
+        "title": "No papers were written",
+        "summary": "The run completed but did not produce paper records. Inspect `summary.json` and run source-check live.",
+        "next_steps": [
+            "Run `./source_check.sh --source auto --live`.",
+            "Open `summary.json` and compare `source_counts`, `unique_papers_before_state_filter`, and `papers_in_digest`.",
+        ],
+    }
+
+
+def empty_run_markdown(summary: dict[str, Any]) -> list[str]:
+    diagnosis = summary.get("empty_run_diagnosis")
+    if not isinstance(diagnosis, dict) or not diagnosis:
+        diagnosis = empty_run_diagnosis(summary)
+    if not diagnosis:
+        return []
+    lines = [
+        "## No-paper diagnosis",
+        "",
+        f"**{diagnosis.get('title', 'No papers were written')}**",
+        "",
+        str(diagnosis.get("summary", "")),
+        "",
+        "Next steps:",
+        "",
+    ]
+    for step in diagnosis.get("next_steps", []):
+        lines.append(f"- {step}")
+    lines.append("")
+    return lines
 
 
 def limits(profile: dict[str, Any]) -> dict[str, int]:
@@ -2281,14 +2375,8 @@ def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summa
     ]
 
     recent_cmd = recent_review_command(path)
-    if not papers and summary.get("only_new"):
-        lines.extend(
-            [
-                "## No new papers",
-                "",
-                f"Found {summary.get('unique_papers_before_state_filter', 0)} unique papers before the seen-state filter, but all of them are already in the foundation.",
-            ]
-        )
+    if not papers:
+        lines.extend(empty_run_markdown(summary))
         if recent_cmd:
             lines.extend(["", "To review recent alerts again for testing:", "", "```bash", recent_cmd, "```"])
         lines.append("")
@@ -2509,14 +2597,19 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
     )
 
     recent_cmd = recent_review_command(path)
-    if not papers and summary.get("only_new"):
+    if not papers:
+        diagnosis = summary.get("empty_run_diagnosis")
+        if not isinstance(diagnosis, dict) or not diagnosis:
+            diagnosis = empty_run_diagnosis(summary)
         parts.extend(
             [
                 '<section class="feedback-help">',
-                "<strong>No new papers</strong>",
-                f'<div class="meta">Found {html.escape(str(summary.get("unique_papers_before_state_filter", 0)))} unique papers before the seen-state filter, but all of them are already in the foundation.</div>',
+                f"<strong>{html.escape(str(diagnosis.get('title', 'No papers were written')))}</strong>",
+                f'<div class="meta">{html.escape(str(diagnosis.get("summary", "")))}</div>',
             ]
         )
+        for step in diagnosis.get("next_steps", []):
+            parts.append(f'<div class="meta">- {html.escape(str(step))}</div>')
         if recent_cmd:
             parts.append(f"<code>{html.escape(recent_cmd)}</code>")
         parts.append("</section>")
@@ -3837,11 +3930,16 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
         "",
     ]
     if summary:
+        diagnosis = summary.get("empty_run_diagnosis")
+        diagnosis = diagnosis if isinstance(diagnosis, dict) else {}
         lines.extend(
             [
                 f"- Summary file: {dashboard_link('summary.json', summary_path, base_dir)}",
                 f"- Mode: `{summary.get('mode', 'unknown')}`",
                 f"- Source: `{summary.get('source', 'unknown')}`",
+                f"- Source items: {summary.get('source_items', source_item_count(summary))}",
+                f"- Unique papers before seen-state filter: {summary.get('unique_papers_before_state_filter', 'unknown')}",
+                f"- Seen-state filtered out: {summary.get('seen_papers_filtered_out', 'unknown')}",
                 f"- Papers in digest: {summary.get('papers_in_digest', 'unknown')}",
                 f"- Library additions: {summary.get('library_additions', 'unknown')}",
                 f"- Knowledge base updated: {summary.get('knowledge_base_updated', 'unknown')}",
@@ -3849,6 +3947,20 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
                 f"- Source counts: `{json.dumps(source_counts, ensure_ascii=False)}`",
             ]
         )
+        if diagnosis:
+            lines.extend(
+                [
+                    "",
+                    "## No-Paper Diagnosis",
+                    "",
+                    f"- Reason: `{diagnosis.get('reason', 'unknown')}`",
+                    f"- {diagnosis.get('title', 'No papers were written')}: {diagnosis.get('summary', '')}",
+                    "",
+                    "Next steps:",
+                    "",
+                ]
+            )
+            lines.extend(f"- {step}" for step in diagnosis.get("next_steps", []))
     else:
         lines.extend(
             [
@@ -5527,7 +5639,9 @@ def run(args: argparse.Namespace) -> None:
         papers, source_counts = parse_mbox(args.source_mbox, args.since_days)
         source_label = str(args.source_mbox)
     total_unique = len(papers)
+    source_items = source_item_count({"source_counts": source_counts})
     papers = apply_state(papers, seen, args.only_new)
+    papers_after_state = len(papers)
     papers = rank_papers(papers, profile, args.boost, feedback, ranking_library)
 
     tier_counts = counts_by_tier(papers)
@@ -5544,7 +5658,11 @@ def run(args: argparse.Namespace) -> None:
         "source_rss": str(args.source_rss) if getattr(args, "source_rss", None) else "",
         "source_arxiv_query": str(args.source_arxiv_query) if getattr(args, "source_arxiv_query", None) else "",
         "source_counts": source_counts,
+        "source_items": source_items,
         "unique_papers_before_state_filter": total_unique,
+        "papers_after_state_filter": papers_after_state,
+        "seen_papers_before_run": len(seen),
+        "seen_papers_filtered_out": max(0, total_unique - papers_after_state),
         "papers_in_digest": len(papers),
         "tier_counts": dict(tier_counts),
         "only_new": args.only_new,
@@ -5558,12 +5676,18 @@ def run(args: argparse.Namespace) -> None:
         "adaptive_seed_papers": len(ranking_library),
         "boost": args.boost or "",
     }
+    summary["empty_run_diagnosis"] = empty_run_diagnosis(summary)
     write_outputs(args.out_dir, kb_dir, papers, profile, summary, update_knowledge_base=not getattr(args, "no_kb_update", False))
     if args.update_state:
         update_seen(state_file, papers)
 
     print(f"Papers in digest: {len(papers)}")
     print(f"Tier counts: {dict(tier_counts)}")
+    if summary.get("empty_run_diagnosis"):
+        diagnosis = summary["empty_run_diagnosis"]
+        print(f"No-paper diagnosis: {diagnosis.get('title', 'No papers were written')}")
+        for step in diagnosis.get("next_steps", [])[:2]:
+            print(f"Next step: {step}")
     print(f"Digest: {args.out_dir / 'digest.md'}")
     print(f"HTML: {args.out_dir / 'digest.html'}")
     print(f"Deep-read queue: {args.out_dir / 'deep_read_queue.md'}")
