@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.2.17 - 2026-05-27
+
+- Opt GitHub Actions into Node 24 execution for JavaScript actions to avoid the Node 20 deprecation warning before GitHub changes the default runner behavior.
+
 ## v0.2.16 - 2026-05-27
 
 - Add a GitHub Actions package job that builds the wheel, installs it into a clean virtual environment, and runs the installed `scholar-alert-reader` CLI.

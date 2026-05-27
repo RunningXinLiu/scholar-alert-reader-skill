@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.16`
+Version: `0.2.17`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
