@@ -37,7 +37,7 @@ from email.message import Message
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import parse_qs, unquote, urlencode, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from . import __version__
@@ -9118,6 +9118,75 @@ def semantic_rerank_command(args: argparse.Namespace) -> None:
     print(f"Records considered: {len(rows)}")
 
 
+def answer_report_title(path: Path, content: str) -> str:
+    for line in content.splitlines():
+        cleaned = line.strip()
+        if cleaned.startswith("# "):
+            title = cleaned[2:].strip()
+            title = title.removeprefix("Literature Answer:").strip()
+            title = title.removeprefix("Selected Paper Answer:").strip()
+            return title or path.stem
+    return path.stem
+
+
+def answer_report_target(content: str) -> str:
+    match = re.search(r"(?m)^- Target paper: `([^`]+)`", content)
+    return match.group(1).strip() if match else ""
+
+
+def write_answer_index(kb_dir: Path) -> Path:
+    answers_dir = kb_dir / "answers"
+    entries: list[dict[str, str]] = []
+    if answers_dir.exists():
+        for path in sorted(answers_dir.glob("*.md"), key=lambda item: item.stat().st_mtime, reverse=True):
+            if path.name.lower() in {"index.md", "answer index.md"}:
+                continue
+            try:
+                content = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            entries.append(
+                {
+                    "title": answer_report_title(path, content),
+                    "target": answer_report_target(content),
+                    "filename": path.name,
+                    "mtime": datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M"),
+                }
+            )
+    selected = [entry for entry in entries if entry["target"]]
+    library_wide = [entry for entry in entries if not entry["target"]]
+    output = kb_dir / "answers_index.md"
+    lines = [
+        "# Answer Index",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Answers: {len(entries)}",
+        f"- Selected-paper answers: {len(selected)}",
+        f"- Library-wide answers: {len(library_wide)}",
+        "",
+        "This index is generated from local answer reports. Links use the local browser UI route when opened from `serve`.",
+        "",
+        "## Selected-Paper Answers",
+        "",
+    ]
+    if selected:
+        for entry in selected:
+            href = f"/answer?name={quote(entry['filename'], safe='')}"
+            lines.append(f"- [{entry['title']}]({href}) - paper `{entry['target']}`; {entry['mtime']}")
+    else:
+        lines.append("- None yet.")
+    lines.extend(["", "## Library-Wide Answers", ""])
+    if library_wide:
+        for entry in library_wide:
+            href = f"/answer?name={quote(entry['filename'], safe='')}"
+            lines.append(f"- [{entry['title']}]({href}) - {entry['mtime']}")
+    else:
+        lines.append("- None yet.")
+    lines.append("")
+    write_report(output, "\n".join(lines).rstrip() + "\n")
+    return output
+
+
 def write_literature_answer_report(
     profile_path: Path,
     kb_dir: Path,
@@ -9135,6 +9204,7 @@ def write_literature_answer_report(
     stem = slugify(question)[:70] or "question"
     output = output or (kb_dir / "answers" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
     write_report(output, render_literature_answer(question, records, profile, feedback=feedback, limit=limit))
+    write_answer_index(kb_dir)
     return output
 
 
@@ -9157,6 +9227,7 @@ def write_selected_paper_answer_report(
     stem = slugify(f"{paper_id}-{question}")[:90] or slugify(paper_id) or "selected-paper-question"
     output = output or (kb_dir / "answers" / f"{datetime.now().strftime('%Y-%m-%d_%H%M')}_{stem}.md")
     write_report(output, render_selected_paper_answer(question, target, records, profile, feedback=feedback, limit=limit))
+    write_answer_index(kb_dir)
     return output
 
 

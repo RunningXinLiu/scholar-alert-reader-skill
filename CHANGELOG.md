@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.68 - 2026-05-28
+
+- Generate `knowledge_base/answers_index.md` whenever a library-wide or selected-paper answer is written.
+- Link the answer index from the browser feedback UI quick navigation through the existing safe `/local?name=...` route.
+- Split the answer index into selected-paper and library-wide sections with links back to the safe `/answer?name=...` viewer.
+
 ## v0.2.67 - 2026-05-28
 
 - Show existing selected-paper answer reports on matching paper cards and one-paper workspaces.

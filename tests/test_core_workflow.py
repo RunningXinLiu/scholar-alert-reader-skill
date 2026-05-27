@@ -2503,8 +2503,15 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     ask_html = response.read().decode("utf-8")
                 self.assertIn("Answered library question", ask_html)
                 self.assertIn("/answer?name=", ask_html)
+                self.assertIn("/local?name=answers", ask_html)
                 answer_files = list((kb / "answers").glob("*.md"))
                 self.assertEqual(len(answer_files), 1)
+                self.assertTrue((kb / "answers_index.md").exists())
+                with urllib.request.urlopen(f"{base_url}/local?name=answers", timeout=5) as response:
+                    answer_index_body = response.read().decode("utf-8")
+                self.assertIn("Answer Index", answer_index_body)
+                self.assertIn("Library-Wide Answers", answer_index_body)
+                self.assertIn("Taiwan ambient noise manuscript", answer_index_body)
                 with urllib.request.urlopen(f"{base_url}/answer?name={urllib.parse.quote(answer_files[0].name)}", timeout=5) as response:
                     answer_body = response.read().decode("utf-8")
                 self.assertIn("Literature Answer", answer_body)
@@ -2545,6 +2552,10 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     updated_workspace = response.read().decode("utf-8")
                 self.assertIn("Paper answers:", updated_workspace)
                 self.assertIn("How does this fit my foundation", updated_workspace)
+                index_content = (kb / "answers_index.md").read_text(encoding="utf-8")
+                self.assertIn("Selected-paper answers: 1", index_content)
+                self.assertIn("Library-wide answers: 1", index_content)
+                self.assertIn("paper `p1`", index_content)
                 with urllib.request.urlopen(
                     f"{base_url}/answer?name={urllib.parse.quote(selected_answers[0].name)}",
                     timeout=5,

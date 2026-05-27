@@ -73,7 +73,8 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/analysis/ranking_evaluation.md`: ranking quality benchmark against explicit interested/archive feedback labels.
 - `EMBEDDING_CHECK.md`: optional embedding backend readiness report for semantic rerank.
 - `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json`: local semantic rerank report and reranked records, including the backend used.
-- `knowledge_base/answers/*.md`: local-library answers to user research questions.
+- `knowledge_base/answers/*.md`: local-library and selected-paper answers to user research questions.
+- `knowledge_base/answers_index.md`: generated answer index grouped into selected-paper and library-wide answers, with links for the local browser UI.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
 - `knowledge_base/reading_status.md`: reading tracker grouped by status.
 - `knowledge_base/comparisons/*.md`: side-by-side paper comparisons.
@@ -339,7 +340,7 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
-The browser UI can mark papers, show and filter current feedback/reading-status badges, save personal reading notes, open a one-paper workspace, ask library-wide or selected-paper questions, show existing selected-paper answers for that paper, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` and `/answer?name=...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
+The browser UI can mark papers, show and filter current feedback/reading-status badges, save personal reading notes, open a one-paper workspace, ask library-wide or selected-paper questions, show existing selected-paper answers for that paper, open the generated answer index, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` and `/answer?name=...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
 
 Suggest profile updates from accumulated feedback:
 
@@ -501,7 +502,7 @@ python3 scripts/scholar_reader.py ask \
   --question "receiver function + Tibet 有哪些关键论文？"
 ```
 
-`ask` loads `knowledge_base/feedback.json` by default, so reading status, labels, and personal notes can retrieve papers and appear as evidence in the answer. `advice`, `compare`, and `map` also surface saved notes when they explain reading strategy, paper differences, and topic clusters. Use `--feedback-file` for a custom feedback file where available.
+`ask` loads `knowledge_base/feedback.json` by default, so reading status, labels, and personal notes can retrieve papers and appear as evidence in the answer. Each answer refreshes `knowledge_base/answers_index.md`; the browser UI links it as `Answers` once it exists. `advice`, `compare`, and `map` also surface saved notes when they explain reading strategy, paper differences, and topic clusters. Use `--feedback-file` for a custom feedback file where available.
 
 Generate research advice:
 

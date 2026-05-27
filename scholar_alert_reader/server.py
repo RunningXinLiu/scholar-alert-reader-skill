@@ -189,6 +189,7 @@ def local_file_targets(config: ServerConfig) -> list[tuple[str, str, Path]]:
         ("interested", "Interested", config.kb_dir / "interested.md"),
         ("reading_status", "Reading status", config.kb_dir / "reading_status.md"),
         ("weekly_review", "Weekly review", config.kb_dir / "weekly_review.md"),
+        ("answers", "Answers", config.kb_dir / "answers_index.md"),
     ]
     if project_dir:
         candidates.insert(0, ("dashboard", "Dashboard", project_dir / "DASHBOARD.html"))

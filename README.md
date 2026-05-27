@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.67`
+Version: `0.2.68`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -134,7 +134,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
-- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
+- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card or answer index, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Includes `privacy-check` so users can scan local projects for files that should not be published before sharing issue attachments, screenshots, or zip archives.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
@@ -476,7 +476,7 @@ Open the feedback UI:
 ./serve_reader.sh
 ```
 
-The browser UI can mark papers, show current feedback and reading-status badges, save personal reading notes, filter by tier or reading status, open a focused one-paper workspace, ask paper-specific questions against the retained foundation/interested library, show existing selected-paper answers for that paper, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` or `/answer?...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
+The browser UI can mark papers, show current feedback and reading-status badges, save personal reading notes, filter by tier or reading status, open a focused one-paper workspace, ask paper-specific questions against the retained foundation/interested library, show existing selected-paper answers for that paper, open the generated answer index, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` or `/answer?...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
 
 Review recent alerts again without modifying the cumulative library:
 
@@ -723,7 +723,7 @@ python3 scripts/scholar_reader.py ask \
   --question "receiver function + Tibet 有哪些关键论文？"
 ```
 
-`ask` loads `knowledge_base/feedback.json` by default, so reading status, labels, and personal notes can retrieve papers and appear as evidence in the answer. `advice`, `compare`, and `map` also surface saved notes when they explain reading strategy, paper differences, and topic clusters. Use `--feedback-file` for a custom feedback file where available.
+`ask` loads `knowledge_base/feedback.json` by default, so reading status, labels, and personal notes can retrieve papers and appear as evidence in the answer. Each answer refreshes `knowledge_base/answers_index.md`, which separates selected-paper answers from library-wide answers and links back to the local `/answer?name=...` viewer when opened through `serve`. `advice`, `compare`, and `map` also surface saved notes when they explain reading strategy, paper differences, and topic clusters. Use `--feedback-file` for a custom feedback file where available.
 
 Generate research-gap and reading-strategy advice:
 

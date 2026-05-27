@@ -96,6 +96,7 @@ For users who want citation/PDF management.
 - A browser UI user can ask a question against the retained library and current digest, generate an answer report under `knowledge_base/answers/`, and open it through a safe local route.
 - A browser UI user can open a one-paper workspace from a digest card and ask a selected-paper question that compares that paper against the retained foundation, interested papers, reading labels, and saved personal notes.
 - A browser UI user can reopen a paper card or workspace and see existing selected-paper answer links for that paper.
+- A browser UI user can open a generated answer index that separates selected-paper answers from library-wide answers.
 - An Obsidian export user can open dashboard-linked generated indexes for answers, comparisons, and analysis reports instead of browsing copied markdown files manually.
 - A user can see saved feedback status, reading labels, and personal note excerpts in `foundation.md`, `interested.md`, and direction-specific indexes, so the main knowledge-base entry points reflect the user's own reading memory.
 - A user can mark feedback or reading status from CLI or browser UI and immediately get refreshed `reading_plan.md/html`; when the project root can be inferred, `DASHBOARD.md/html` is refreshed too.
