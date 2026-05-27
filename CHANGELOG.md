@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.19 - 2026-05-27
+
+- Add privacy-first GitHub issue forms for bug reports, source setup help, and feature requests.
+- Add a pull request template with local checks and private-data safeguards.
+- Add `SECURITY.md` for credential leaks, raw mailbox exposure, and other private reports.
+- Document safe public reporting in README, CONTRIBUTING, PRIVACY, and product requirements.
+
 ## v0.2.18 - 2026-05-27
 
 - Move CI to `actions/checkout@v6` and `actions/setup-python@v6`, which use the Node 24 action runtime directly.

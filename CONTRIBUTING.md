@@ -11,6 +11,14 @@ python -m py_compile scripts/scholar_reader.py scholar_alert_reader/*.py
 python -m unittest discover -s tests
 ```
 
+## Issues And Support
+
+Use the GitHub issue forms for bug reports, source setup help, and feature requests. Keep reports reproducible with sanitized commands and generated reports such as `SOURCE_CHECK.md`, `DOCTOR.md`, or `QUICKSTART_REPORT.md`.
+
+Do not paste raw emails, OAuth credentials, Gmail tokens, private bibliography/feed lists, `seen_papers.json`, `feedback.json`, generated `knowledge_base/` content, or extracted full-text/review packs into public issues.
+
+Security-sensitive reports should follow [SECURITY.md](SECURITY.md).
+
 ## Design Rules
 
 - Keep `scripts/scholar_reader.py` as a stable compatibility wrapper.

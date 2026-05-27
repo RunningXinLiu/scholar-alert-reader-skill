@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.18`
+Version: `0.2.19`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -76,6 +76,12 @@ What is agent-specific:
 - `SKILL.md` is for Codex skill loading and guided operation.
 - `CLAUDE.md` is for Claude Code orientation.
 - The durable source of truth is the Python CLI plus local project files, not any one agent.
+
+## Support And Safe Reporting
+
+Use GitHub issues for bugs, source setup help, and feature requests. The issue forms are privacy-first: do not paste raw emails, OAuth credentials, Gmail tokens, private bibliography/feed lists, `seen_papers.json`, `feedback.json`, or generated knowledge-base content.
+
+For credential leaks, raw mailbox exposure, or other security-sensitive problems, use [SECURITY.md](SECURITY.md) instead of a public issue.
 
 ## Screenshots
 

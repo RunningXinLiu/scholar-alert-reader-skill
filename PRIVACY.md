@@ -16,6 +16,8 @@ The tool may read:
 
 Do not commit or publish raw mailbox exports, personal bibliography imports, personal Zotero/Better BibTeX read-back files, personal webpage/feed source lists, `reader.env`, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, profile-tuning reports, extracted full-text caches, review context packs, or generated knowledge-base outputs unless you have intentionally reviewed and sanitized them.
 
+The GitHub issue templates are designed for sanitized diagnostics only. If a report needs credentials, raw mailbox content, or private generated data to explain the problem, use the private security reporting path described in [SECURITY.md](SECURITY.md) instead of a public issue.
+
 ## External Requests
 
 The core triage pipeline runs locally. External requests happen only when you choose a connector or enrichment feature:

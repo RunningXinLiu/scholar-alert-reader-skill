@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a workflow, source, integration, or literature-copilot improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What research-reading workflow is hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the source, command, report, UI behavior, or integration you want.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - source import
+        - ranking/profile tuning
+        - digest/report output
+        - full-text/review-pack
+        - Obsidian
+        - Zotero
+        - scheduling/automation
+        - packaging/install
+        - documentation
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Keep examples sanitized. Do not attach private mailboxes, tokens, or generated knowledge bases.

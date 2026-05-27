@@ -1,0 +1,57 @@
+name: Source setup help
+description: Get help connecting Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, or arXiv.
+title: "[Source setup]: "
+labels: ["source-setup"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when a source returns zero papers or cannot connect. Do not upload raw mailbox exports, OAuth client JSON, Gmail tokens, private feed lists, or generated knowledge bases.
+  - type: dropdown
+    id: source
+    attributes:
+      label: Source type
+      options:
+        - Gmail API
+        - Apple Mail.app
+        - exported mbox/eml
+        - BibTeX
+        - RIS
+        - structured webpage metadata
+        - RSS/Atom
+        - arXiv query
+        - Zotero/Obsidian handoff
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      description: Include the command with credentials, tokens, private paths, and email addresses removed.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: source_check
+    attributes:
+      label: Sanitized SOURCE_CHECK.md
+      description: Paste the relevant source-check report after removing private paths or identifiers.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to import?
+      description: Describe the kind of papers or alerts you expected, without attaching private mail or bibliography files.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checks
+      options:
+        - label: I tried `setup-wizard` or `source-check`.
+          required: true
+        - label: I reviewed `TROUBLESHOOTING.md`.
+          required: true
+        - label: I removed raw mail, tokens, credentials, private source lists, and generated knowledge-base content.
+          required: true

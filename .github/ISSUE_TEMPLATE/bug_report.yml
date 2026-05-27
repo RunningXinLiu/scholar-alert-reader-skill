@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a reproducible problem without exposing private mail, tokens, or knowledge-base content.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not paste raw emails, OAuth credentials, Gmail tokens, private bibliography exports, `seen_papers.json`, `feedback.json`, or generated knowledge-base content.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the failure and the behavior you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include commands and sanitized paths. Prefer bundled sample data when possible.
+      placeholder: |
+        1. Run `scholar-alert-reader --version`
+        2. Run `scholar-alert-reader setup-wizard ...`
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output from `scholar-alert-reader --version` or `python3 -m scholar_alert_reader --version`.
+      placeholder: "scholar-alert-reader 0.x.y"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_type
+    attributes:
+      label: Install path
+      options:
+        - Codex skill clone
+        - GitHub clone
+        - pip install from GitHub
+        - local pip install
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Input source
+      options:
+        - Gmail API
+        - Apple Mail.app
+        - mbox/eml
+        - BibTeX
+        - RIS
+        - web metadata
+        - RSS/Atom
+        - arXiv
+        - Obsidian/Zotero export
+        - not source-related
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Paste relevant sanitized output from `SOURCE_CHECK.md`, `DOCTOR.md`, or `QUICKSTART_REPORT.md`.
+      render: markdown
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed raw email contents, OAuth credentials, Gmail tokens, private bibliography/feed lists, personal paths I do not want public, and generated knowledge-base content.
+          required: true

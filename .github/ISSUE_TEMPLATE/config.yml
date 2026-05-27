@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Privacy and security report
+    url: https://github.com/RunningXinLiu/scholar-alert-reader-skill/security/policy
+    about: Report credential leaks, private mailbox exposure, or security-sensitive issues privately.
+  - name: Troubleshooting guide
+    url: https://github.com/RunningXinLiu/scholar-alert-reader-skill/blob/main/TROUBLESHOOTING.md
+    about: Check source setup, Gmail OAuth, Mail.app, mbox, BibTeX/RIS, web, RSS/arXiv, Obsidian, and Zotero failures.

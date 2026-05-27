@@ -77,6 +77,7 @@ For users who want citation/PDF management.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.
 - Raw mailbox contents, OAuth secrets, Gmail tokens, personal bibliography/feed lists, feedback, and generated personal knowledge bases must not be committed.
+- Public issue and PR templates must actively steer users away from uploading raw mail, credentials, private bibliography/feed lists, or generated knowledge bases.
 - The default workflow should prefer local files and local browser UI over hosted services.
 - Every product-facing command should have a shell helper when a project is initialized.
 
