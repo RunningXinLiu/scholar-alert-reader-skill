@@ -4,18 +4,18 @@
 
 # Scholar Alert Reader Skill
 
-A Codex skill for turning Google Scholar Alert emails into personalized literature digests and a cumulative reading knowledge base.
+Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
 Version: `0.2.0`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/social-card.png" alt="Scholar Alert Reader social card" width="900">
+  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/social-card.en.png" alt="Scholar Alert Reader social card" width="900">
 </p>
 
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/workflow.gif" alt="Animated Scholar Alert Reader workflow" width="760">
+  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/workflow.en.gif" alt="Animated Scholar Alert Reader workflow" width="760">
 </p>
 
 ## Start Here
@@ -93,15 +93,15 @@ Sanitized demo screenshots are included for product previews and sharing.
 
 ## What It Does
 
-- Reads Google Scholar Alert emails from Gmail API, Mail.app, exported `.mbox`, bibliography files (`.bib` / `.ris`), RSS/Atom feeds, or arXiv queries.
-- Extracts paper title, author/source line, snippet, alert source, and link.
-- Deduplicates papers across alerts.
-- Scores papers against a JSON research profile.
-- Writes daily digests, HTML reports, CSV/JSON output, and a cumulative knowledge base.
-- Records explicit feedback so future runs learn from `interested`, `archive`, `more-like-this`, and `less-like-this` marks.
-- Offers a local feedback UI, metadata enrichment through public APIs, per-paper notes, direction pages, and weekly synthesis.
-- Adds a personal literature copilot layer: selected-paper deep reads against your foundation, local-library Q&A, and research-gap advice.
-- Tracks reading status, compares selected papers, renders a research map, and exports Zotero/Obsidian-ready handoff files.
+- Connects to Gmail API, Apple Mail, exported `.mbox`, BibTeX/RIS files, RSS/Atom feeds, and arXiv queries.
+- Monitors structured web sources such as journal feeds and saved-search feeds without depending on a hosted service.
+- Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
+- Scores papers against your research profile: keywords, methods, regions, authors, exclusions, and temporary boost terms.
+- Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
+- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste.
+- Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
+- Adds a literature-copilot layer: selected-paper deep reads, local-library Q&A, paper comparison, research maps, and gap/advice reports.
+- Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
 
 ## Product Modes
 
@@ -115,7 +115,9 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 ## Architecture
 
-![Scholar Alert Reader architecture](https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/architecture-showcase.png)
+![Scholar Alert Reader architecture](https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/architecture-showcase.en.png)
+
+Chinese sharing assets are also included under `docs/assets/*.zh.*` and paired with Chinese copy in [docs/share-copy.zh.md](docs/share-copy.zh.md).
 
 ## Platform Support
 

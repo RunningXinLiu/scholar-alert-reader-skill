@@ -4,16 +4,19 @@ Scholar Alert Reader should feel like a small local literature product, not a pi
 
 ## Public Assets
 
-- `docs/assets/social-card.svg` and `docs/assets/social-card.png`: social sharing card.
+- `docs/assets/social-card.en.svg` and `docs/assets/social-card.en.png`: English social sharing card for GitHub and public launch.
+- `docs/assets/social-card.zh.svg` and `docs/assets/social-card.zh.png`: Chinese social sharing card for personal/social promotion.
 - `docs/assets/logo.svg` and `docs/assets/logo.png`: project logo with a subtle author signature.
-- `docs/assets/workflow.gif`: animated workflow overview.
-- `docs/assets/architecture.svg` and `docs/assets/architecture.png`: architecture diagram.
+- `docs/assets/workflow.en.gif` and `docs/assets/workflow.zh.gif`: bilingual animated workflow overview.
+- `docs/assets/architecture.en.svg` / `.png` and `docs/assets/architecture.zh.svg` / `.png`: bilingual architecture diagrams.
+- `docs/assets/architecture-showcase.en.svg` / `.png` and `docs/assets/architecture-showcase.zh.svg` / `.png`: bilingual README/social architecture diagrams.
+- `docs/assets/social-card.svg`, `docs/assets/social-card.png`, `docs/assets/workflow.gif`, `docs/assets/architecture.svg`, and `docs/assets/architecture.png`: English compatibility aliases.
 - `docs/share-copy.zh.md`: short Chinese copy for sharing.
 - Regenerate source assets with `python3 scripts/generate_marketing_assets.py`.
 
 ## Core Promise
 
-Turn noisy Google Scholar Alert emails into a personalized reading queue and a cumulative research memory.
+Turn scattered paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research memory.
 
 ## User Tiers
 
@@ -23,7 +26,7 @@ For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, RSS/Atom feeds, or arXiv queries.
 - Output: `digest.html`, `digest.md`, `papers.json`, `knowledge_base/`.
-- Main actions: feedback UI, deep-read, ask-library, advice, compare, map.
+- Main actions: profile-based ranking, feedback UI, scheduled/manual digest, deep-read, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -55,6 +58,8 @@ For users who want citation/PDF management.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - A user without Gmail or Zotero can monitor structured web feeds through `feeds.txt` or run targeted arXiv queries.
+- A user can tune ranking with focus terms, methods, regions, authors, exclusions, temporary boosts, and explicit paper feedback.
+- A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.
 - Raw mailbox contents, OAuth secrets, Gmail tokens, personal bibliography/feed lists, feedback, and generated personal knowledge bases must not be committed.
 - The default workflow should prefer local files and local browser UI over hosted services.

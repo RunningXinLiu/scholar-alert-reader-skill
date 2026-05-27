@@ -4,7 +4,12 @@
 from __future__ import annotations
 
 import shutil
+import struct
 import subprocess
+import tempfile
+import zlib
+from collections import Counter
+from html import escape
 from pathlib import Path
 
 
@@ -87,10 +92,7 @@ FONT = {
     ":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
 }
 
-
-def svg_assets() -> None:
-    ASSET_DIR.mkdir(parents=True, exist_ok=True)
-    logo_mark = """
+LOGO_MARK = """
 <rect width="512" height="512" rx="108" fill="#101827"/>
 <circle cx="394" cy="128" r="72" fill="#0ea5a4" opacity=".18"/>
 <path d="M148 112h188c28 0 50 22 50 50v206c0 28-22 50-50 50H148c-28 0-50-22-50-50V162c0-28 22-50 50-50z" fill="#f8fafc"/>
@@ -102,15 +104,114 @@ def svg_assets() -> None:
 <path d="M306 104a78 78 0 0 1 100 0M306 204a78 78 0 0 0 100 0" fill="none" stroke="#10b981" stroke-width="13" stroke-linecap="round" opacity=".88"/>
 <path d="M146 333c42-20 75-16 102 10 27-26 60-30 102-10" fill="none" stroke="#93c5fd" stroke-width="16" stroke-linecap="round"/>
 """
-    logo = f"""<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+
+
+def logo_svg() -> str:
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader logo</title>
 <desc id="desc">A paper, alert signal, and reading foundation mark for Scholar Alert Reader.</desc>
-{logo_mark}
+{LOGO_MARK}
 </svg>
 """
-    architecture = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+
+
+def architecture_svg(locale: str) -> str:
+    if locale == "zh":
+        copy = {
+            "desc": "Scholar Alert Reader 中文宣传架构图：从邮件、文献文件和结构化网页来源到个性化 digest、阅读队列、个人知识库和 Obsidian/Zotero 导出。",
+            "subtitle": "多来源接入，按你的研究方向自动筛论文",
+            "right1": "本地运行 · 隐私可控 · 多工具可用",
+            "right2": "Codex / Claude / 终端均可使用",
+            "source_title": "1. 汇聚来源",
+            "source_subtitle": "邮件、网页来源、文献文件",
+            "triage_title": "2. 自动分诊",
+            "triage_subtitle": "抽取、去重、打分、反馈",
+            "profile": "关键词 + 研究方向 + 反馈",
+            "profile_subtitle": "越用越贴近当前问题",
+            "kb_title": "3. 形成知识库",
+            "kb_subtitle": "把值得读的论文留下来",
+            "footer": "定时或手动推送 · 本地优先 · 可接 Zotero / Obsidian",
+            "author": "作者：Xin Liu",
+        }
+        source_items = ["Gmail API", "Apple Mail", "mbox / 邮件归档", "BibTeX / RIS", "RSS / arXiv"]
+        triage_items = ["抽取", "去重", "排序", "反馈"]
+        kb_items = ["每日简报", "阅读队列", "文献底座", "深读问答", "笔记与引用"]
+        font = "PingFang SC, Inter, Arial, sans-serif"
+        small_font = 16
+    else:
+        copy = {
+            "desc": "Scholar Alert Reader architecture: connect paper alerts, bibliography exports, feeds, and arXiv to personalized digests, reading queues, research memory, and Obsidian/Zotero exports.",
+            "subtitle": "Connect sources, rank papers by your research profile",
+            "right1": "Local-first · Private · Agent-friendly",
+            "right2": "Codex / Claude / terminal ready",
+            "source_title": "1. Collect sources",
+            "source_subtitle": "Email, bibliography, feeds",
+            "triage_title": "2. Triage automatically",
+            "triage_subtitle": "Extract, dedupe, rank, feedback",
+            "profile": "Keywords + Profile + Feedback",
+            "profile_subtitle": "Adapts to your current questions",
+            "kb_title": "3. Build knowledge",
+            "kb_subtitle": "Keep papers worth reading",
+            "footer": "Scheduled or manual digests · Local-first · Zotero / Obsidian ready",
+            "author": "By Xin Liu",
+        }
+        source_items = ["Gmail API", "Apple Mail", "mbox archives", "BibTeX / RIS", "RSS / arXiv"]
+        triage_items = ["Extract", "Dedupe", "Rank", "Feedback"]
+        kb_items = ["Digest", "Queue", "Foundation", "Deep read", "Notes"]
+        font = "Inter, Arial, sans-serif"
+        small_font = 15
+
+    source_fills = [
+        ("#dbeafe", "#bfdbfe", "#1d4ed8", "#93c5fd"),
+        ("#dcfce7", "#bbf7d0", "#047857", "#86efac"),
+        ("#fef3c7", "#fde68a", "#92400e", "#fcd34d"),
+        ("#ede9fe", "#ddd6fe", "#6d28d9", "#c4b5fd"),
+        ("#e0f2fe", "#bae6fd", "#075985", "#7dd3fc"),
+    ]
+    source_rows = []
+    for index, (label, colors) in enumerate(zip(source_items, source_fills)):
+        fill, stroke, text_color, arrow_color = colors
+        y = 298 + index * 52
+        x = 92 if index % 2 == 0 else 114
+        tx = x + 24
+        ax = 285 if index % 2 == 0 else 307
+        source_rows.append(
+            f'<rect x="{x}" y="{y}" width="216" height="40" rx="12" fill="{fill}" stroke="{stroke}"/>'
+            f'<text x="{tx}" y="{y + 25}" fill="{text_color}" font-size="{small_font}" font-weight="800">{label}</text>'
+            f'<path d="M{ax} {y + 2}l32 18 -32 18z" fill="{arrow_color}" opacity=".7"/>'
+        )
+    source_rows_svg = "\n  ".join(source_rows)
+
+    triage_positions = [(489, 318), (607, 318), (489, 380), (607, 380)]
+    triage_colors = [("#dbeafe", "#1d4ed8"), ("#dcfce7", "#047857"), ("#ede9fe", "#6d28d9"), ("#fef3c7", "#92400e")]
+    triage_rows = []
+    for label, (x, y), (fill, color) in zip(triage_items, triage_positions, triage_colors):
+        text_x = x + (23 if locale == "en" else 31)
+        triage_rows.append(
+            f'<rect x="{x}" y="{y}" width="94" height="42" rx="12" fill="{fill}"/>'
+            f'<text x="{text_x}" y="{y + 26}" fill="{color}">{label}</text>'
+        )
+    triage_rows_svg = "\n    ".join(triage_rows)
+
+    kb_specs = [
+        (866, 313, 104, "#e0f2fe", "#bae6fd", "#075985", 886 if locale == "zh" else 889),
+        (990, 313, 116, "#d1fae5", "#a7f3d0", "#047857", 1014 if locale == "zh" else 1024),
+        (866, 381, 130, "#ede9fe", "#ddd6fe", "#6d28d9", 899 if locale == "zh" else 888),
+        (1008, 381, 98, "#fef3c7", "#fde68a", "#92400e", 1025 if locale == "zh" else 1022),
+        (866, 449, 240, "#fff7ed", "#fed7aa", "#c2410c", 929 if locale == "zh" else 962),
+    ]
+    kb_rows = []
+    for label, spec in zip(kb_items, kb_specs):
+        x, y, w, fill, stroke, color, text_x = spec
+        kb_rows.append(
+            f'<rect x="{x}" y="{y}" width="{w}" height="48" rx="14" fill="{fill}" stroke="{stroke}"/>'
+            f'<text x="{text_x}" y="{y + 30}" fill="{color}">{label}</text>'
+        )
+    kb_rows_svg = "\n    ".join(kb_rows)
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader architecture</title>
-<desc id="desc">Scholar Alert Reader 中文宣传架构图：从 Scholar Alert 邮件、文献文件和结构化网页来源到每日简报、重点阅读、个人知识库、深读问答和 Obsidian/Zotero 导出。</desc>
+<desc id="desc">{copy['desc']}</desc>
 <defs>
   <linearGradient id="hero" x1="0" x2="1" y1="0" y2="1">
     <stop offset="0" stop-color="#101827"/>
@@ -134,56 +235,35 @@ def svg_assets() -> None:
 <rect width="1200" height="675" fill="#f6f8fb"/>
 <rect width="1200" height="675" fill="url(#grid)"/>
 <rect x="48" y="38" width="1104" height="126" rx="28" fill="url(#hero)" filter="url(#shadow)"/>
-<g transform="translate(82 66) scale(.13)">{logo_mark}</g>
-<text x="168" y="94" fill="#ffffff" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="34" font-weight="850">Scholar Alert Reader</text>
-<text x="168" y="128" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="20" font-weight="600">每天筛论文，长期积累自己的研究线索</text>
-<text x="835" y="92" fill="#ffffff" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="17" font-weight="750">本地运行 · 隐私可控 · 多工具可用</text>
-<text x="835" y="123" fill="#cdece8" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="14">Codex / Claude / 终端均可使用</text>
+<g transform="translate(82 66) scale(.13)">{LOGO_MARK}</g>
+<text x="168" y="94" fill="#ffffff" font-family="{font}" font-size="34" font-weight="850">Scholar Alert Reader</text>
+<text x="168" y="128" fill="#cdece8" font-family="{font}" font-size="20" font-weight="600">{copy['subtitle']}</text>
+<text x="835" y="92" fill="#ffffff" font-family="{font}" font-size="17" font-weight="750">{copy['right1']}</text>
+<text x="835" y="123" fill="#cdece8" font-family="{font}" font-size="14">{copy['right2']}</text>
 
-<g font-family="PingFang SC, Inter, Arial, sans-serif">
+<g font-family="{font}">
   <rect x="62" y="196" width="302" height="360" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
-  <text x="92" y="246" fill="#0f172a" font-size="25" font-weight="850">1. 汇聚来源</text>
-  <text x="92" y="276" fill="#64748b" font-size="16">邮件读取 + 文献导入</text>
-  <rect x="92" y="298" width="216" height="40" rx="12" fill="#dbeafe" stroke="#bfdbfe"/>
-  <text x="116" y="323" fill="#1d4ed8" font-size="16" font-weight="800">Gmail API</text>
-  <rect x="114" y="350" width="216" height="40" rx="12" fill="#dcfce7" stroke="#bbf7d0"/>
-  <text x="138" y="375" fill="#047857" font-size="16" font-weight="800">邮件归档</text>
-  <rect x="92" y="402" width="216" height="40" rx="12" fill="#fef3c7" stroke="#fde68a"/>
-  <text x="116" y="427" fill="#92400e" font-size="16" font-weight="800">Apple Mail</text>
-  <rect x="114" y="454" width="216" height="40" rx="12" fill="#ede9fe" stroke="#ddd6fe"/>
-  <text x="138" y="479" fill="#6d28d9" font-size="16" font-weight="800">BibTeX / RIS</text>
-  <rect x="92" y="506" width="216" height="40" rx="12" fill="#e0f2fe" stroke="#bae6fd"/>
-  <text x="116" y="531" fill="#075985" font-size="16" font-weight="800">RSS / arXiv</text>
-  <path d="M285 300l32 18 -32 18z" fill="#93c5fd" opacity=".7"/>
-  <path d="M307 352l32 18 -32 18z" fill="#86efac" opacity=".7"/>
-  <path d="M285 404l32 18 -32 18z" fill="#fcd34d" opacity=".7"/>
-  <path d="M307 456l32 18 -32 18z" fill="#c4b5fd" opacity=".7"/>
-  <path d="M285 508l32 18 -32 18z" fill="#7dd3fc" opacity=".7"/>
+  <text x="92" y="246" fill="#0f172a" font-size="25" font-weight="850">{copy['source_title']}</text>
+  <text x="92" y="276" fill="#64748b" font-size="16">{copy['source_subtitle']}</text>
+  {source_rows_svg}
 
   <rect x="449" y="188" width="302" height="352" rx="28" fill="#ffffff" stroke="#2563eb" stroke-width="2.5" filter="url(#shadow)"/>
   <rect x="477" y="216" width="246" height="70" rx="18" fill="#eff6ff"/>
-  <text x="508" y="246" fill="#1e3a8a" font-size="18" font-weight="800">2. 自动分诊</text>
-  <text x="508" y="270" fill="#475569" font-size="14">去重、打分、按偏好排序</text>
-  <g font-size="15" font-weight="760">
-    <rect x="489" y="318" width="94" height="42" rx="12" fill="#dbeafe"/><text x="520" y="344" fill="#1d4ed8">抽取</text>
-    <rect x="607" y="318" width="94" height="42" rx="12" fill="#dcfce7"/><text x="638" y="344" fill="#047857">合并</text>
-    <rect x="489" y="380" width="94" height="42" rx="12" fill="#ede9fe"/><text x="520" y="406" fill="#6d28d9">排序</text>
-    <rect x="607" y="380" width="94" height="42" rx="12" fill="#fef3c7"/><text x="638" y="406" fill="#92400e">反馈</text>
+  <text x="508" y="246" fill="#1e3a8a" font-size="18" font-weight="800">{copy['triage_title']}</text>
+  <text x="508" y="270" fill="#475569" font-size="14">{copy['triage_subtitle']}</text>
+  <g font-size="{14 if locale == 'en' else 15}" font-weight="760">
+    {triage_rows_svg}
   </g>
   <path d="M536 457h128" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
   <circle cx="536" cy="457" r="5" fill="#2563eb"/><circle cx="664" cy="457" r="5" fill="#10b981"/>
-  <text x="491" y="492" fill="#0f172a" font-size="17" font-weight="800">研究方向 + 你的选择</text>
-  <text x="491" y="518" fill="#64748b" font-size="14">越用越贴近当前问题</text>
+  <text x="491" y="492" fill="#0f172a" font-size="{16 if locale == 'en' else 17}" font-weight="800">{copy['profile']}</text>
+  <text x="491" y="518" fill="#64748b" font-size="14">{copy['profile_subtitle']}</text>
 
   <rect x="836" y="205" width="302" height="318" rx="24" fill="url(#panel)" stroke="#d8e0ea" filter="url(#shadow)"/>
-  <text x="866" y="246" fill="#0f172a" font-size="25" font-weight="850">3. 形成知识库</text>
-  <text x="866" y="276" fill="#64748b" font-size="16">把值得读的论文留下来</text>
-  <g font-size="16" font-weight="800">
-    <rect x="866" y="313" width="104" height="48" rx="14" fill="#e0f2fe" stroke="#bae6fd"/><text x="886" y="343" fill="#075985">每日简报</text>
-    <rect x="990" y="313" width="116" height="48" rx="14" fill="#d1fae5" stroke="#a7f3d0"/><text x="1014" y="343" fill="#047857">阅读队列</text>
-    <rect x="866" y="381" width="130" height="48" rx="14" fill="#ede9fe" stroke="#ddd6fe"/><text x="899" y="411" fill="#6d28d9">文献底座</text>
-    <rect x="1008" y="381" width="98" height="48" rx="14" fill="#fef3c7" stroke="#fde68a"/><text x="1025" y="411" fill="#92400e">深读问答</text>
-    <rect x="866" y="449" width="240" height="48" rx="14" fill="#fff7ed" stroke="#fed7aa"/><text x="929" y="479" fill="#c2410c">笔记与引用</text>
+  <text x="866" y="246" fill="#0f172a" font-size="25" font-weight="850">{copy['kb_title']}</text>
+  <text x="866" y="276" fill="#64748b" font-size="16">{copy['kb_subtitle']}</text>
+  <g font-size="{15 if locale == 'en' else 16}" font-weight="800">
+    {kb_rows_svg}
   </g>
 </g>
 
@@ -191,43 +271,101 @@ def svg_assets() -> None:
   <path d="M364 364 C398 364 412 364 449 364"/>
   <path d="M751 364 C790 364 800 364 836 364"/>
 </g>
-<g font-family="PingFang SC, Inter, Arial, sans-serif">
+<g font-family="{font}">
   <rect x="190" y="570" width="820" height="56" rx="18" fill="#ffffff" stroke="#d8e0ea"/>
-  <text x="224" y="604" fill="#475569" font-size="17" font-weight="650">本地处理 · 授权文件只留本机 · 筛掉的论文不进知识库</text>
-  <text x="1035" y="606" fill="#64748b" font-size="15" font-weight="650">作者：Xin Liu</text>
+  <text x="224" y="604" fill="#475569" font-size="{16 if locale == 'en' else 17}" font-weight="650">{copy['footer']}</text>
+  <text x="1035" y="606" fill="#64748b" font-size="15" font-weight="650">{copy['author']}</text>
 </g>
 </svg>
 """
-    social = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+
+
+def social_card_svg(locale: str) -> str:
+    if locale == "zh":
+        desc = "Scholar Alert Reader 中文社交分享图。"
+        subtitle_lines = [
+            "从邮件、网页来源、arXiv 和 Zotero 导出中，",
+            "筛出真正值得读的论文。",
+        ]
+        badges = [("多来源", 138, 174, "#dbeafe", "#1d4ed8", 178), ("排序", 340, 168, "#dcfce7", "#047857", 398), ("反馈", 536, 196, "#ede9fe", "#6d28d9", 598), ("笔记引用", 760, 252, "#fef3c7", "#92400e", 832)]
+        footer = "每日或手动推送 · 本地优先 · 可接 Obsidian / Zotero"
+        author = "作者：Xin Liu · RunningXinLiu"
+        font = "PingFang SC, Inter, Arial, sans-serif"
+    else:
+        desc = "A social sharing card for Scholar Alert Reader."
+        subtitle_lines = [
+            "Rank papers from email, feeds, arXiv, Zotero exports,",
+            "and your own research profile.",
+        ]
+        badges = [("Sources", 138, 174, "#dbeafe", "#1d4ed8", 174), ("Rank", 340, 168, "#dcfce7", "#047857", 382), ("Feedback", 536, 196, "#ede9fe", "#6d28d9", 574), ("Zotero + Notes", 760, 252, "#fef3c7", "#92400e", 792)]
+        footer = "Daily or manual digests · Local-first · Obsidian/Zotero ready"
+        author = "Created by Xin Liu · RunningXinLiu"
+        font = "Inter, Arial, sans-serif"
+    subtitle_svg = "\n".join(
+        f'<text x="136" y="{235 + index * 37}" fill="#475569" font-family="{font}" font-size="27">{line}</text>'
+        for index, line in enumerate(subtitle_lines)
+    )
+    badge_svg = "\n  ".join(
+        f'<rect x="{x}" y="318" width="{width}" height="68" rx="18" fill="{fill}"/><text x="{tx}" y="361" fill="{color}">{label}</text>'
+        for label, x, width, fill, color, tx in badges
+    )
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
 <title id="title">Scholar Alert Reader social card</title>
-<desc id="desc">A social sharing card for Scholar Alert Reader.</desc>
+<desc id="desc">{desc}</desc>
 <rect width="1200" height="630" fill="#0f172a"/>
 <circle cx="1010" cy="90" r="180" fill="#1d4ed8" opacity=".28"/><circle cx="170" cy="530" r="220" fill="#10b981" opacity=".20"/>
 <rect x="80" y="78" width="1040" height="474" rx="34" fill="#f8fafc"/>
-<g transform="translate(132 124) scale(.15)">{logo_mark}</g>
-<text x="230" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
-<text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="27">Turn Google Scholar Alerts into a personal literature copilot.</text>
-<g font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24">
-  <rect x="138" y="304" width="180" height="68" rx="18" fill="#dbeafe"/><text x="176" y="347" fill="#1d4ed8">Digest</text>
-  <rect x="346" y="304" width="216" height="68" rx="18" fill="#dcfce7"/><text x="382" y="347" fill="#047857">Foundation</text>
-  <rect x="590" y="304" width="176" height="68" rx="18" fill="#ede9fe"/><text x="636" y="347" fill="#6d28d9">Q&amp;A</text>
-  <rect x="794" y="304" width="218" height="68" rx="18" fill="#fef3c7"/><text x="828" y="347" fill="#92400e">Obsidian</text>
+<g transform="translate(132 124) scale(.15)">{LOGO_MARK}</g>
+<text x="230" y="180" fill="#111827" font-family="{font}" font-size="64" font-weight="850">Scholar Alert Reader</text>
+{subtitle_svg}
+<g font-family="{font}" font-weight="800" font-size="24">
+  {badge_svg}
 </g>
-<text x="138" y="456" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="750">Local · Private · Codex-only optional · Zotero/Obsidian ready</text>
-<text x="138" y="506" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="650">Created by Xin Liu · RunningXinLiu</text>
+<text x="138" y="456" fill="#111827" font-family="{font}" font-size="30" font-weight="750">{footer}</text>
+<text x="138" y="506" fill="#64748b" font-family="{font}" font-size="22" font-weight="650">{author}</text>
 </svg>
 """
-    (ASSET_DIR / "logo.svg").write_text(logo, encoding="utf-8")
-    (ASSET_DIR / "architecture.svg").write_text(architecture, encoding="utf-8")
-    (ASSET_DIR / "architecture-showcase.svg").write_text(architecture, encoding="utf-8")
-    (ASSET_DIR / "social-card.svg").write_text(social, encoding="utf-8")
+
+
+def svg_assets() -> None:
+    ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    english_architecture = architecture_svg("en")
+    chinese_architecture = architecture_svg("zh")
+    english_social = social_card_svg("en")
+    chinese_social = social_card_svg("zh")
+    assets = {
+        "logo.svg": logo_svg(),
+        "architecture.svg": english_architecture,
+        "architecture.en.svg": english_architecture,
+        "architecture.zh.svg": chinese_architecture,
+        "architecture-showcase.svg": english_architecture,
+        "architecture-showcase.en.svg": english_architecture,
+        "architecture-showcase.zh.svg": chinese_architecture,
+        "social-card.svg": english_social,
+        "social-card.en.svg": english_social,
+        "social-card.zh.svg": chinese_social,
+    }
+    for filename, content in assets.items():
+        (ASSET_DIR / filename).write_text(content, encoding="utf-8")
 
 
 def png_assets() -> None:
     sips = shutil.which("sips")
     if not sips:
         return
-    for name in ["architecture", "architecture-showcase", "social-card", "logo"]:
+    names = [
+        "architecture",
+        "architecture.en",
+        "architecture.zh",
+        "architecture-showcase",
+        "architecture-showcase.en",
+        "architecture-showcase.zh",
+        "social-card",
+        "social-card.en",
+        "social-card.zh",
+        "logo",
+    ]
+    for name in names:
         subprocess.run(
             [sips, "-s", "format", "png", str(ASSET_DIR / f"{name}.svg"), "--out", str(ASSET_DIR / f"{name}.png")],
             check=True,
@@ -354,12 +492,21 @@ def gif_image_data(indexes: bytes) -> bytes:
     return bytes(blocks)
 
 
-def write_gif(path: Path, frames: list[bytearray], width: int, height: int, delay_cs: int = 100) -> None:
+def write_gif(
+    path: Path,
+    frames: list[bytearray],
+    width: int,
+    height: int,
+    delay_cs: int = 100,
+    palette: list[tuple[int, int, int]] | None = None,
+) -> None:
     data = bytearray(b"GIF89a")
     data.extend(width.to_bytes(2, "little"))
     data.extend(height.to_bytes(2, "little"))
     data.extend(bytes([0xF7, 0, 0]))
-    for r, g, b in RGB[:256]:
+    colors = list((palette or RGB)[:256])
+    colors.extend([(0, 0, 0)] * (256 - len(colors)))
+    for r, g, b in colors:
         data.extend(bytes([r, g, b]))
     data.extend(b"!\xff\x0bNETSCAPE2.0\x03\x01\x00\x00\x00")
     for frame in frames:
@@ -375,15 +522,146 @@ def write_gif(path: Path, frames: list[bytearray], width: int, height: int, dela
     path.write_bytes(data)
 
 
-def gif_assets() -> None:
+def paeth(a: int, b: int, c: int) -> int:
+    p = a + b - c
+    pa = abs(p - a)
+    pb = abs(p - b)
+    pc = abs(p - c)
+    if pa <= pb and pa <= pc:
+        return a
+    if pb <= pc:
+        return b
+    return c
+
+
+def read_png_rgb(path: Path) -> tuple[int, int, list[tuple[int, int, int]]]:
+    data = path.read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"Not a PNG file: {path}")
+    offset = 8
+    width = height = bit_depth = color_type = interlace = 0
+    idat = bytearray()
+    while offset < len(data):
+        size = int.from_bytes(data[offset : offset + 4], "big")
+        chunk_type = data[offset + 4 : offset + 8]
+        chunk_data = data[offset + 8 : offset + 8 + size]
+        offset += 12 + size
+        if chunk_type == b"IHDR":
+            width, height, bit_depth, color_type, _, _, interlace = struct.unpack(">IIBBBBB", chunk_data)
+        elif chunk_type == b"IDAT":
+            idat.extend(chunk_data)
+        elif chunk_type == b"IEND":
+            break
+    if bit_depth != 8 or interlace != 0 or color_type not in {0, 2, 6}:
+        raise ValueError(f"Unsupported PNG format in {path}: bit_depth={bit_depth}, color_type={color_type}, interlace={interlace}")
+    channels = {0: 1, 2: 3, 6: 4}[color_type]
+    row_bytes = width * channels
+    raw = zlib.decompress(bytes(idat))
+    rows: list[bytearray] = []
+    pos = 0
+    prev = bytearray(row_bytes)
+    for _ in range(height):
+        filter_type = raw[pos]
+        pos += 1
+        row = bytearray(raw[pos : pos + row_bytes])
+        pos += row_bytes
+        for i in range(row_bytes):
+            left = row[i - channels] if i >= channels else 0
+            up = prev[i]
+            upper_left = prev[i - channels] if i >= channels else 0
+            if filter_type == 1:
+                row[i] = (row[i] + left) & 0xFF
+            elif filter_type == 2:
+                row[i] = (row[i] + up) & 0xFF
+            elif filter_type == 3:
+                row[i] = (row[i] + ((left + up) // 2)) & 0xFF
+            elif filter_type == 4:
+                row[i] = (row[i] + paeth(left, up, upper_left)) & 0xFF
+            elif filter_type != 0:
+                raise ValueError(f"Unsupported PNG filter {filter_type} in {path}")
+        rows.append(row)
+        prev = row
+
+    pixels: list[tuple[int, int, int]] = []
+    for row in rows:
+        for i in range(0, row_bytes, channels):
+            if color_type == 0:
+                value = row[i]
+                pixels.append((value, value, value))
+            elif color_type == 2:
+                pixels.append((row[i], row[i + 1], row[i + 2]))
+            else:
+                r, g, b, a = row[i], row[i + 1], row[i + 2], row[i + 3]
+                if a < 255:
+                    r = (r * a + 255 * (255 - a)) // 255
+                    g = (g * a + 255 * (255 - a)) // 255
+                    b = (b * a + 255 * (255 - a)) // 255
+                pixels.append((r, g, b))
+    return width, height, pixels
+
+
+def quantize_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
+    return tuple(min(255, max(0, round(channel / 17) * 17)) for channel in color)
+
+
+def gif_palette(pixel_frames: list[list[tuple[int, int, int]]]) -> list[tuple[int, int, int]]:
+    seeds = [
+        (248, 250, 252),
+        (255, 255, 255),
+        (15, 23, 42),
+        (17, 24, 39),
+        (71, 85, 105),
+        (100, 116, 139),
+        (37, 99, 235),
+        (219, 234, 254),
+        (5, 150, 105),
+        (209, 250, 229),
+        (217, 119, 6),
+        (254, 243, 199),
+        (15, 118, 110),
+        (205, 236, 232),
+    ]
+    counts: Counter[tuple[int, int, int]] = Counter()
+    for pixels in pixel_frames:
+        counts.update(quantize_color(pixel) for pixel in pixels[::3])
+    palette = list(dict.fromkeys(seeds))
+    for color, _ in counts.most_common():
+        if color not in palette:
+            palette.append(color)
+        if len(palette) >= 256:
+            break
+    return palette[:256]
+
+
+def indexed_frame(pixels: list[tuple[int, int, int]], palette: list[tuple[int, int, int]]) -> bytearray:
+    cache: dict[tuple[int, int, int], int] = {}
+    indexes = bytearray()
+    for pixel in pixels:
+        color = quantize_color(pixel)
+        cached = cache.get(color)
+        if cached is None:
+            cached = min(
+                range(len(palette)),
+                key=lambda i: (
+                    (palette[i][0] - color[0]) ** 2
+                    + (palette[i][1] - color[1]) ** 2
+                    + (palette[i][2] - color[2]) ** 2
+                ),
+            )
+            cache[color] = cached
+        indexes.append(cached)
+    return indexes
+
+
+def pixel_workflow_gif(path: Path) -> None:
     width, height = 800, 450
     frames: list[bytearray] = []
     steps = [
-        ("SCHOLAR ALERT READER", "DAILY PAPER TRIAGE", ["GMAIL", "MBOX", "MAIL.APP"], "CODEX SKILL"),
-        ("REDUCE NOISE FIRST", "DEDUPE + SCORE + FEEDBACK", ["ALERTS", "PROFILE", "FEEDBACK"], "READING QUEUE"),
-        ("BUILD FOUNDATION", "CUMULATIVE RESEARCH MEMORY", ["DIGEST", "FOUNDATION", "INTERESTED"], "COPILOT"),
-        ("OPTIONAL INTEGRATIONS", "OBSIDIAN AND ZOTERO READY", ["OBSIDIAN", "ZOTERO", "EXPORTS"], "YOUR WORKFLOW"),
-        ("CODEX-ONLY WORKS", "LOCAL PRIVATE EXTENSIBLE", ["DEMO", "SOURCE CHECK", "HTML"], "START HERE"),
+        ("PAPER SOURCE INBOX", "GMAIL MAIL MBOX FEEDS ARXIV", ["GMAIL", "BIBTEX", "RSS"], "NEW PAPERS"),
+        ("PROFILE RANKING", "KEYWORDS METHODS AUTHORS FILTERS", ["EXTRACT", "DEDUPE", "SCORE"], "READING QUEUE"),
+        ("FEEDBACK LOOP", "INTERESTED ARCHIVE MORE LIKE THIS", ["INTERESTED", "ARCHIVE", "FEEDBACK"], "BETTER NEXT RUN"),
+        ("RESEARCH MEMORY", "FOUNDATION DEEP READS MAPS QA", ["DIGEST", "FOUNDATION", "DEEP READ"], "COPILOT"),
+        ("WORKFLOW EXPORTS", "HTML MARKDOWN OBSIDIAN ZOTERO", ["HTML", "OBSIDIAN", "ZOTERO"], "YOUR WORKFLOW"),
     ]
     for title, subtitle, left_labels, right_label in steps:
         buf = blank(width, height, PALETTE["bg"])
@@ -402,7 +680,123 @@ def gif_assets() -> None:
         text(buf, width, 706, 324, "OUTPUT", PALETTE["muted"], 2)
         text(buf, width, 642, 402, "BY XIN LIU", PALETTE["muted"], 2)
         frames.append(buf)
-    write_gif(ASSET_DIR / "workflow.gif", frames, width, height, delay_cs=120)
+    write_gif(path, frames, width, height, delay_cs=120)
+
+
+def workflow_frame_svg(
+    title: str,
+    subtitle: str,
+    left_labels: list[str],
+    right_label: str,
+    footer: str,
+    locale: str,
+) -> str:
+    font = "PingFang SC, Inter, Arial, sans-serif" if locale == "zh" else "Inter, Arial, sans-serif"
+    title = escape(title)
+    subtitle = escape(subtitle)
+    right_label = escape(right_label)
+    footer = escape(footer)
+    left_svg = []
+    fills = [("#dbeafe", "#1d4ed8"), ("#dcfce7", "#047857"), ("#fef3c7", "#92400e")]
+    for index, (label, (fill, color)) in enumerate(zip(left_labels, fills)):
+        label = escape(label)
+        y = 164 + index * 76
+        left_svg.append(
+            f'<rect x="58" y="{y}" width="224" height="56" rx="14" fill="{fill}" stroke="#cbd5e1"/>'
+            f'<text x="82" y="{y + 35}" fill="{color}" font-size="19" font-weight="800">{label}</text>'
+            f'<path d="M302 {y + 28} H384" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>'
+            f'<path d="M382 {y + 18} L402 {y + 28} L382 {y + 38}" fill="#94a3b8"/>'
+        )
+    left_content = "\n  ".join(left_svg)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+<defs>
+  <linearGradient id="top" x1="0" x2="1">
+    <stop offset="0" stop-color="#0f172a"/>
+    <stop offset="1" stop-color="#115e59"/>
+  </linearGradient>
+  <filter id="shadow" x="-20%" y="-25%" width="140%" height="150%">
+    <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0f172a" flood-opacity=".12"/>
+  </filter>
+</defs>
+<rect width="800" height="450" fill="#f8fafc"/>
+<rect x="0" y="0" width="800" height="86" fill="url(#top)"/>
+<text x="34" y="38" fill="#ffffff" font-family="{font}" font-size="{30 if locale == 'en' else 28}" font-weight="850">{title}</text>
+<text x="36" y="67" fill="#cdece8" font-family="{font}" font-size="{16 if locale == 'en' else 15}" font-weight="650">{subtitle}</text>
+<rect x="34" y="112" width="732" height="272" rx="28" fill="#ffffff" stroke="#d8e0ea" filter="url(#shadow)"/>
+<g font-family="{font}">
+  {left_content}
+  <rect x="426" y="184" width="228" height="104" rx="20" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="457" y="244" fill="#111827" font-size="{24 if locale == 'en' else 23}" font-weight="850">{right_label}</text>
+  <path d="M672 236 H728" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M728 220 L756 236 L728 252" fill="#2563eb"/>
+  <rect x="694" y="276" width="44" height="66" rx="12" fill="#2563eb"/>
+  <text x="664" y="365" fill="#64748b" font-size="14" font-weight="800">OUTPUT</text>
+  <text x="38" y="420" fill="#64748b" font-size="16" font-weight="700">{footer}</text>
+  <text x="650" y="420" fill="#64748b" font-size="14" font-weight="700">Xin Liu</text>
+</g>
+</svg>
+"""
+
+
+def workflow_gif_from_svg(path: Path, steps: list[tuple[str, str, list[str], str]], footer: str, locale: str) -> bool:
+    sips = shutil.which("sips")
+    if not sips:
+        return False
+    pixel_frames: list[list[tuple[int, int, int]]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        for index, (title, subtitle, left_labels, right_label) in enumerate(steps):
+            svg_path = tmp_path / f"frame_{index:02d}.svg"
+            png_path = tmp_path / f"frame_{index:02d}.png"
+            svg_path.write_text(workflow_frame_svg(title, subtitle, left_labels, right_label, footer, locale), encoding="utf-8")
+            subprocess.run(
+                [sips, "-s", "format", "png", str(svg_path), "--out", str(png_path)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            frame_width, frame_height, pixels = read_png_rgb(png_path)
+            if index == 0:
+                width, height = frame_width, frame_height
+            elif (frame_width, frame_height) != (width, height):
+                raise ValueError("Workflow GIF frames do not have consistent dimensions")
+            pixel_frames.append(pixels)
+    palette = gif_palette(pixel_frames)
+    indexed_frames = [indexed_frame(pixels, palette) for pixels in pixel_frames]
+    write_gif(path, indexed_frames, width, height, delay_cs=125, palette=palette)
+    return path.exists()
+
+
+def gif_assets() -> None:
+    english_steps = [
+        ("Connect paper sources", "Gmail, Apple Mail, mbox, BibTeX/RIS, RSS feeds, arXiv", ["Email alerts", "Bibliography", "Feeds / arXiv"], "Fresh papers"),
+        ("Rank by your profile", "Keywords, methods, regions, authors, exclusions, temporary boosts", ["Extract", "Dedupe", "Score"], "Reading queue"),
+        ("Learn from feedback", "Interested, archive, more-like-this, less-like-this", ["Interested", "Archive", "Feedback"], "Better next run"),
+        ("Build research memory", "Foundation, deep reads, Q&A, comparisons, maps, advice", ["Digest", "Foundation", "Deep reads"], "Literature copilot"),
+        ("Export to your tools", "HTML digest, Markdown, CSV/JSON, Obsidian notes, Zotero files", ["HTML", "Obsidian", "Zotero"], "Your workflow"),
+    ]
+    chinese_steps = [
+        ("接入你的论文来源", "Gmail、Apple Mail、mbox、BibTeX/RIS、RSS 和 arXiv", ["邮件提醒", "文献导出", "订阅 / arXiv"], "新论文"),
+        ("按研究方向排序", "关键词、方法、地区、作者、排除词和临时关注点", ["抽取", "去重", "打分"], "阅读队列"),
+        ("用反馈调整推荐", "感兴趣、忽略、更多类似、减少类似", ["感兴趣", "忽略", "反馈"], "下次更准"),
+        ("沉淀个人知识库", "文献底座、深读、问答、对比、图谱和建议", ["每日简报", "文献底座", "深读报告"], "文献助手"),
+        ("接到你的工作流", "HTML digest、Markdown、CSV/JSON、Obsidian 笔记、Zotero 文件", ["HTML", "Obsidian", "Zotero"], "持续更新"),
+    ]
+    english_path = ASSET_DIR / "workflow.en.gif"
+    if not workflow_gif_from_svg(
+        english_path,
+        english_steps,
+        "Daily or manual digests · local-first · Obsidian/Zotero ready",
+        "en",
+    ):
+        pixel_workflow_gif(english_path)
+    shutil.copyfile(english_path, ASSET_DIR / "workflow.gif")
+    workflow_gif_from_svg(
+        ASSET_DIR / "workflow.zh.gif",
+        chinese_steps,
+        "每日或手动推送 · 本地优先 · 可接 Obsidian / Zotero",
+        "zh",
+    )
 
 
 def main() -> int:
