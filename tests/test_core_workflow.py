@@ -107,6 +107,47 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("AI seismology", data["name"])
             self.assertTrue(any(item["term"] == "seismic foundation model" for item in data["focus_terms"]))
 
+            report = Path(tmp) / "profile_onboarding.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "profile-wizard",
+                    "--project-dir",
+                    str(Path(tmp)),
+                    "--profile",
+                    str(profile),
+                    "--name",
+                    "Personal seismic monitoring triage",
+                    "--question",
+                    "Which dense-array monitoring papers are worth reading?",
+                    "--focus",
+                    "dense seismic array, continuous waveform",
+                    "--method",
+                    "phase picking",
+                    "--region",
+                    "Sichuan Basin",
+                    "--semantic-query",
+                    "machine learning for dense array earthquake monitoring",
+                    "--must-read-limit",
+                    "7",
+                    "--report",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            data = json.loads(profile.read_text(encoding="utf-8"))
+            self.assertEqual(data["name"], "Personal seismic monitoring triage")
+            self.assertEqual(data["limits"]["must_read"], 7)
+            self.assertIn("Which dense-array monitoring papers are worth reading?", data["research_questions"])
+            self.assertTrue(any(item["term"] == "dense seismic array" and item["weight"] == 7 for item in data["focus_terms"]))
+            self.assertTrue(any(item["term"] == "phase picking" for item in data["methods"]))
+            self.assertTrue(any(item["term"] == "Sichuan Basin" for item in data["regions"]))
+            self.assertTrue(any(item["term"] == "machine learning for dense array earthquake monitoring" for item in data["semantic_queries"]))
+            self.assertIn("Research Profile Onboarding", report.read_text(encoding="utf-8"))
+
     def test_init_project_creates_scripts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "reader"
@@ -141,6 +182,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "schedule_reader.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "self_test.sh").exists())
+            self.assertTrue((project / "profile_wizard.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "bibtex_import.sh").exists())
             self.assertTrue((project / "ris_import.sh").exists())
@@ -173,6 +215,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("./capabilities.sh", start_here)
             self.assertIn("DASHBOARD.html", start_here)
             self.assertIn("Bundled templates", start_here)
+            self.assertIn("./profile_wizard.sh", start_here)
             subprocess.run(
                 [
                     str(project / "setup_reader.sh"),

@@ -19,6 +19,17 @@ python3 scripts/scholar_reader.py init-profile \
   --force
 ```
 
+Build or refine a profile without hand-editing JSON:
+
+```bash
+python3 scripts/scholar_reader.py profile-wizard \
+  --project-dir ~/scholar_alerts \
+  --focus "surface wave tomography, ambient noise" \
+  --method "uncertainty quantification, phase picking" \
+  --region "Tibet, Sichuan Basin" \
+  --semantic-query "machine learning for dense array earthquake monitoring"
+```
+
 `init-project` also accepts `--profile-template`. Bundled templates live in `assets/profile_templates/` and are copied into each generated project under `profiles/templates/` for local editing.
 
 ## Fields

@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.38`
+Version: `0.2.39`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -41,6 +41,7 @@ Good next prompts:
 - "Explain what this tool can and cannot do before I connect my data."
 - "Check whether my Gmail/Mail.app/mbox/BibTeX/RIS/web/RSS/arXiv source is ready."
 - "Run the setup wizard and configure my source/profile/schedule."
+- "Run the profile wizard and turn my current research questions into a ranking profile."
 - "Build my first foundation from existing Scholar Alert emails."
 - "Run today's new-paper digest."
 - "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
@@ -351,6 +352,7 @@ Choose a starting research profile:
 ```bash
 python3 -m scholar_alert_reader list-profile-templates
 ./copy_profile_template.sh --template ai-seismology --force
+./profile_wizard.sh
 ```
 
 Bundled templates include:
@@ -361,7 +363,17 @@ Bundled templates include:
 - `seismic-imaging`: surface waves, ambient noise, receiver functions, anisotropy, FWI, and inversion uncertainty.
 - `dense-array-monitoring`: dense arrays, DAS, urban monitoring, continuous detection, and array processing.
 
-The template is only the starting point. Edit `profiles/research_profile.json` to add your own regions, authors, methods, exclusions, semantic queries, adaptive ranking settings, and temporary boost terms.
+The template is only the starting point. Use `./profile_wizard.sh` to add your own current questions, regions, authors, methods, exclusions, and semantic queries without editing JSON by hand:
+
+```bash
+./profile_wizard.sh \
+  --focus "surface wave tomography, ambient noise, seismic foundation model" \
+  --method "uncertainty quantification, phase picking" \
+  --region "Tibet, Sichuan Basin" \
+  --question "Which new papers are worth reading for my current manuscript?"
+```
+
+You can still edit `profiles/research_profile.json` directly when you want full control over adaptive ranking settings, tier thresholds, and temporary boost terms.
 
 `semantic_queries` are short natural-language descriptions of things you care about. They use local token-overlap matching, not a hosted embedding service, so they can rescue papers whose wording differs from your exact keywords while keeping the score explainable.
 

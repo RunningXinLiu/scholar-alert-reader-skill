@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.39 - 2026-05-28
+
+- Add `profile-wizard` / generated `profile_wizard.sh` so users can turn current research questions and interests into profile terms without editing JSON by hand.
+- Write `profile_onboarding.md` with added signals, profile counts, backup path, and next steps.
+- Document the profile onboarding path in README, SKILL, product notes, profile schema, and generated project guides.
+
 ## v0.2.38 - 2026-05-28
 
 - Add a `Review pack` action to the local feedback UI so selected papers can become assistant-ready context packs from the browser.

@@ -72,6 +72,7 @@ For users who want citation/PDF management.
 - CI must verify both source-checkout execution and installed-wheel execution, including packaged resources used by `quickstart` and `setup-wizard`.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
+- A new user can run `profile-wizard` / `profile_wizard.sh` to turn current research questions, focus terms, methods, regions, authors, exclusions, semantic intents, limits, and schedule defaults into a usable profile without hand-editing JSON.
 - A new user can run a bundled-data `self-test` before connecting private email, Zotero, Obsidian, or external feeds.
 - A new user can resolve common Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/arXiv, Obsidian, and Zotero setup failures from a public troubleshooting guide.
 - A new user can persist local defaults with `setup` / `setup_reader.sh` instead of repeatedly typing source, schedule, Obsidian, or Zotero path environment variables.

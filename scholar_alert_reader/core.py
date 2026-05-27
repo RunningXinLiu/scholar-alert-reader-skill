@@ -3784,9 +3784,10 @@ def render_project_guide(
         "   - To test every bundled non-private source path, run `./demo_sources.sh`.",
         "2. Read the product boundary and best workflow with `./capabilities.sh`.",
         "3. Configure your local defaults once with `./setup_wizard.sh`, or non-interactively with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
-        "4. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
+        "4. Run `./profile_wizard.sh` or edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
         f"   - Current profile: `{profile_name}`.",
         f"   - Bundled templates copied to `profiles/templates/`: {template_line}.",
+        "   - Non-interactive example: `./profile_wizard.sh --focus \"surface wave tomography, ambient noise\" --region \"Tibet, Sichuan Basin\" --method \"uncertainty quantification\"`.",
         "   - To reset from a template, run for example: `./copy_profile_template.sh --template ai-seismology --force`.",
         "5. Choose an input source:",
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
@@ -3807,6 +3808,7 @@ def render_project_guide(
         "- `./schedule_reader.sh --action write`: render a macOS LaunchAgent plist from `reader.env` schedule settings.",
         "- `./dashboard_reader.sh --open`: open the project dashboard with links to current outputs.",
         "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, or optional Mail.app source readiness.",
+        "- `./profile_wizard.sh`: refine your research profile without editing JSON by hand.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
@@ -4236,6 +4238,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "setup_wizard.sh": 'exec "${SKILL_CMD[@]}" setup-wizard --project-dir "$PROJECT_DIR" "$@"\n',
         "schedule_reader.sh": 'exec "${SKILL_CMD[@]}" schedule --project-dir "$PROJECT_DIR" "$@"\n',
         "copy_profile_template.sh": 'exec "${SKILL_CMD[@]}" init-profile --profile "$PROFILE_PATH" "$@"\n',
+        "profile_wizard.sh": 'exec "${SKILL_CMD[@]}" profile-wizard --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" "$@"\n',
         "feedback_reader.sh": 'exec "${SKILL_CMD[@]}" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
@@ -4345,7 +4348,14 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "",
                     "## Choose a profile template",
                     "",
-                    "Bundled templates are copied to `profiles/templates/`. Reset the active profile with:",
+                    "Bundled templates are copied to `profiles/templates/`. The friendliest path is to run the profile wizard and add your current questions, methods, regions, authors, and exclusions:",
+                    "",
+                    "```bash",
+                    "./profile_wizard.sh",
+                    "./profile_wizard.sh --focus \"surface wave tomography, ambient noise\" --region \"Tibet, Sichuan Basin\" --method \"uncertainty quantification\"",
+                    "```",
+                    "",
+                    "You can still reset the active profile directly from a bundled template:",
                     "",
                     "```bash",
                     "./copy_profile_template.sh --template ai-seismology --force",
@@ -4516,6 +4526,255 @@ def optional_int(value: str | int | None, label: str) -> int | None:
         return int(value)
     except ValueError as exc:
         raise SystemExit(f"{label} must be an integer.") from exc
+
+
+def split_text_items(values: Iterable[str] | None, split_commas: bool = True) -> list[str]:
+    items: list[str] = []
+    if not values:
+        return items
+    pattern = r"[,;\n]+" if split_commas else r"[;\n]+"
+    for value in values:
+        for part in re.split(pattern, str(value)):
+            cleaned = re.sub(r"^\s*[-*]\s*", "", part).strip()
+            if cleaned and cleaned not in items:
+                items.append(cleaned)
+    return items
+
+
+def upsert_weighted_terms(
+    profile: dict[str, Any],
+    section: str,
+    terms: Iterable[str],
+    weight: int,
+    tags: list[str] | None = None,
+) -> int:
+    existing = profile.setdefault(section, [])
+    by_lower: dict[str, dict[str, Any] | str] = {}
+    for item in existing:
+        if isinstance(item, dict):
+            term = str(item.get("term", "")).strip()
+        else:
+            term = str(item).strip()
+        if term:
+            by_lower[term.lower()] = item
+
+    changed = 0
+    for term in terms:
+        clean = str(term).strip()
+        if not clean:
+            continue
+        key = clean.lower()
+        current = by_lower.get(key)
+        if isinstance(current, dict):
+            old_weight = int(current.get("weight", 1))
+            if old_weight < weight:
+                current["weight"] = weight
+                changed += 1
+            if tags:
+                current_tags = [str(tag) for tag in current.get("tags", [])]
+                merged_tags = sorted(set(current_tags + tags))
+                if merged_tags != current_tags:
+                    current["tags"] = merged_tags
+                    changed += 1
+        elif current is None:
+            entry: dict[str, Any] = {"term": clean, "weight": weight}
+            if tags:
+                entry["tags"] = tags
+            existing.append(entry)
+            by_lower[key] = entry
+            changed += 1
+    return changed
+
+
+def profile_wizard_report(
+    profile: dict[str, Any],
+    profile_path: Path,
+    template: str | Path | None,
+    additions: dict[str, list[str]],
+    backup: Path | None,
+    dry_run: bool,
+) -> str:
+    lines = [
+        "# Research Profile Onboarding",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: `{profile_path}`",
+        f"- Profile name: {profile.get('name', 'unnamed')}",
+        f"- Base template: `{template or DEFAULT_PROFILE_TEMPLATE}`",
+        f"- Mode: {'dry run' if dry_run else 'written'}",
+    ]
+    if backup:
+        lines.append(f"- Backup: `{backup}`")
+    lines.extend(
+        [
+            "",
+            "## Research Questions",
+            "",
+        ]
+    )
+    for question in profile.get("research_questions", []):
+        lines.append(f"- {question}")
+    lines.extend(["", "## Added Signals", ""])
+    section_labels = {
+        "focus_terms": "Focus terms",
+        "methods": "Methods",
+        "regions": "Regions/cases",
+        "watch_authors": "Watched authors",
+        "exclude_terms": "Exclusions",
+        "semantic_queries": "Semantic queries",
+    }
+    for section, label in section_labels.items():
+        values = additions.get(section, [])
+        lines.append(f"### {label}")
+        lines.append("")
+        if values:
+            lines.extend(f"- {value}" for value in values)
+        else:
+            lines.append("- No new custom values.")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Current Counts",
+            "",
+            f"- Focus terms: {len(profile.get('focus_terms', []))}",
+            f"- Methods: {len(profile.get('methods', []))}",
+            f"- Regions/cases: {len(profile.get('regions', []))}",
+            f"- Watched authors: {len(profile.get('watch_authors', []))}",
+            f"- Exclusions: {len(profile.get('exclude_terms', []))}",
+            f"- Semantic queries: {len(profile.get('semantic_queries', []))}",
+            "",
+            "## Next Steps",
+            "",
+            "1. Run `./demo_reader.sh` or a real source import and inspect `digest.html`.",
+            "2. Mark several papers as `interested`, `archive`, `more-like-this`, or `less-like-this` in the feedback UI.",
+            "3. Run `./tune_profile.sh` after a few rounds to suggest profile updates from real feedback.",
+            "4. Keep profile terms specific enough to rank your current project, not your entire field.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def profile_wizard_command(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    profile_path = project_relative_path(project_dir, args.profile, "profiles/research_profile.json")
+    provided_values = any(
+        [
+            args.name,
+            args.question,
+            args.focus,
+            args.method,
+            args.region,
+            args.author,
+            args.exclude,
+            args.semantic_query,
+            args.must_read_limit is not None,
+            args.skim_limit is not None,
+            args.deep_read_limit is not None,
+            args.schedule_time,
+            args.schedule_days,
+            args.timezone,
+            args.language,
+        ]
+    )
+    if not args.defaults and not provided_values and not sys.stdin.isatty():
+        raise SystemExit("profile-wizard needs an interactive terminal, explicit values, or --defaults.")
+
+    if profile_path.exists() and not args.reset_from_template:
+        profile = load_profile(profile_path)
+        base_template = "existing profile"
+    else:
+        profile = load_json(resolve_profile_template(args.template))
+        base_template = args.template or DEFAULT_PROFILE_TEMPLATE
+
+    assume_default = args.defaults
+    if not assume_default and sys.stdin.isatty():
+        print("Scholar Alert Reader profile wizard")
+        print("- Adds your current research directions to a reusable JSON profile.")
+        print("- Leave a prompt blank when you do not want to add anything.")
+
+    name = args.name
+    if name is None and not assume_default and sys.stdin.isatty():
+        name = prompt_text("Profile name", str(profile.get("name", "Research literature triage")))
+    if name:
+        profile["name"] = name
+    if args.language:
+        profile["language"] = args.language
+
+    question_values = split_text_items(args.question, split_commas=False)
+    if not question_values and not assume_default and sys.stdin.isatty():
+        question_input = prompt_text("Research questions, separated by semicolons", "")
+        question_values = split_text_items([question_input], split_commas=False)
+    if question_values:
+        profile["research_questions"] = question_values
+
+    interactive_sections: list[tuple[str, str, int, list[str] | None, bool, list[str] | None]] = [
+        ("focus_terms", "High-priority focus terms to add", args.focus_weight, ["focus"], True, args.focus),
+        ("methods", "Methods/techniques to add", args.method_weight, ["method"], True, args.method),
+        ("regions", "Regions, basins, datasets, or cases to add", args.region_weight, ["region"], True, args.region),
+        ("watch_authors", "Authors or groups to watch", args.author_weight, ["watchlist"], True, args.author),
+        ("exclude_terms", "Noise terms to suppress", args.exclude_weight, ["exclude"], True, args.exclude),
+        ("semantic_queries", "Plain-language semantic intents to add", args.semantic_weight, ["semantic"], False, args.semantic_query),
+    ]
+    additions: dict[str, list[str]] = {}
+    changed = 0
+    for section, label, weight, tags, split_commas, raw_values in interactive_sections:
+        values = split_text_items(raw_values, split_commas=split_commas)
+        if not values and not assume_default and sys.stdin.isatty():
+            values = split_text_items([prompt_text(label, "")], split_commas=split_commas)
+        additions[section] = values
+        changed += upsert_weighted_terms(profile, section, values, weight, tags)
+
+    limits_config = profile.setdefault("limits", {})
+    if args.must_read_limit is not None:
+        limits_config["must_read"] = args.must_read_limit
+        changed += 1
+    if args.skim_limit is not None:
+        limits_config["skim"] = args.skim_limit
+        changed += 1
+    if args.deep_read_limit is not None:
+        limits_config["deep_read"] = args.deep_read_limit
+        changed += 1
+
+    schedule_config = profile.setdefault("schedule", {})
+    if args.schedule_time:
+        parse_schedule_time(args.schedule_time)
+        schedule_config["default_time"] = args.schedule_time
+        changed += 1
+    if args.schedule_days:
+        parse_schedule_days(args.schedule_days)
+        schedule_config["default_days"] = [part.strip() for part in re.split(r"[,/;]+", args.schedule_days) if part.strip()]
+        changed += 1
+    if args.timezone:
+        schedule_config["timezone"] = args.timezone
+        changed += 1
+
+    profile["profile_onboarding"] = {
+        "updated_at": datetime.now().isoformat(timespec="seconds"),
+        "base_template": str(base_template),
+        "command": "profile-wizard",
+    }
+
+    backup_path: Path | None = None
+    if profile_path.exists() and not args.no_backup and not args.dry_run:
+        backup_path = profile_path.with_suffix(profile_path.suffix + ".bak")
+        shutil.copyfile(profile_path, backup_path)
+
+    report_path = args.report.expanduser() if args.report else profile_path.parent / "profile_onboarding.md"
+    report = profile_wizard_report(profile, profile_path, base_template, additions, backup_path, args.dry_run)
+    if not args.dry_run:
+        save_json(profile_path, profile)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report, encoding="utf-8")
+
+    print(f"Profile: {profile_path}")
+    print(f"Report: {report_path}")
+    print(f"Custom signal updates: {changed}")
+    if backup_path:
+        print(f"Backup: {backup_path}")
+    if args.dry_run:
+        print(report)
 
 
 def setup_wizard(args: argparse.Namespace) -> None:
@@ -7229,6 +7488,38 @@ def build_parser() -> argparse.ArgumentParser:
 
     list_templates = sub.add_parser("list-profile-templates", help="List bundled research profile templates")
     list_templates.set_defaults(func=lambda args: print("\n".join(available_profile_templates())))
+
+    profile_wizard = sub.add_parser("profile-wizard", aliases=["profile-onboarding"], help="Build or refine a research profile from guided questions")
+    profile_wizard.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
+    profile_wizard.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
+    profile_wizard.add_argument("--template", default=DEFAULT_PROFILE_TEMPLATE, help="Bundled template slug or JSON path used when creating/resetting the profile")
+    profile_wizard.add_argument("--reset-from-template", action="store_true", help="Start from --template even if the profile already exists")
+    profile_wizard.add_argument("--name", help="Profile name")
+    profile_wizard.add_argument("--language", help="Preferred output language tag, e.g. zh-CN or en")
+    profile_wizard.add_argument("--question", action="append", help="Research question. Repeat or separate values with semicolons.")
+    profile_wizard.add_argument("--focus", action="append", help="High-priority focus terms. Repeat or use comma-separated values.")
+    profile_wizard.add_argument("--method", action="append", help="Methods/techniques to prioritize. Repeat or use comma-separated values.")
+    profile_wizard.add_argument("--region", action="append", help="Regions, datasets, basins, or study cases. Repeat or use comma-separated values.")
+    profile_wizard.add_argument("--author", action="append", help="Authors/groups to watch. Repeat or use comma-separated values.")
+    profile_wizard.add_argument("--exclude", action="append", help="Noise terms to suppress. Repeat or use comma-separated values.")
+    profile_wizard.add_argument("--semantic-query", action="append", help="Plain-language intent query. Repeat or separate values with semicolons.")
+    profile_wizard.add_argument("--focus-weight", type=int, default=7)
+    profile_wizard.add_argument("--method-weight", type=int, default=5)
+    profile_wizard.add_argument("--region-weight", type=int, default=5)
+    profile_wizard.add_argument("--author-weight", type=int, default=4)
+    profile_wizard.add_argument("--exclude-weight", type=int, default=5)
+    profile_wizard.add_argument("--semantic-weight", type=int, default=6)
+    profile_wizard.add_argument("--must-read-limit", type=int, help="Update limits.must_read")
+    profile_wizard.add_argument("--skim-limit", type=int, help="Update limits.skim")
+    profile_wizard.add_argument("--deep-read-limit", type=int, help="Update limits.deep_read")
+    profile_wizard.add_argument("--schedule-time", help="Default run time, e.g. 09:00")
+    profile_wizard.add_argument("--schedule-days", help="Default run days, e.g. weekdays or Monday,Wednesday,Friday")
+    profile_wizard.add_argument("--timezone", help="Schedule timezone note, e.g. Asia/Shanghai")
+    profile_wizard.add_argument("--report", type=Path, help="Markdown onboarding report. Defaults to profile directory/profile_onboarding.md")
+    profile_wizard.add_argument("--no-backup", action="store_true", help="Do not write a .bak copy before overwriting an existing profile")
+    profile_wizard.add_argument("--dry-run", action="store_true", help="Print the generated report without writing files")
+    profile_wizard.add_argument("--defaults", action="store_true", help="Accept the selected template/existing profile without prompting")
+    profile_wizard.set_defaults(func=profile_wizard_command)
 
     init_project_cmd = sub.add_parser("init-project", help="Create a runnable local Scholar Alert Reader project")
     init_project_cmd.add_argument("--project-dir", type=Path, required=True)
