@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/logo.png" alt="Scholar Alert Reader logo" width="104">
+  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/logo.png" alt="Scholar Alert Reader logo" width="104">
 </p>
 
 # Scholar Alert Reader Skill
@@ -11,11 +11,11 @@ Version: `0.2.0`
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/social-card.en.png" alt="Scholar Alert Reader social card" width="900">
+  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/social-card.en.png" alt="Scholar Alert Reader social card" width="900">
 </p>
 
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/workflow.en.gif" alt="Animated Scholar Alert Reader workflow" width="760">
+  <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/workflow.en.gif" alt="Animated Scholar Alert Reader workflow" width="760">
 </p>
 
 ## Start Here
@@ -115,7 +115,7 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 ## Architecture
 
-![Scholar Alert Reader architecture](https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/assets/architecture-showcase.en.png)
+![Scholar Alert Reader architecture](https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@bb08286/docs/assets/architecture-showcase.en.png)
 
 Chinese sharing assets are also included under `docs/assets/*.zh.*` and paired with Chinese copy in [docs/share-copy.zh.md](docs/share-copy.zh.md).
 
