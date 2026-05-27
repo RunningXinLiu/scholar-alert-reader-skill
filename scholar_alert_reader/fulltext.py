@@ -29,6 +29,13 @@ class SectionExcerpt:
     excerpt: str
 
 
+@dataclass
+class EvidenceSignal:
+    category: str
+    reference: str
+    sentence: str
+
+
 SECTION_ORDER = [
     "abstract",
     "introduction",
@@ -91,6 +98,12 @@ SECTION_ALIASES = {
     "conclusions": "conclusions",
     "concluding remarks": "conclusions",
 }
+
+FIGURE_RE = re.compile(r"\b(?:fig(?:ure)?s?\.?)\s*(?:\(?[sS]?\d+[A-Za-z]?(?:\s*(?:,|and|&|-|to)\s*[sS]?\d+[A-Za-z]?)*\)?)", re.IGNORECASE)
+TABLE_RE = re.compile(r"\b(?:table|tab\.)\s*(?:\(?[sS]?\d+[A-Za-z]?(?:\s*(?:,|and|&|-|to)\s*[sS]?\d+[A-Za-z]?)*\)?)", re.IGNORECASE)
+SUPPLEMENT_RE = re.compile(r"\b(?:supplementary|supporting information|appendix|supplemental)\b", re.IGNORECASE)
+DATA_RE = re.compile(r"\b(?:data availability|data are available|data is available|dataset|repository|zenodo|figshare|dryad|earthscope|iris|nodc|doi:|https?://)\b", re.IGNORECASE)
+CODE_RE = re.compile(r"\b(?:code availability|source code|github|gitlab|software|repository|scripts are available|code is available|code are available)\b", re.IGNORECASE)
 
 
 def clean_full_text(value: str, max_chars: int = 120_000) -> str:
@@ -182,6 +195,12 @@ def sentence_candidates(full_text: str) -> list[str]:
     compact = re.sub(r"\s+", " ", full_text)
     parts = re.split(r"(?<=[.!?])\s+", compact)
     return [part.strip() for part in parts if 80 <= len(part.strip()) <= 420]
+
+
+def evidence_sentence_candidates(full_text: str) -> list[str]:
+    compact = re.sub(r"\s+", " ", full_text)
+    parts = re.split(r"(?<=[.!?])\s+", compact)
+    return [part.strip() for part in parts if 30 <= len(part.strip()) <= 520]
 
 
 def profile_hits_in_text(full_text: str, profile: dict[str, Any]) -> list[str]:
@@ -313,6 +332,32 @@ def remove_detected_section_headings(full_text: str) -> str:
     return "\n".join(lines)
 
 
+def extract_visual_data_signals(full_text: str, limit: int = 18) -> list[EvidenceSignal]:
+    signals: list[EvidenceSignal] = []
+    seen: set[tuple[str, str, str]] = set()
+    patterns = [
+        ("Figures", FIGURE_RE),
+        ("Tables", TABLE_RE),
+        ("Supplement", SUPPLEMENT_RE),
+        ("Data Availability", DATA_RE),
+        ("Code / Software", CODE_RE),
+    ]
+    for sentence in evidence_sentence_candidates(full_text):
+        for category, pattern in patterns:
+            matches = pattern.findall(sentence)
+            if not matches:
+                continue
+            reference = "; ".join(sorted({match.strip() for match in matches if match.strip()}))
+            key = (category, reference.lower(), sentence.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            signals.append(EvidenceSignal(category=category, reference=reference, sentence=sentence))
+            if len(signals) >= limit:
+                return signals
+    return signals
+
+
 def find_section_excerpt(full_text: str, names: list[str], max_chars: int = 900) -> str:
     pattern = r"(?im)^\s*(?:" + "|".join(re.escape(name) for name in names) + r")\s*$"
     match = re.search(pattern, full_text)
@@ -336,6 +381,7 @@ def render_full_text_brief(
     terms = top_full_text_terms(analysis_text, 16)
     sentences = representative_sentences(analysis_text, profile, 8)
     sections = extract_section_excerpts(full_text)
+    visual_data_signals = extract_visual_data_signals(analysis_text)
     abstract = sections.get("abstract").excerpt if sections.get("abstract") else find_section_excerpt(full_text, ["Abstract", "Summary"], max_chars=900)
     methods = sections.get("methods").excerpt if sections.get("methods") else find_section_excerpt(full_text, ["Methods", "Method", "Data and Methods", "Methodology"], max_chars=900)
     conclusions = sections.get("conclusions").excerpt if sections.get("conclusions") else find_section_excerpt(full_text, ["Conclusions", "Conclusion", "Discussion and Conclusions"], max_chars=900)
@@ -390,6 +436,13 @@ def render_full_text_brief(
         lines.extend(f"- {sentence}" for sentence in sentences)
     else:
         lines.append("- No profile-weighted sentences found. Inspect the text cache manually.")
+    lines.extend(["", "## Visual, Table, Data, And Code Signals", ""])
+    if visual_data_signals:
+        for signal in visual_data_signals:
+            reference = f" `{signal.reference}`" if signal.reference else ""
+            lines.append(f"- **{signal.category}**{reference}: {signal.sentence}")
+    else:
+        lines.append("- No figure, table, supplement, data availability, or code/software signals were detected in the extracted text.")
     lines.extend(
         [
             "",
@@ -399,6 +452,7 @@ def render_full_text_brief(
             "- Data and study area: verify stations, catalog, region, period, preprocessing, and any selection bias.",
             "- Method assumptions: inspect equations, model parameterization, training/inversion setup, uncertainty treatment, and baselines.",
             "- Main results: check whether figures/tables support the claim you want to cite.",
+            "- Visual evidence: inspect the figures and tables flagged above, especially panels tied to your intended citation.",
             "- Limits and failure modes: look for caveats in discussion, limitations, supplement, and data/code availability.",
         ]
     )

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.29 - 2026-05-27
+
+- Add figure, table, supplement, data-availability, and code/software signal extraction to `full-text` reports.
+- Add visual-evidence checks to the citation-readiness checklist.
+- Cover visual/data/code evidence extraction in full-text regression tests.
+
 ## v0.2.28 - 2026-05-27
 
 - Add section-aware full-text briefs that detect common paper sections, summarize coverage, and extract evidence by section.

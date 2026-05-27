@@ -1195,10 +1195,13 @@ We use continuous waveform data from a dense seismic array in Taiwan between 202
 We measure seismic surface wave dispersion from continuous waveform data and invert for crustal structure.
 
 4 Results
-The resulting velocity model resolves a robust low velocity zone beneath the target region.
+The resulting velocity model resolves a robust low velocity zone beneath the target region, as shown in Figure 2 and Table 1.
 
 5 Limitations
 The analysis does not resolve short-period scattering or all uncertainty sources in the inversion.
+
+Data Availability
+The waveform dataset is available from the IRIS repository, and processing scripts are available on GitHub.
 
 6 Conclusions
 The results show a robust low velocity zone and demonstrate how ambient noise tomography can constrain tectonic interpretation.
@@ -1237,6 +1240,10 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Evidence By Section", full_text_content)
             self.assertIn("Methods Excerpt", full_text_content)
             self.assertIn("Data / Study Area Excerpt", full_text_content)
+            self.assertIn("Visual, Table, Data, And Code Signals", full_text_content)
+            self.assertIn("Figure 2", full_text_content)
+            self.assertIn("Table 1", full_text_content)
+            self.assertIn("GitHub", full_text_content)
             self.assertIn("Citation Readiness Checklist", full_text_content)
             self.assertIn("Missing Or Weak Sections", full_text_content)
 
