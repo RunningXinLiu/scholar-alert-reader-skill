@@ -15,7 +15,7 @@ When running from a source checkout, `python3 scripts/scholar_reader.py ...` is 
 
 If these fail, the problem is the local Python/project setup. If these pass but your real run fails, the problem is probably the chosen input source, OAuth setup, local file path, or state filtering.
 
-Use `./setup_wizard.sh` for guided configuration. Use `./setup_reader.sh ...` or `scholar-alert-reader setup ...` when you need a non-interactive scriptable setup path.
+Use `./setup_wizard.sh` for guided configuration. It writes `SOURCE_CHECK.md` after setup; pass `--live-check` to attempt a real read immediately. Use `./setup_reader.sh ...` or `scholar-alert-reader setup ...` when you need a non-interactive scriptable setup path.
 
 ## Fast Checks
 

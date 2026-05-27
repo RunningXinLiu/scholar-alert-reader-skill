@@ -3776,8 +3776,38 @@ def setup_wizard(args: argparse.Namespace) -> None:
         no_guide=args.no_guide,
     )
     setup_project(setup_args)
+    if not args.skip_check:
+        check_output = args.check_output.expanduser() if args.check_output else project_dir / "SOURCE_CHECK.md"
+        source_check_command(
+            argparse.Namespace(
+                source=source,
+                project_dir=project_dir,
+                mbox_path=mbox_path,
+                bibtex_path=bibtex_path,
+                ris_path=ris_path,
+                web_source=web_source,
+                rss_source=rss_source,
+                arxiv_query=arxiv_query,
+                arxiv_limit=args.check_limit,
+                web_limit=args.check_limit,
+                web_timeout=args.check_timeout,
+                gmail_credentials=args.gmail_credentials,
+                gmail_token=args.gmail_token,
+                gmail_query=None,
+                since_days=since_days,
+                limit=args.check_limit,
+                timeout=args.check_timeout,
+                live=args.live_check,
+                allow_mail_app=allow_mail_app,
+                strict=args.check_strict,
+                output=check_output,
+            )
+        )
     print("Wizard complete.")
-    print("Next: ./source_check.sh --source auto --live")
+    if args.live_check:
+        print("Source check completed with live read.")
+    else:
+        print("Next: ./source_check.sh --source auto --live")
 
 
 def setup_project(args: argparse.Namespace) -> None:
@@ -5557,6 +5587,12 @@ def build_parser() -> argparse.ArgumentParser:
     wizard.add_argument("--output", type=Path, help="Config output path. Defaults to project-dir/reader.env")
     wizard.add_argument("--no-guide", action="store_true", help="Do not refresh START_HERE.md after writing config")
     wizard.add_argument("--defaults", action="store_true", help="Accept defaults and skip prompts; useful for CI or scripted setup")
+    wizard.add_argument("--skip-check", action="store_true", help="Do not write SOURCE_CHECK.md after configuration")
+    wizard.add_argument("--live-check", action="store_true", help="Attempt a real source read after configuration")
+    wizard.add_argument("--check-output", type=Path, help="Source check report path. Defaults to project-dir/SOURCE_CHECK.md")
+    wizard.add_argument("--check-strict", action="store_true", help="Exit non-zero when the post-setup source check warns")
+    wizard.add_argument("--check-limit", type=int, default=1, help="Max items/messages to read during --live-check")
+    wizard.add_argument("--check-timeout", type=int, default=20, help="Source check timeout in seconds")
     wizard.set_defaults(func=setup_wizard)
 
     guide = sub.add_parser("guide", help="Render a product-oriented setup and status guide for a local project")

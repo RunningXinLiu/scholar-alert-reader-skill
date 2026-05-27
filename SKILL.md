@@ -14,7 +14,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 1. For a new local setup, prefer `quickstart` to create a project, run private-data-free checks/demos, and write `QUICKSTART_REPORT.md`. Use `init-project` when the user wants only the scaffold. The CLI can be invoked as `python3 -m scholar_alert_reader`, an installed `scholar-alert-reader` / `scholar-reader` command, or the compatibility wrapper `python3 scripts/scholar_reader.py`.
 2. Run `self-test` or `./self_test.sh` first when the user wants to verify the install without connecting Gmail, Obsidian, Zotero, or private files.
 3. Run `./demo_reader.sh` when the user wants to inspect the sample mbox digest output. Run `./demo_sources.sh` when the user wants to verify all bundled non-private source paths.
-4. Run `./setup_wizard.sh` / `setup-wizard` for guided first-time configuration, or `./setup_reader.sh` / `setup` to persist local defaults non-interactively in `reader.env`.
+4. Run `./setup_wizard.sh` / `setup-wizard` for guided first-time configuration and an immediate `SOURCE_CHECK.md`, or `./setup_reader.sh` / `setup` to persist local defaults non-interactively in `reader.env`.
 5. Choose a source:
    - Gmail API: preferred for automation after OAuth setup.
    - Mail.app: works locally on macOS after Automation permission.
@@ -89,6 +89,8 @@ Terminal-only users can also run:
 ```bash
 python3 -m scholar_alert_reader setup-wizard --project-dir ~/scholar_alerts
 ```
+
+Use `--live-check` when the user wants the wizard to attempt a real source read immediately. Use `--skip-check` only when generating config without validation.
 
 Create only the scaffold:
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.15 - 2026-05-27
+
+- Make `setup-wizard` write `SOURCE_CHECK.md` after configuration so first-time users immediately see source readiness.
+- Add `--live-check`, `--skip-check`, `--check-output`, and strict/limit/timeout options for post-setup validation.
+- Document the wizard readiness report in README, SKILL guidance, troubleshooting, and product requirements.
+
 ## v0.2.14 - 2026-05-27
 
 - Add `setup-wizard` / generated `setup_wizard.sh` for guided first-time configuration of source, profile template, schedule, and optional Obsidian/Zotero paths.

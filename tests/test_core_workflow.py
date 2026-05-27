@@ -277,12 +277,16 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertIn("Wizard complete", result.stdout)
+            self.assertIn("Source check report", result.stdout)
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "setup_wizard.sh").exists())
+            self.assertTrue((project / "SOURCE_CHECK.md").exists())
             env_content = (project / "reader.env").read_text(encoding="utf-8")
             self.assertIn("export SOURCE=rss", env_content)
             self.assertIn("export SCHEDULE_TIME=11:15", env_content)
             self.assertIn("sample_feed.atom", env_content)
+            source_check = (project / "SOURCE_CHECK.md").read_text(encoding="utf-8")
+            self.assertIn("RSS/Atom source", source_check)
             check = subprocess.run(
                 [str(project / "source_check.sh"), "--source", "rss", "--rss-source", str(project / "examples" / "sample_feed.atom"), "--live"],
                 cwd=project,
