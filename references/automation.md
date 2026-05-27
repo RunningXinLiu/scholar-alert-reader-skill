@@ -8,6 +8,15 @@ For a new workspace, initialize the local project first:
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
 ```
 
+Then persist local defaults so scheduled runs do not depend on a long command line:
+
+```bash
+cd ~/scholar_alerts
+./setup_reader.sh --source auto --profile-template ai-seismology --schedule-time 09:00 --schedule-days weekdays
+```
+
+`reader.env` is read by generated shell scripts only for variables that are not already set by the caller. This keeps daily automation simple while still allowing one-off overrides such as `SOURCE=rss RSS_SOURCE=... ./run_reader.sh`.
+
 ## Gmail API
 
 Best long-term option. Requires user OAuth setup once, then can read messages with label `Google Scholar Alerts` or sender `scholaralerts-noreply@google.com`.

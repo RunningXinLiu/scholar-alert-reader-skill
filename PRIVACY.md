@@ -10,9 +10,9 @@ The tool may read:
 - Local BibTeX/RIS bibliography exports from Zotero, EndNote, Google Scholar, publishers, or databases.
 - Local RSS/Atom feed lists and arXiv queries.
 - Local profile files.
-- Local generated state such as `seen_papers.json`, `feedback.json`, and `knowledge_base/`.
+- Local generated state such as `reader.env`, `seen_papers.json`, `feedback.json`, and `knowledge_base/`.
 
-Do not commit or publish raw mailbox exports, personal bibliography imports, personal feed lists, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge-base outputs unless you have intentionally reviewed and sanitized them.
+Do not commit or publish raw mailbox exports, personal bibliography imports, personal feed lists, `reader.env`, OAuth credentials, Gmail tokens, `seen_papers.json`, `feedback.json`, or generated knowledge-base outputs unless you have intentionally reviewed and sanitized them.
 
 ## External Requests
 

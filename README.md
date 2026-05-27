@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.1`
+Version: `0.2.2`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -58,6 +58,7 @@ git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
 python3 scripts/scholar_reader.py init-project --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
+./setup_reader.sh --source auto --profile-template ai-seismology
 ./demo_reader.sh
 open reader_out/demo/digest.html
 ```
@@ -220,6 +221,18 @@ Try the built-in demo without Gmail, Obsidian, or Zotero:
 ./source_check.sh --source auto
 open reader_out/demo/digest.html
 ```
+
+Persist your local defaults:
+
+```bash
+./setup_reader.sh \
+  --source auto \
+  --profile-template ai-seismology \
+  --schedule-time 09:00 \
+  --schedule-days weekdays
+```
+
+This writes `reader.env`, which is automatically read by generated helper scripts. Explicit one-off command variables still win, so `SOURCE=mbox ./run_reader.sh` or `RSS_SOURCE=... ./rss_import.sh` can override the saved defaults.
 
 Choose a starting research profile:
 
@@ -528,6 +541,7 @@ Do not commit:
 - raw mailbox exports
 - personal `import.bib` / `import.ris` files
 - personal `feeds.txt` source lists
+- `reader.env`
 - `seen_papers.json`
 - `feedback.json`
 - generated `out/`

@@ -44,6 +44,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_PROFILE = SCRIPT_DIR.parent / "assets" / "default_profile.json"
 PROFILE_TEMPLATE_DIR = SCRIPT_DIR.parent / "assets" / "profile_templates"
 DEFAULT_PROFILE_TEMPLATE = "general-geophysics"
+PROJECT_ENV_NAME = "reader.env"
 DEFAULT_PRIVATE_DIR = Path.home() / ".codex" / "scholar-alert-reader"
 DEFAULT_GMAIL_CREDENTIALS = DEFAULT_PRIVATE_DIR / "gmail_credentials.json"
 DEFAULT_GMAIL_TOKEN = DEFAULT_PRIVATE_DIR / "gmail_token.json"
@@ -2467,6 +2468,17 @@ def project_script_common(project_dir: Path, profile_path: Path, kb_dir: Path) -
     return "\n".join(
         [
             f"PROJECT_DIR=\"${{PROJECT_DIR:-{shell_double_default(project_dir)}}}\"",
+            f"PROJECT_ENV=\"${{PROJECT_ENV:-$PROJECT_DIR/{PROJECT_ENV_NAME}}}\"",
+            'if [[ -f "$PROJECT_ENV" ]]; then',
+            '  while IFS= read -r config_line; do',
+            '    [[ "$config_line" =~ ^[[:space:]]*(#|$) ]] && continue',
+            '    config_line="${config_line#export }"',
+            '    config_key="${config_line%%=*}"',
+            '    if [[ "$config_key" =~ ^[A-Z0-9_]+$ && -z "${!config_key+x}" ]]; then',
+            '      eval "export $config_line"',
+            "    fi",
+            '  done < "$PROJECT_ENV"',
+            "fi",
             f"PROFILE_PATH=\"${{PROFILE_PATH:-{shell_double_default(profile_path)}}}\"",
             f"KB_DIR=\"${{KB_DIR:-{shell_double_default(kb_dir)}}}\"",
             f"SKILL_SCRIPT=\"${{SKILL_SCRIPT:-{shell_double_default(skill_wrapper_path())}}}\"",
@@ -2488,6 +2500,103 @@ def write_executable(path: Path, content: str) -> None:
         os.chmod(path, 0o755)
     except OSError:
         pass
+
+
+def project_env_path(project_dir: Path) -> Path:
+    return project_dir / PROJECT_ENV_NAME
+
+
+def env_quote(value: str | Path | int | bool) -> str:
+    if isinstance(value, bool):
+        return shlex.quote("1" if value else "0")
+    return shlex.quote(str(value).replace("\n", " ").strip())
+
+
+def read_project_env(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    values: dict[str, str] = {}
+    assignment_re = re.compile(r"^(?:export\s+)?([A-Z0-9_]+)=(.*)$")
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = assignment_re.match(line)
+        if not match:
+            continue
+        key, raw_value = match.groups()
+        try:
+            parsed = shlex.split(raw_value, comments=False, posix=True)
+        except ValueError:
+            parsed = []
+        values[key] = parsed[0] if parsed else raw_value.strip().strip("'\"")
+    return values
+
+
+def write_project_env(path: Path, values: dict[str, str | Path | int | bool]) -> None:
+    ordered_keys = [
+        "SOURCE",
+        "MODE",
+        "PROFILE_PATH",
+        "KB_DIR",
+        "MBOX_PATH",
+        "BIBTEX_PATH",
+        "RIS_PATH",
+        "RSS_SOURCE",
+        "ARXIV_QUERY",
+        "GMAIL_CREDENTIALS",
+        "GMAIL_TOKEN",
+        "AUTO_ALLOW_MAIL_APP",
+        "SINCE_DAYS",
+        "BOOST",
+        "OBSIDIAN_EXPORT_DIR",
+        "ZOTERO_OUTPUT_DIR",
+        "SCHEDULE_TIME",
+        "SCHEDULE_DAYS",
+        "SCHEDULE_TIMEZONE",
+    ]
+    lines = [
+        "# Scholar Alert Reader local configuration",
+        f"# Generated: {datetime.now().isoformat(timespec='seconds')}",
+        "# This file is local/private because it may contain personal paths and research preferences.",
+        "",
+    ]
+    for key in ordered_keys:
+        value = values.get(key)
+        if value is None or str(value) == "":
+            continue
+        lines.append(f"export {key}={env_quote(value)}")
+    extra_keys = sorted(key for key in values if key not in ordered_keys and values[key] not in {None, ""})
+    for key in extra_keys:
+        lines.append(f"export {key}={env_quote(values[key])}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+
+def project_relative_path(project_dir: Path, value: Path | None, default_name: str) -> Path:
+    path = value.expanduser() if value else project_dir / default_name
+    if not path.is_absolute():
+        path = project_dir / path
+    return path
+
+
+def render_env_summary(values: dict[str, str]) -> list[str]:
+    if not values:
+        return ["- Persistent config: not configured yet. Run `./setup_reader.sh --source <source>` to create `reader.env`."]
+    lines = ["- Persistent config: `reader.env`"]
+    for key in [
+        "SOURCE",
+        "MODE",
+        "SCHEDULE_TIME",
+        "SCHEDULE_DAYS",
+        "SCHEDULE_TIMEZONE",
+        "OBSIDIAN_EXPORT_DIR",
+        "ZOTERO_OUTPUT_DIR",
+    ]:
+        value = values.get(key)
+        if value:
+            lines.append(f"- {key}: `{value}`")
+    return lines
 
 
 def count_json_items(path: Path) -> tuple[int, str]:
@@ -2545,6 +2654,8 @@ def render_project_guide(
             profile_name = "invalid profile JSON"
     template_names = available_profile_templates()
     template_line = ", ".join(f"`{name}`" for name in template_names) if template_names else "No bundled templates found."
+    env_file = project_env_path(project_dir)
+    env_values = read_project_env(env_file)
     lines = [
         "# Scholar Alert Reader Start Here",
         "",
@@ -2561,18 +2672,23 @@ def render_project_guide(
         "## First Run",
         "",
         "0. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
-        "1. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
+        "1. Configure your local defaults once with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
+        "2. Edit `profiles/research_profile.json` so the focus terms, methods, regions, and research questions match your work.",
         f"   - Current profile: `{profile_name}`.",
         f"   - Bundled templates copied to `profiles/templates/`: {template_line}.",
         "   - To reset from a template, run for example: `./copy_profile_template.sh --template ai-seismology --force`.",
-        "2. Choose an input source:",
+        "3. Choose an input source:",
         "   - Gmail API: run OAuth once, then use `SOURCE=auto ./run_reader.sh`.",
         "   - Exported mailbox: place `INBOX.mbox` in this project and run `SOURCE=mbox ./run_reader.sh`.",
         "   - Bibliography import: place `import.bib` or `import.ris` in this project, then run `./bibtex_import.sh` or `./ris_import.sh`.",
         "   - Structured web sources: place feed URLs in `feeds.txt` and run `./rss_import.sh`, or set `ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh`.",
-        "3. Build the baseline with `MODE=foundation ./run_reader.sh`.",
-        "4. Run daily triage with `./run_reader.sh`.",
-        "5. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
+        "4. Build the baseline with `MODE=foundation ./run_reader.sh`.",
+        "5. Run daily triage with `./run_reader.sh`.",
+        "6. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
+        "",
+        "## Persistent Configuration",
+        "",
+        *render_env_summary(env_values),
         "",
         "## Daily Loop",
         "",
@@ -2592,6 +2708,7 @@ def render_project_guide(
         "## Current Setup Status",
         "",
         f"- Project directory: `{project_dir}`",
+        f"- Local config: {status_marker(env_file)}",
         f"- Profile: {status_marker(profile_path, required=True)}",
         f"- Gmail credentials: {status_marker(DEFAULT_GMAIL_CREDENTIALS)}",
         f"- Gmail token: {status_marker(DEFAULT_GMAIL_TOKEN)}",
@@ -2775,6 +2892,7 @@ exec "${cmd[@]}"
         "rss_import.sh": 'SOURCE=rss RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/rss}" "$PROJECT_DIR/run_reader.sh"\n',
         "arxiv_search.sh": 'if [[ -z "${ARXIV_QUERY:-}" ]]; then echo "Set ARXIV_QUERY before running arxiv_search.sh" >&2; exit 2; fi\nSOURCE=arxiv MODE=run OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/arxiv}" "$PROJECT_DIR/run_reader.sh"\n',
         "source_check.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" source-check --project-dir "$PROJECT_DIR" --mbox-path "${MBOX_PATH:-$PROJECT_DIR/INBOX.mbox}" --bibtex-path "${BIBTEX_PATH:-$PROJECT_DIR/import.bib}" --ris-path "${RIS_PATH:-$PROJECT_DIR/import.ris}" --rss-source "${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}" --arxiv-query "${ARXIV_QUERY:-}" --gmail-credentials "${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}" --gmail-token "${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}" "$@"\n',
+        "setup_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" setup --project-dir "$PROJECT_DIR" "$@"\n',
         "copy_profile_template.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" init-profile --profile "$PROFILE_PATH" "$@"\n',
         "feedback_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "serve_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
@@ -2787,8 +2905,8 @@ exec "${cmd[@]}"
         "status_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" status --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "compare_papers.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" compare --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "map_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" map --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
-        "zotero_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
-        "obsidian_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" obsidian --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "zotero_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --output-dir "${ZOTERO_OUTPUT_DIR:-$KB_DIR/zotero}" "$@"\n',
+        "obsidian_export.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" obsidian --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --vault-dir "${OBSIDIAN_EXPORT_DIR:-$KB_DIR/obsidian}" "$@"\n',
         "sync_obsidian_vault.sh": 'OBSIDIAN_LITERATURE_DIR="${OBSIDIAN_LITERATURE_DIR:-$HOME/Documents/Obsidian Vault/01_Literatures}"\nOBSIDIAN_EXPORT_DIR="${OBSIDIAN_EXPORT_DIR:-$OBSIDIAN_LITERATURE_DIR/10_Scholar_Alert_Reader}"\nexec "$PROJECT_DIR/obsidian_export.sh" --vault-dir "$OBSIDIAN_EXPORT_DIR" "$@"\n',
         "enrich_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" enrich --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --limit "${LIMIT:-20}" --providers "${PROVIDERS:-openalex,crossref}" --update-library "$@"\n',
         "weekly_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" weekly --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --days "${DAYS:-7}" "$@"\n',
@@ -2819,6 +2937,8 @@ exec "${cmd[@]}"
                     "gmail_credentials.json",
                     "gmail_token.json",
                     "client_secret*.json",
+                    "reader.env",
+                    "profiles/*.bak",
                     "seen_papers.json",
                     "knowledge_base/feedback.json",
                     "",
@@ -2848,9 +2968,12 @@ exec "${cmd[@]}"
                     "",
                     "```bash",
                     "./demo_reader.sh",
+                    "./setup_reader.sh --source auto --profile-template ai-seismology",
                     "./source_check.sh --source auto",
                     "./run_reader.sh",
                     "```",
+                    "",
+                    "The setup command writes `reader.env`, which is read automatically by the generated shell scripts.",
                     "",
                     "## Choose a profile template",
                     "",
@@ -2930,6 +3053,93 @@ exec "${cmd[@]}"
     print(f"Project initialized: {project_dir}")
     print(f"Profile: {profile_path}")
     print(f"Run: {project_dir / 'run_reader.sh'}")
+
+
+def default_schedule_values(profile: dict[str, Any]) -> tuple[str, str, str]:
+    schedule = profile.get("schedule", {}) if isinstance(profile.get("schedule", {}), dict) else {}
+    default_days = schedule.get("default_days", [])
+    if isinstance(default_days, list):
+        days = ",".join(str(day) for day in default_days)
+    else:
+        days = str(default_days or "")
+    return (
+        str(schedule.get("default_time", "09:00")),
+        days or "Monday,Tuesday,Wednesday,Thursday,Friday",
+        str(schedule.get("timezone", "Asia/Shanghai")),
+    )
+
+
+def setup_project(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    if not project_dir.exists():
+        raise SystemExit(f"Project directory does not exist: {project_dir}. Run init-project first.")
+    profile_path = project_relative_path(project_dir, args.profile, "profiles/research_profile.json")
+    kb_dir = project_relative_path(project_dir, args.kb_dir, "knowledge_base")
+
+    profile_backup: Path | None = None
+    if args.profile_template:
+        if profile_path.exists() and not args.force_profile:
+            profile_backup = profile_path.with_suffix(profile_path.suffix + ".bak")
+            shutil.copyfile(profile_path, profile_backup)
+        copy_profile_template(profile_path, args.profile_template, True)
+    elif not profile_path.exists():
+        copy_profile_template(profile_path, DEFAULT_PROFILE_TEMPLATE, True)
+    profile = load_profile(profile_path)
+    default_time, default_days, default_timezone = default_schedule_values(profile)
+
+    source = args.source
+    if source == "arxiv" and not args.arxiv_query:
+        raise SystemExit("--source arxiv requires --arxiv-query.")
+
+    values: dict[str, str | Path | int | bool] = {
+        "SOURCE": source,
+        "MODE": args.mode,
+        "PROFILE_PATH": profile_path,
+        "KB_DIR": kb_dir,
+        "SCHEDULE_TIME": args.schedule_time or default_time,
+        "SCHEDULE_DAYS": args.schedule_days or default_days,
+        "SCHEDULE_TIMEZONE": args.timezone or default_timezone,
+    }
+    if args.boost:
+        values["BOOST"] = args.boost
+    if args.since_days is not None:
+        values["SINCE_DAYS"] = args.since_days
+    if args.auto_allow_mail_app or source == "mail-app":
+        values["AUTO_ALLOW_MAIL_APP"] = True
+
+    values["MBOX_PATH"] = project_relative_path(project_dir, args.mbox_path, "INBOX.mbox")
+    values["BIBTEX_PATH"] = project_relative_path(project_dir, args.bibtex_path, "import.bib")
+    values["RIS_PATH"] = project_relative_path(project_dir, args.ris_path, "import.ris")
+    rss_source = args.rss_source or str(project_dir / "feeds.txt")
+    if not is_url(rss_source):
+        rss_path = Path(rss_source).expanduser()
+        if not rss_path.is_absolute():
+            rss_source = str(project_dir / rss_path)
+    values["RSS_SOURCE"] = rss_source
+    if args.arxiv_query:
+        values["ARXIV_QUERY"] = args.arxiv_query
+    values["GMAIL_CREDENTIALS"] = args.gmail_credentials.expanduser()
+    values["GMAIL_TOKEN"] = args.gmail_token.expanduser()
+    if args.obsidian_dir:
+        values["OBSIDIAN_EXPORT_DIR"] = project_relative_path(project_dir, args.obsidian_dir, "knowledge_base/obsidian")
+    if args.zotero_dir:
+        values["ZOTERO_OUTPUT_DIR"] = project_relative_path(project_dir, args.zotero_dir, "knowledge_base/zotero")
+
+    config_path = args.output.expanduser() if args.output else project_env_path(project_dir)
+    write_project_env(config_path, values)
+    if not args.no_guide:
+        write_project_guide(project_dir, profile_path, kb_dir, project_dir / "reader_out", True)
+
+    print(f"Project config: {config_path}")
+    print(f"Source: {source}")
+    print(f"Profile: {profile_path}")
+    print(f"Schedule: {values['SCHEDULE_TIME']} {values['SCHEDULE_DAYS']} ({values['SCHEDULE_TIMEZONE']})")
+    if args.profile_template:
+        print(f"Profile template: {args.profile_template}")
+    if profile_backup:
+        print(f"Previous profile backup: {profile_backup}")
+    print("Next: ./source_check.sh --source auto")
+    print("Run: ./run_reader.sh")
 
 
 def title_keywords(title: str, limit: int = 8) -> list[str]:
@@ -4070,6 +4280,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_project_cmd.add_argument("--force", action="store_true", help="Add/update scaffold files in a non-empty directory")
     init_project_cmd.set_defaults(func=init_project)
+
+    setup = sub.add_parser("setup", help="Write persistent local project defaults to reader.env")
+    setup.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")
+    setup.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "rss", "arxiv"], default="auto")
+    setup.add_argument("--mode", choices=["daily", "foundation", "run"], default="daily")
+    setup.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
+    setup.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
+    setup.add_argument("--profile-template", help="Bundled profile template slug or JSON path to copy into the active profile")
+    setup.add_argument("--force-profile", action="store_true", help="Overwrite the profile without creating a .bak copy")
+    setup.add_argument("--mbox-path", type=Path, help="Local mbox path. Defaults to project-dir/INBOX.mbox")
+    setup.add_argument("--bibtex-path", type=Path, help="BibTeX import path. Defaults to project-dir/import.bib")
+    setup.add_argument("--ris-path", type=Path, help="RIS import path. Defaults to project-dir/import.ris")
+    setup.add_argument("--rss-source", help="RSS/Atom URL, feed file, directory, or text file. Defaults to project-dir/feeds.txt")
+    setup.add_argument("--arxiv-query", help="arXiv API search query, required with --source arxiv")
+    setup.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
+    setup.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
+    setup.add_argument("--auto-allow-mail-app", action="store_true", help="Allow auto source selection to fall back to Mail.app on macOS")
+    setup.add_argument("--obsidian-dir", type=Path, help="Generated Obsidian export folder")
+    setup.add_argument("--zotero-dir", type=Path, help="Zotero BibTeX/RIS export folder")
+    setup.add_argument("--schedule-time", help="Preferred wall-clock run time, e.g. 09:00")
+    setup.add_argument("--schedule-days", help="Preferred schedule days, e.g. Monday,Wednesday,Friday or weekdays")
+    setup.add_argument("--timezone", help="Preferred schedule timezone")
+    setup.add_argument("--since-days", type=int, help="Default recent-window days for manual/recent runs")
+    setup.add_argument("--boost", help="Comma-separated temporary priority terms")
+    setup.add_argument("--output", type=Path, help="Config output path. Defaults to project-dir/reader.env")
+    setup.add_argument("--no-guide", action="store_true", help="Do not refresh START_HERE.md after writing config")
+    setup.set_defaults(func=setup_project)
 
     guide = sub.add_parser("guide", help="Render a product-oriented setup and status guide for a local project")
     guide.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")

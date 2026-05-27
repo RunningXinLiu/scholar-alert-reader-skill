@@ -112,6 +112,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "examples" / "feeds.example.txt").exists())
             self.assertTrue((project / "demo_reader.sh").exists())
             self.assertTrue((project / "copy_profile_template.sh").exists())
+            self.assertTrue((project / "setup_reader.sh").exists())
             self.assertTrue((project / "source_check.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
             self.assertTrue((project / "bibtex_import.sh").exists())
@@ -123,10 +124,41 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
+            self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Product Modes", start_here)
             self.assertIn("Capability boundary", start_here)
             self.assertIn("Bundled templates", start_here)
+            subprocess.run(
+                [
+                    str(project / "setup_reader.sh"),
+                    "--source",
+                    "rss",
+                    "--rss-source",
+                    str(project / "examples" / "sample_feed.atom"),
+                    "--profile-template",
+                    "ai-seismology",
+                    "--schedule-time",
+                    "10:30",
+                    "--schedule-days",
+                    "weekdays",
+                    "--obsidian-dir",
+                    str(project / "obsidian_export"),
+                    "--zotero-dir",
+                    str(project / "zotero_export"),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            env_content = (project / "reader.env").read_text(encoding="utf-8")
+            self.assertIn("export SOURCE=rss", env_content)
+            self.assertIn("export SCHEDULE_TIME=10:30", env_content)
+            self.assertIn("OBSIDIAN_EXPORT_DIR", env_content)
+            start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
+            self.assertIn("Persistent Configuration", start_here)
+            self.assertIn("SOURCE: `rss`", start_here)
             subprocess.run(
                 [str(project / "demo_reader.sh")],
                 cwd=project,
@@ -136,6 +168,8 @@ class CoreWorkflowTests(unittest.TestCase):
             )
             self.assertTrue((project / "reader_out" / "demo" / "digest.html").exists())
             self.assertTrue((project / "reader_out" / "demo" / "papers.json").exists())
+            demo_summary = json.loads((project / "reader_out" / "demo" / "summary.json").read_text(encoding="utf-8"))
+            self.assertIn("sample_scholar_alerts.mbox", demo_summary["source"])
             source_check = subprocess.run(
                 [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
                 cwd=project,

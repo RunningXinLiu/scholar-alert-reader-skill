@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.2 - 2026-05-27
+
+- Add `setup` / generated `setup_reader.sh` to persist local source, profile, schedule, Obsidian, and Zotero defaults in `reader.env`.
+- Make generated helper scripts read `reader.env` without overriding explicit one-off environment variables from the caller.
+- Show persistent configuration status in generated `START_HERE.md`.
+
 ## v0.2.1 - 2026-05-27
 
 - Add bundled research-profile templates for general geophysics, AI seismology, induced seismicity, seismic imaging, and dense-array monitoring.

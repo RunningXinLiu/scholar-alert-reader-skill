@@ -13,20 +13,21 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 
 1. For a new local setup, run `init-project` to create profiles, outputs, knowledge-base directories, helper scripts, and `START_HERE.md`.
 2. Run `./demo_reader.sh` first when the user wants to test without connecting Gmail, Obsidian, or Zotero.
-3. Choose a source:
+3. Run `./setup_reader.sh` or the `setup` command to persist local defaults in `reader.env` when the user has chosen a source, profile template, schedule, or integration paths.
+4. Choose a source:
    - Gmail API: preferred for automation after OAuth setup.
    - Mail.app: works locally on macOS after Automation permission.
    - `.mbox`: works from exported Gmail/Apple Mail archives.
    - BibTeX/RIS: works from Zotero, EndNote, Google Scholar library, publisher, and database exports.
    - RSS/Atom or arXiv: works for structured web monitoring without scraping arbitrary pages.
-4. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the terms.
-5. First run: use `foundation` to build the seen-paper baseline.
-6. Later runs: use `daily` so only papers not already in the state file are reported.
-7. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
-8. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-9. Use `deep-read`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
-10. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-11. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` when diagnosing local setup problems.
+5. Load or create a JSON research profile. For new users, start from a bundled template such as `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`, then edit the terms.
+6. First run: use `foundation` to build the seen-paper baseline.
+7. Later runs: use `daily` so only papers not already in the state file are reported.
+8. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` automatically.
+9. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
+10. Use `deep-read`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+11. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
+12. Use `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `doctor` when diagnosing local setup problems.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -84,6 +85,19 @@ python3 scripts/scholar_reader.py guide \
   --project-dir ~/scholar_alerts \
   --output ~/scholar_alerts/START_HERE.md
 ```
+
+Persist local source/integration/schedule defaults:
+
+```bash
+python3 scripts/scholar_reader.py setup \
+  --project-dir ~/scholar_alerts \
+  --source auto \
+  --profile-template ai-seismology \
+  --schedule-time 09:00 \
+  --schedule-days weekdays
+```
+
+Generated project scripts read `reader.env` only for variables the caller has not already set, so explicit one-off overrides such as `SOURCE=mbox ./run_reader.sh` still win.
 
 Check the configured input source without a full run:
 

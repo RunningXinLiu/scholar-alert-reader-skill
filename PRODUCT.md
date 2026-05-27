@@ -61,6 +61,7 @@ For users who want citation/PDF management.
 - A new user can run `init-project`, read `START_HERE.md`, and complete a first run without knowing the internals.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
+- A new user can persist local defaults with `setup` / `setup_reader.sh` instead of repeatedly typing source, schedule, Obsidian, or Zotero path environment variables.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - A user without Gmail or Zotero can monitor structured web feeds through `feeds.txt` or run targeted arXiv queries.
 - A user can tune ranking with focus terms, methods, regions, authors, exclusions, temporary boosts, and explicit paper feedback.
@@ -72,7 +73,7 @@ For users who want citation/PDF management.
 
 ## Roadmap
 
-- Setup wizard for source selection, Gmail OAuth path, optional Obsidian path, optional Zotero export path, and schedule.
+- Interactive setup prompts layered on top of the current non-interactive `setup` command.
 - Zotero read-back for item keys, PDF paths, and Better BibTeX citation keys.
 - PDF full-text deep-read when a local Zotero PDF is available.
 - More demo scenarios with sanitized sample alerts, feedback, and retained-library files.

@@ -19,6 +19,7 @@ token.json
 import.bib
 import.ris
 feeds.txt
+reader.env
 out/
 knowledge_base/
 profiles/
