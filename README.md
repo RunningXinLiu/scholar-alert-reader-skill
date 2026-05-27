@@ -45,6 +45,22 @@ Good next prompts:
 
 The skill works without Obsidian or Zotero. Those are optional upgrades for people who want a larger personal knowledge system.
 
+## Screenshots
+
+Sanitized demo screenshots are included for product previews and sharing.
+
+| Daily digest | Feedback triage |
+|---|---|
+| <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/01-daily-digest.png" alt="Daily digest screenshot" width="420"> | <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/02-feedback-triage.png" alt="Feedback triage screenshot" width="420"> |
+
+| Foundation and interested library | Deep read copilot |
+|---|---|
+| <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/03-foundation-interested.png" alt="Foundation and interested library screenshot" width="420"> | <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/04-deep-read-copilot.png" alt="Deep read copilot screenshot" width="420"> |
+
+| Research map and advice | Obsidian and Zotero handoff |
+|---|---|
+| <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/05-research-map-advice.png" alt="Research map and advice screenshot" width="420"> | <img src="https://cdn.jsdelivr.net/gh/RunningXinLiu/scholar-alert-reader-skill@main/docs/screenshots/06-obsidian-zotero.png" alt="Obsidian and Zotero handoff screenshot" width="420"> |
+
 ## What It Does
 
 - Reads Google Scholar Alert emails from Gmail API, Mail.app, or exported `.mbox`.
