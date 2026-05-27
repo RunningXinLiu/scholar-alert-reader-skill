@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.51 - 2026-05-28
+
+- Let `deep-read` automatically include a cached local full-text brief and full-text cache status when available.
+- Add `deep-read --full-text-path`, `--full-text-brief-path`, and `--max-full-text-brief-chars` for explicit selected-paper evidence control.
+- Surface section coverage, missing sections, visual/data/code signals, full-text profile overlap, and brief excerpts directly in the deep-read report.
+
 ## v0.2.50 - 2026-05-28
 
 - Add product-facing `profile_meta` to bundled profile templates so each template describes its audience, starter sources, and recommended first edits.

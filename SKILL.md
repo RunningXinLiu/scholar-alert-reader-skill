@@ -62,7 +62,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
 - `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`: prioritized next-reading queue from retained/recent papers and feedback, refreshed automatically by runs that update the knowledge base.
-- `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation.
+- `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation, including cached local full-text evidence when available.
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
 - `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief with section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks for a selected paper.
 - `knowledge_base/analysis/<paper-id>_review_workflow.md`: selected-paper workflow report linking full-text extraction status, workup, review pack, and next actions.
@@ -360,6 +360,8 @@ python3 scripts/scholar_reader.py deep-read \
   --papers-json out/recent/papers.json \
   --paper-id <ID>
 ```
+
+When `knowledge_base/analysis/<paper-id>_full_text_brief.md` exists, `deep-read` includes a local full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. Use `--full-text-brief-path` and `--full-text-path` for custom caches.
 
 Extract local PDF/text content and write a section-aware full-text brief:
 

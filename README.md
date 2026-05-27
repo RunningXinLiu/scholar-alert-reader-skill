@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.50`
+Version: `0.2.51`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -154,7 +154,7 @@ python3 -m scholar_alert_reader capabilities
 
 The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional semantic reranking. `semantic-rerank` defaults to sparse TF-IDF with no extra dependencies; `--backend sentence-transformers` uses a user-installed local embedding model. It is not a hosted embedding service or autonomous reviewer.
 
-`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, and the retained library. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
+`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, the retained library, and cached local full-text briefs when available. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
 ## Product Modes
 
@@ -556,7 +556,9 @@ python3 scripts/scholar_reader.py deep-read \
   --paper-id <ID>
 ```
 
-Capability boundary: `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, adaptive feedback similarity, and the retained local library. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path, sync it from Zotero, or fetch an explicit/open PDF URL. The tool does not crawl publisher pages, bypass access controls, or download paywalled PDFs.
+If `knowledge_base/analysis/<paper-id>_full_text_brief.md` already exists, `deep-read` includes a full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. Use `--full-text-brief-path` when the brief was written to a custom path.
+
+Capability boundary: `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, adaptive feedback similarity, the retained local library, and cached local full-text briefs when available. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path, sync it from Zotero, or fetch an explicit/open PDF URL. The tool does not crawl publisher pages, bypass access controls, or download paywalled PDFs.
 
 Fetch an explicit or open PDF URL into the local project:
 

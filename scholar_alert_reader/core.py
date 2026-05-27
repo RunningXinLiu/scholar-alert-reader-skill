@@ -4223,7 +4223,7 @@ def render_project_guide(
         "",
         "This project can run as a standalone Codex skill. Obsidian and Zotero are optional integrations, not required dependencies.",
         "",
-        "Capability boundary: ranking, semantic rerank, deep-read, workup, Q&A, comparison, map, and advice reports use available alert metadata, bibliography fields, snippets, profile terms, feedback signals, and retained-library context. `fetch-pdf` and `full-text` can add local open-PDF/text evidence when you provide or sync a usable file, and `review-pack` prepares that context for another assistant. The tool is an assisted reading workflow, not an autonomous expert reviewer.",
+        "Capability boundary: ranking, semantic rerank, deep-read, workup, Q&A, comparison, map, and advice reports use available alert metadata, bibliography fields, snippets, profile terms, feedback signals, retained-library context, and cached local full-text briefs when present. `fetch-pdf` and `full-text` can add local open-PDF/text evidence when you provide or sync a usable file, and `review-pack` prepares that context for another assistant. The tool is an assisted reading workflow, not an autonomous expert reviewer.",
         "",
         "## Product Modes",
         "",
@@ -7397,6 +7397,9 @@ def write_deep_read_report(
     papers_json: Path | None = None,
     output: Path | None = None,
     limit: int = 12,
+    full_text_path: Path | None = None,
+    full_text_brief_path: Path | None = None,
+    max_full_text_brief_chars: int = 7000,
 ) -> Path:
     from .copilot import render_deep_read
 
@@ -7406,8 +7409,27 @@ def write_deep_read_report(
     target = select_paper_record(records, paper_id, title)
     if not library_records:
         library_records = records
+    stem = str(target.get("id", "paper") or "paper")
+    full_text_candidate = full_text_path or (kb_dir / "full_text" / f"{stem}.txt")
+    full_text_brief_candidate = full_text_brief_path or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
+    full_text_brief, actual_full_text_brief_path = read_context_text(
+        full_text_brief_candidate,
+        max_full_text_brief_chars,
+    )
     output_path = output or (kb_dir / "analysis" / f"{target.get('id', 'paper')}_deep_read.md")
-    return write_report(output_path, render_deep_read(target, library_records, profile, limit=limit))
+    return write_report(
+        output_path,
+        render_deep_read(
+            target,
+            library_records,
+            profile,
+            limit=limit,
+            full_text_brief=full_text_brief,
+            full_text_brief_path=actual_full_text_brief_path,
+            has_full_text_cache=full_text_candidate.exists(),
+            max_full_text_brief_chars=max_full_text_brief_chars,
+        ),
+    )
 
 
 def deep_read_command(args: argparse.Namespace) -> None:
@@ -7420,6 +7442,9 @@ def deep_read_command(args: argparse.Namespace) -> None:
         papers_json=args.papers_json,
         output=args.output,
         limit=args.limit,
+        full_text_path=args.full_text_path,
+        full_text_brief_path=args.full_text_brief_path,
+        max_full_text_brief_chars=args.max_full_text_brief_chars,
     )
     print(f"Deep-read report: {output}")
 
@@ -9152,6 +9177,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Reranking saved records with local semantic similarity to profile terms, interested seeds, and archived seeds, using sparse TF-IDF by default and optional user-installed sentence-transformers embeddings when requested.",
         "- Checking optional embedding rerank readiness without loading models by default, with an explicit model-load preflight for users who want it.",
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
+        "- Including cached local full-text evidence snapshots in selected-paper deep reads when a full-text brief exists.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
@@ -9159,7 +9185,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "",
         "## Capability Boundary",
         "",
-        "- `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, and feedback signals.",
+        "- `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, feedback signals, and cached local full-text briefs when available.",
         "- `semantic_queries` and adaptive ranking are lightweight local matching features. `semantic-rerank` defaults to sparse TF-IDF and can optionally use a user-installed local sentence-transformers model; it is not a hosted embedding service.",
         "- `full-text` works when a local PDF/text path is provided directly or synced from Zotero; it does not automatically bypass publisher access or download paywalled PDFs.",
         "- `fetch-pdf` only uses explicit/open PDF URLs from user input, arXiv, webpage metadata, or OpenAlex metadata. It does not crawl publisher pages or bypass access controls.",
@@ -9703,6 +9729,18 @@ def build_parser() -> argparse.ArgumentParser:
     deep.add_argument("--paper-id", help="Paper ID from a digest or paper note")
     deep.add_argument("--title", help="Case-insensitive title substring")
     deep.add_argument("--limit", type=int, default=12, help="Related foundation papers to include")
+    deep.add_argument("--full-text-path", type=Path, help="Optional local text cache path. Defaults to kb-dir/full_text/<paper-id>.txt")
+    deep.add_argument(
+        "--full-text-brief-path",
+        type=Path,
+        help="Optional full-text brief path. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md",
+    )
+    deep.add_argument(
+        "--max-full-text-brief-chars",
+        type=int,
+        default=7000,
+        help="Maximum full-text brief characters to include",
+    )
     deep.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_deep_read.md")
     deep.set_defaults(func=deep_read_command)
 

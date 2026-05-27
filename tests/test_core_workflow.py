@@ -2043,6 +2043,36 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Citation Readiness Checklist", full_text_content)
             self.assertIn("Missing Or Weak Sections", full_text_content)
 
+            deep_with_full_text = root / "deep_with_full_text.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "deep-read",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--full-text-path",
+                    str(full_text_cache),
+                    "--full-text-brief-path",
+                    str(full_text_report),
+                    "--output",
+                    str(deep_with_full_text),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            deep_with_full_text_content = deep_with_full_text.read_text(encoding="utf-8")
+            self.assertIn("Local Full-Text Evidence Snapshot", deep_with_full_text_content)
+            self.assertIn("Section coverage:", deep_with_full_text_content)
+            self.assertIn("Visual/data/code signals: Figures, Tables, Data Availability, Code / Software", deep_with_full_text_content)
+            self.assertIn("Profile Overlap From Full Text", deep_with_full_text_content)
+            self.assertIn("Full-Text Brief Excerpt", deep_with_full_text_content)
+
             review_pack = root / "review_pack.md"
             subprocess.run(
                 [
@@ -2137,6 +2167,29 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertTrue((kb / "analysis" / "p1_workup.md").exists())
             self.assertTrue((kb / "analysis" / "p1_review_pack.md").exists())
             self.assertIn("Local Full Text", (kb / "analysis" / "p1_review_pack.md").read_text(encoding="utf-8"))
+
+            deep_with_default_full_text = root / "deep_with_default_full_text.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "deep-read",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--output",
+                    str(deep_with_default_full_text),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            deep_with_default_content = deep_with_default_full_text.read_text(encoding="utf-8")
+            self.assertIn("Local Full-Text Evidence Snapshot", deep_with_default_content)
+            self.assertIn("Visual/data/code signals: Figures, Tables, Data Availability, Code / Software", deep_with_default_content)
 
             default_full_text_dir = kb / "full_text"
             default_full_text_dir.mkdir(parents=True, exist_ok=True)

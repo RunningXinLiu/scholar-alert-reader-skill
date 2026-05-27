@@ -224,12 +224,18 @@ def render_deep_read(
     library: list[dict[str, Any]],
     profile: dict[str, Any],
     limit: int = 12,
+    full_text_brief: str = "",
+    full_text_brief_path: Path | None = None,
+    has_full_text_cache: bool = False,
+    max_full_text_brief_chars: int = 7000,
 ) -> str:
     related = related_records(target, library, limit)
     matched = [term for term in target.get("matched_terms", []) if str(term).strip()]
     directions = [tag for tag in target.get("tags", []) if str(tag).strip()]
     profile_hits = [term for term in profile_terms(profile) if term.lower() in record_text(target).lower()]
     reasons = [str(reason) for reason in target.get("reasons", []) if str(reason).strip()]
+    brief_snapshot = full_text_brief_snapshot(full_text_brief) if full_text_brief else {}
+    brief_excerpt = limited_text(full_text_brief, max_full_text_brief_chars) if full_text_brief else ""
 
     lines = [
         f"# Deep Read: {text(target.get('title', 'Untitled'))}",
@@ -259,6 +265,22 @@ def render_deep_read(
 
     lines.extend(["## Paper Signal From Alert", "", text(target.get("snippet", "No snippet available.")), ""])
 
+    lines.extend(["## Local Full-Text Evidence Snapshot", ""])
+    if full_text_brief:
+        lines.append(f"- Full-text brief: `{full_text_brief_path}`" if full_text_brief_path else "- Full-text brief: provided")
+        lines.append(f"- Section coverage: {brief_snapshot.get('section_coverage', 'not summarized')}")
+        lines.append(f"- Missing or weak sections: {brief_snapshot.get('missing_sections', 'not summarized')}")
+        lines.append(f"- Visual/data/code signals: {brief_snapshot.get('signals', 'none detected')}")
+        if brief_snapshot.get("profile_overlap"):
+            lines.extend(["", "### Profile Overlap From Full Text", "", brief_snapshot["profile_overlap"], ""])
+        if brief_snapshot.get("sentences_to_inspect"):
+            lines.extend(["### Sentences To Inspect", "", brief_snapshot["sentences_to_inspect"], ""])
+    elif has_full_text_cache:
+        lines.append("- A local full-text cache exists, but no section-aware full-text brief was found. Run `full-text` to refresh the evidence snapshot.")
+    else:
+        lines.append("- No local full-text brief was found. This deep read is based on alert/bibliography metadata and the retained foundation.")
+    lines.append("")
+
     lines.extend(["## Closest Foundation Context", ""])
     if not related:
         lines.append("No close retained-paper context found in the current foundation.")
@@ -268,14 +290,19 @@ def render_deep_read(
         lines.append(f"  - Relation score: {score}; overlap: {overlap}")
     lines.append("")
 
+    protocol_lines = [
+        "## Reading Protocol",
+        "",
+        "1. Identify the paper's concrete contribution: method, dataset, region, or interpretation.",
+        "2. Compare its assumptions and evidence against the closest foundation papers above.",
+        "3. Decide whether it is `must cite`, `method reference`, `background only`, or `not relevant`.",
+        "4. Add one personal note: how this changes your current research question, if at all.",
+    ]
+    if full_text_brief:
+        protocol_lines.append("5. Use the full-text snapshot above to separate directly observed evidence from profile/foundation inference.")
     lines.extend(
-        [
-            "## Reading Protocol",
-            "",
-            "1. Identify the paper's concrete contribution: method, dataset, region, or interpretation.",
-            "2. Compare its assumptions and evidence against the closest foundation papers above.",
-            "3. Decide whether it is `must cite`, `method reference`, `background only`, or `not relevant`.",
-            "4. Add one personal note: how this changes your current research question, if at all.",
+        protocol_lines
+        + [
             "",
             "## Questions To Discuss With Codex",
             "",
@@ -294,6 +321,8 @@ def render_deep_read(
         lines.append("- `background only` unless the full paper has a method or dataset you can reuse.")
     else:
         lines.append("- `not relevant` unless the title/snippet missed an important connection.")
+    if brief_excerpt:
+        lines.extend(["", "## Full-Text Brief Excerpt", "", brief_excerpt])
     lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
