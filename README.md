@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.30`
+Version: `0.2.31`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -519,7 +519,7 @@ python3 scripts/scholar_reader.py review-queue \
   --limit 5
 ```
 
-`review-queue` writes `knowledge_base/analysis/review_queue.md`, `knowledge_base/full_text/<paper-id>.txt` plus `knowledge_base/analysis/<paper-id>_full_text_brief.md` when extraction succeeds, and `knowledge_base/analysis/<paper-id>_review_pack.md` for each selected paper. Use `--no-extract` to rely only on existing caches, or `--strict-full-text` when every selected paper must have a local text cache.
+`review-queue` writes `knowledge_base/analysis/review_queue.md`, `knowledge_base/full_text/<paper-id>.txt` plus `knowledge_base/analysis/<paper-id>_full_text_brief.md` when extraction succeeds, and `knowledge_base/analysis/<paper-id>_review_pack.md` for each selected paper. The queue index summarizes how many papers have briefs, text caches, and visual/data/code signals, then shows each paper's section coverage, missing/weak sections, signals, and next action. Use `--no-extract` to rely only on existing caches, or `--strict-full-text` when every selected paper must have a local text cache.
 
 Make a reading plan from retained papers plus an optional recent digest:
 

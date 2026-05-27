@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.31 - 2026-05-27
+
+- Turn `review_queue.md` into a more actionable batch-reading panel with queue summary counts.
+- Show per-paper section coverage, missing/weak sections, visual/data/code signals, and next action.
+- Add regression coverage for review-queue evidence/status summaries.
+
 ## v0.2.30 - 2026-05-27
 
 - Include cached full-text briefs automatically in `review-pack` and `review-queue` outputs.

@@ -5814,6 +5814,28 @@ def read_context_text(path: Path | None, max_chars: int) -> tuple[str, Path | No
         return handle.read(max_chars + 1), path
 
 
+def review_brief_summary(full_text_brief: str) -> dict[str, str]:
+    categories = ["Figures", "Tables", "Supplement", "Data Availability", "Code / Software"]
+    signals = [category for category in categories if f"**{category}**" in full_text_brief]
+    found = re.search(r"(?m)^- Found: (.+)$", full_text_brief)
+    missing = re.search(r"(?m)^- Missing or weak: (.+)$", full_text_brief)
+    return {
+        "signals": ", ".join(signals) if signals else "none detected",
+        "section_coverage": found.group(1).strip() if found else "not summarized",
+        "missing_sections": missing.group(1).strip() if missing else "not summarized",
+    }
+
+
+def review_queue_next_action(row: dict[str, str]) -> str:
+    if not row.get("full_text"):
+        return "Attach or sync a local PDF/text path, then rerun `review-queue` or `full-text`."
+    if not row.get("brief"):
+        return "Run `full-text` to build a section-aware brief, then rebuild the review pack."
+    if row.get("signals") and row["signals"] != "none detected":
+        return "Open the review pack and verify the flagged figures/tables/data/code before citing."
+    return "Open the review pack and inspect methods, results, and limitations manually."
+
+
 def review_pack_command(args: argparse.Namespace) -> None:
     from .copilot import render_review_context_pack
 
@@ -5905,6 +5927,11 @@ def review_queue_command(args: argparse.Namespace) -> None:
 
         full_text, actual_full_text_path = read_context_text(text_output, args.max_full_text_chars)
         full_text_brief, actual_full_text_brief_path = read_context_text(brief_output, args.max_full_text_brief_chars)
+        brief_summary = review_brief_summary(full_text_brief) if full_text_brief else {
+            "signals": "none detected",
+            "section_coverage": "not available",
+            "missing_sections": "not available",
+        }
         if args.strict_full_text and not actual_full_text_path:
             failures.append(f"{stem}: no full-text cache available")
 
@@ -5935,10 +5962,16 @@ def review_queue_command(args: argparse.Namespace) -> None:
                 "full_text": str(actual_full_text_path or ""),
                 "extract_status": extract_status,
                 "brief": str(actual_full_text_brief_path or ""),
+                "signals": brief_summary["signals"],
+                "section_coverage": brief_summary["section_coverage"],
+                "missing_sections": brief_summary["missing_sections"],
                 "review_pack": str(review_output),
             }
         )
 
+    brief_count = sum(1 for row in rows if row["brief"])
+    text_count = sum(1 for row in rows if row["full_text"])
+    signal_count = sum(1 for row in rows if row["signals"] != "none detected")
     lines = [
         "# Review Queue",
         "",
@@ -5947,8 +5980,16 @@ def review_queue_command(args: argparse.Namespace) -> None:
         f"- Selected papers: {len(selected)}",
         f"- Full-text caches extracted: {extracted_count}",
         f"- Review packs written: {review_count}",
+        f"- Full-text briefs available: {brief_count}",
+        f"- Full-text caches available: {text_count}",
+        f"- Papers with visual/data/code signals: {signal_count}",
         "",
         "This queue is local-first. Full-text extraction uses local Zotero/PDF/text paths when available; review packs remain markdown files you can paste into Codex, Claude, ChatGPT, or another assistant.",
+        "",
+        "## Queue Summary",
+        "",
+        "- Start with papers that have both a full-text brief and visual/data/code signals.",
+        "- Use each `Next action` before citing, adding to Zotero/Obsidian notes, or asking another assistant for a detailed review.",
         "",
         "## Papers",
         "",
@@ -5965,6 +6006,10 @@ def review_queue_command(args: argparse.Namespace) -> None:
                 f"- Source path: `{row['source']}`" if row["source"] else "- Source path: not linked",
                 f"- Text cache: `{row['full_text']}`" if row["full_text"] else "- Text cache: not available",
                 f"- Full-text brief: `{row['brief']}`" if row["brief"] else "- Full-text brief: not written",
+                f"- Section coverage: {row['section_coverage']}",
+                f"- Missing/weak sections: {row['missing_sections']}",
+                f"- Signals: {row['signals']}",
+                f"- Next action: {review_queue_next_action(row)}",
                 f"- Review pack: `{row['review_pack']}`",
                 "",
             ]
