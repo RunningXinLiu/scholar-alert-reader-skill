@@ -10057,16 +10057,20 @@ def guide_command(args: argparse.Namespace) -> None:
         obsidian_dir=obsidian_dir,
         zotero_dir=zotero_dir,
     )
-    if args.output:
-        output = args.output.expanduser()
+    if args.output or args.open:
+        output = args.output.expanduser() if args.output else project_dir / "START_HERE.md"
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(report, encoding="utf-8")
         print(f"Guide written: {output}")
+        open_target = output
         if not args.no_html:
             html_output = (args.html_output.expanduser() if args.html_output else output.with_suffix(".html"))
             html_output.parent.mkdir(parents=True, exist_ok=True)
             html_output.write_text(markdown_to_basic_html(report, "Scholar Alert Reader Start Here"), encoding="utf-8")
             print(f"Guide HTML: {html_output}")
+            open_target = html_output
+        if args.open:
+            open_local_path(open_target)
     else:
         print(report.rstrip())
 
@@ -10371,6 +10375,7 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--output", type=Path, help="Write guide markdown to this path instead of stdout")
     guide.add_argument("--html-output", type=Path, help="Write guide HTML to this path when --output is set. Defaults to output with .html suffix")
     guide.add_argument("--no-html", action="store_true", help="Do not write an HTML copy when --output is set")
+    guide.add_argument("--open", action="store_true", help="Open the browser-friendly guide after writing it. Defaults to project-dir/START_HERE.md/html when --output is omitted")
     guide.set_defaults(func=guide_command)
 
     dashboard = sub.add_parser("dashboard", help="Write a local project dashboard linking current outputs and next actions")

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.74 - 2026-05-28
+
+- Add `guide --open` so users can write and open the browser-friendly `START_HERE.html` onboarding guide in one command.
+- Make `guide --open` default to `START_HERE.md/html` inside the project when no `--output` path is provided.
+- Cover the browser-open path without launching a real browser in tests.
+
 ## v0.2.73 - 2026-05-28
 
 - Add a `Recommended Next Actions` section to `START_HERE.md/html` that ranks locally ready sources and tells users which live check and first-run command to execute next.

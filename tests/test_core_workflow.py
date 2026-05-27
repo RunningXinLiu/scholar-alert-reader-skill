@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import plistlib
@@ -1876,6 +1877,36 @@ SCHEDULE_TIME=09:00
             self.assertIn("No real source looks locally ready yet", content)
             self.assertIn("Try the product with bundled sample data first", content)
             self.assertIn("export Scholar Alert mail to `INBOX.mbox`", content)
+
+    def test_guide_open_writes_default_browser_guide(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            opened: list[Path] = []
+            original_open = core.open_local_path
+            try:
+                core.open_local_path = lambda path: opened.append(path)
+                core.guide_command(
+                    argparse.Namespace(
+                        project_dir=root,
+                        profile=None,
+                        kb_dir=None,
+                        out_dir=None,
+                        obsidian_dir=None,
+                        zotero_dir=None,
+                        output=None,
+                        html_output=None,
+                        no_html=False,
+                        open=True,
+                    )
+                )
+            finally:
+                core.open_local_path = original_open
+            self.assertTrue((root / "START_HERE.md").exists())
+            self.assertTrue((root / "START_HERE.html").exists())
+            self.assertEqual(opened, [(root.resolve(strict=False) / "START_HERE.html")])
 
     def test_copilot_commands_write_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

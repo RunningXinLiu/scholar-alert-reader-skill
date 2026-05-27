@@ -168,10 +168,11 @@ Render or refresh the local onboarding guide:
 ```bash
 python3 scripts/scholar_reader.py guide \
   --project-dir ~/scholar_alerts \
-  --output ~/scholar_alerts/START_HERE.md
+  --output ~/scholar_alerts/START_HERE.md \
+  --open
 ```
 
-When `--output` is provided, `guide` also writes `START_HERE.html` by default for browser-first onboarding. Use `--no-html` only when a markdown-only artifact is needed.
+When `--output` is provided, `guide` also writes `START_HERE.html` by default for browser-first onboarding. Use `--open` to open that HTML file immediately, or `--no-html` only when a markdown-only artifact is needed.
 
 Render or open the local project dashboard:
 
