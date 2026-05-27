@@ -21,6 +21,7 @@ Use this reference when changing the skill implementation rather than a user's p
 - Preserve existing commands: `foundation`, `daily`, `run`, `feedback`, and `auth-gmail`.
 - Preserve `init-project` generated script names because users may automate them.
 - New capabilities should usually be subcommands, not hidden flags on `daily`.
+- Optional model-backed capabilities should have a lightweight readiness check that does not download or load models unless the user explicitly asks.
 - Keep `self-test` private-data-free. It should use bundled sample files and should not read Gmail, Mail.app, Zotero, Obsidian, or user-provided source files unless explicitly configured.
 - Keep scoring explainable: exact profile terms and local `semantic_queries` should produce visible matched terms and reasons.
 - Keep semantic reranking report-first by default. It may write a reranked JSON for inspection, but should not silently mutate the user's daily digest or profile.

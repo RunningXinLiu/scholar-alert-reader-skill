@@ -31,7 +31,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, profile health, knowledge base, and diagnostics.
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
-14. Use `reading-plan`, `explain-ranking`, `ranking-eval`, `semantic-rerank`, `deep-read`, `workup`, `fetch-pdf`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+14. Use `reading-plan`, `explain-ranking`, `ranking-eval`, `embedding-check`, `semantic-rerank`, `deep-read`, `workup`, `fetch-pdf`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `privacy-check`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems or preparing public reports.
 
@@ -71,6 +71,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/analysis/review_queue.md` and `knowledge_base/analysis/review_queue.html`: batch reading panel with selected review packs, full-text extraction status, section coverage, visual/data/code signals, and next actions.
 - `knowledge_base/analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers.
 - `knowledge_base/analysis/ranking_evaluation.md`: ranking quality benchmark against explicit interested/archive feedback labels.
+- `EMBEDDING_CHECK.md`: optional embedding backend readiness report for semantic rerank.
 - `knowledge_base/analysis/semantic_rerank.md` and `knowledge_base/analysis/semantic_reranked_papers.json`: local semantic rerank report and reranked records, including the backend used.
 - `knowledge_base/answers/*.md`: local-library answers to user research questions.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
@@ -453,6 +454,17 @@ python3 scripts/scholar_reader.py ranking-eval \
 ```
 
 It reports precision/recall at K, average precision, tier calibration, high-ranked archive false positives, low-ranked interested missed positives, and next tuning moves. Unlabeled papers are ignored for metrics.
+
+Check optional embedding backend readiness without loading models by default:
+
+```bash
+python3 scripts/scholar_reader.py embedding-check \
+  --project-dir . \
+  --backend sentence-transformers \
+  --embedding-model sentence-transformers/all-MiniLM-L6-v2
+```
+
+Initialized projects provide `./embedding_check.sh`. Add `--load-model` only when the user wants to verify actual model cache/download behavior before using `semantic-rerank --backend sentence-transformers`.
 
 Rerank saved papers with a local semantic layer:
 

@@ -230,6 +230,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_queue.sh").exists())
             self.assertTrue((project / "explain_ranking.sh").exists())
             self.assertTrue((project / "ranking_eval.sh").exists())
+            self.assertTrue((project / "embedding_check.sh").exists())
             self.assertTrue((project / "semantic_rerank.sh").exists())
             self.assertTrue((project / "tune_profile.sh").exists())
             self.assertTrue((project / "reading_plan.sh").exists())
@@ -243,6 +244,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("web_sources.txt", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn(".self_test/", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("PRIVACY_CHECK.md", (project / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("EMBEDDING_CHECK.md", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("profiles/profile_onboarding.md", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("profiles/profile_doctor.md", (project / ".gitignore").read_text(encoding="utf-8"))
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
@@ -255,6 +257,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("./profile_wizard.sh", start_here)
             self.assertIn("./profile_doctor.sh", start_here)
             self.assertIn("./ranking_eval.sh", start_here)
+            self.assertIn("./embedding_check.sh", start_here)
             self.assertIn("./semantic_rerank.sh", start_here)
             self.assertIn("./fetch_pdf.sh", start_here)
             subprocess.run(
@@ -386,6 +389,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Profile Health", dashboard)
             self.assertIn("Privacy check", dashboard)
             self.assertIn("Ranking evaluation", dashboard)
+            self.assertIn("Embedding check", dashboard)
             self.assertIn("Semantic rerank report", dashboard)
             self.assertIn("profile_doctor.md", dashboard)
             self.assertIn("sample_web_article.html", dashboard)
@@ -1188,6 +1192,34 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertLess(by_id["rescue"].rank, by_id["rescue"].base_rank)
         self.assertLess(by_id["noise"].delta, 0)
 
+    def test_embedding_check_sparse_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "embedding.md"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "embedding-check",
+                    "--project-dir",
+                    str(root),
+                    "--backend",
+                    "sparse",
+                    "--strict",
+                    "--output",
+                    str(report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Result: PASS", result.stdout)
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("Embedding Backend Check", content)
+            self.assertIn("Sparse TF-IDF backend", content)
+            self.assertIn("sentence-transformers dependency", content)
+            self.assertIn("Model load", content)
+
     def test_bibtex_source_runs_full_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1614,6 +1646,7 @@ SCHEDULE_TIME=09:00
             self.assertIn("Not Promised", content)
             self.assertIn("publisher access", content)
             self.assertIn("review-pack", content)
+            self.assertIn("embedding-check", content)
             self.assertIn("<project>", content)
             self.assertNotIn(str(root), content)
 

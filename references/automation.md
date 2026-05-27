@@ -150,10 +150,11 @@ This writes `knowledge_base/profile_tuning.md` and is safe by default. It only e
 After a few runs or feedback labels, inspect weak-keyword papers before changing broad profile terms:
 
 ```bash
+./embedding_check.sh --backend sentence-transformers
 ./semantic_rerank.sh
 ```
 
-This writes `knowledge_base/analysis/semantic_rerank.md` plus `semantic_reranked_papers.json`. It uses local sparse TF-IDF by default over profile intents, interested seeds, archived seeds, and saved paper metadata. Advanced users can pass `--backend sentence-transformers` after installing optional embedding dependencies. Treat it as a report-first reranker, not automatic profile mutation.
+`embedding_check.sh` writes `EMBEDDING_CHECK.md` and does not load a model unless `--load-model` is passed. `semantic_rerank.sh` writes `knowledge_base/analysis/semantic_rerank.md` plus `semantic_reranked_papers.json`. It uses local sparse TF-IDF by default over profile intents, interested seeds, archived seeds, and saved paper metadata. Advanced users can pass `--backend sentence-transformers` after installing optional embedding dependencies. Treat it as a report-first reranker, not automatic profile mutation.
 
 ## Web Metadata, RSS/Atom, And arXiv
 

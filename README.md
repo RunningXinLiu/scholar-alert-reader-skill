@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.48`
+Version: `0.2.49`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -130,6 +130,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Explains why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning suggestions.
 - Evaluates ranking quality against your interested/archive feedback, including precision/recall, average precision, false positives, and missed positives.
 - Reranks saved papers with a local semantic layer so weak-keyword papers close to your profile or interested seeds can be inspected before you tune broad terms; the default backend is sparse and zero-dependency, and an optional local `sentence-transformers` backend is available for users who install it.
+- Checks optional embedding readiness before a real embedding rerank, without loading models unless you pass `--load-model`.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
@@ -232,6 +233,16 @@ If you plan to use the optional local embedding reranker, install the embedding 
 ```bash
 python3 -m pip install '.[embedding]'
 ```
+
+Then verify the backend before using it in scheduled runs:
+
+```bash
+python3 -m scholar_alert_reader embedding-check \
+  --backend sentence-transformers \
+  --embedding-model sentence-transformers/all-MiniLM-L6-v2
+```
+
+Add `--load-model` only when you want to test actual model loading/cache behavior.
 
 Initialized project scripts remember the Python used at setup time, prefer `PROJECT_DIR/.venv/bin/python` when it exists, and fall back to `python3 -m scholar_alert_reader` when the repository wrapper is not available.
 
@@ -674,6 +685,17 @@ python3 scripts/scholar_reader.py semantic-rerank \
 
 The embedding backend still runs locally and does not upload papers. It may download the chosen model the first time unless you provide a local model path or pre-cache it. Use `--backend sparse` for deterministic zero-dependency reranking.
 
+Preflight the optional embedding backend without loading the model:
+
+```bash
+python3 scripts/scholar_reader.py embedding-check \
+  --project-dir . \
+  --backend sentence-transformers \
+  --embedding-model sentence-transformers/all-MiniLM-L6-v2
+```
+
+Use `--load-model` when you want the check to actually load the model and encode sample text. Initialized projects provide `./embedding_check.sh`.
+
 Open the project dashboard:
 
 ```bash
@@ -704,7 +726,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./fetch_pdf.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./ranking_eval.sh`, `./semantic_rerank.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./fetch_pdf.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./ranking_eval.sh`, `./embedding_check.sh`, `./semantic_rerank.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 
@@ -827,6 +849,7 @@ The richer knowledge base includes:
 - `reading_plan.md` / `reading_plan.html`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers
+- Project-root `EMBEDDING_CHECK.md`: optional embedding rerank readiness report
 - `analysis/semantic_rerank.md` / `analysis/semantic_reranked_papers.json`: local semantic rerank report and reranked records, including the backend used
 - `pdfs/<paper-id>.pdf`: optional PDF fetched from an explicit/open PDF URL
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file

@@ -14,6 +14,7 @@ import csv
 import fnmatch
 import hashlib
 import html
+import importlib.metadata
 import importlib.util
 import json
 import mailbox
@@ -2010,6 +2011,13 @@ def gmail_dependencies_available() -> bool:
     )
 
 
+def package_version_or_unknown(package_name: str) -> str:
+    try:
+        return importlib.metadata.version(package_name)
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
 def mail_app_available() -> bool:
     return sys.platform == "darwin" and shutil.which("osascript") is not None
 
@@ -3806,7 +3814,7 @@ PRIVACY_REVIEW_RULES = [
     PrivacyRule(
         "REVIEW",
         "Setup or diagnostic report",
-        ("SOURCE_CHECK.md", "DOCTOR.md", "SUPPORT_BUNDLE.md", "QUICKSTART_REPORT.md", "PRIVACY_CHECK.md"),
+        ("SOURCE_CHECK.md", "DOCTOR.md", "EMBEDDING_CHECK.md", "SUPPORT_BUNDLE.md", "QUICKSTART_REPORT.md", "PRIVACY_CHECK.md"),
         "Diagnostic files are designed to be safer, but still deserve review before sharing.",
     ),
     PrivacyRule(
@@ -3835,6 +3843,7 @@ RECOMMENDED_GITIGNORE_PATTERNS = [
     "reader_out/",
     "knowledge_base/",
     "PRIVACY_CHECK.md",
+    "EMBEDDING_CHECK.md",
     "SUPPORT_BUNDLE.md",
     "*.pdf",
 ]
@@ -4197,6 +4206,7 @@ def render_project_guide(
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./explain_ranking.sh --paper-id <ID>`: explain why one paper was ranked where it was.",
         "- `./ranking_eval.sh`: evaluate ranking quality against interested/archive feedback labels.",
+        "- `./embedding_check.sh`: check whether optional local embedding reranking dependencies and model loading are ready.",
         "- `./semantic_rerank.sh`: find papers that are semantically close to your profile or interested seeds but weakly matched by exact keywords.",
         "- `./fetch_pdf.sh --paper-id <ID> --extract`: fetch an explicit/open PDF URL, then build a local full-text brief.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
@@ -4418,6 +4428,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- {dashboard_link('Reading plan markdown', kb_dir / 'reading_plan.md', base_dir)}",
             f"- {dashboard_link('Review queue markdown', analysis_dir / 'review_queue.md', base_dir)}",
             f"- {dashboard_link('Ranking evaluation', analysis_dir / 'ranking_evaluation.md', base_dir)}",
+            f"- {dashboard_link('Embedding check', project_dir / 'EMBEDDING_CHECK.md', base_dir)}",
             f"- {dashboard_link('Semantic rerank report', analysis_dir / 'semantic_rerank.md', base_dir)}",
             f"- {dashboard_link('Recent review papers JSON', recent_dir / 'papers.json', base_dir)}",
             f"- {dashboard_link('Daily papers JSON', daily_dir / 'papers.json', base_dir)}",
@@ -4429,11 +4440,12 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "3. If Zotero has local PDFs, run `./zotero_sync.sh` so review packs can include full-text briefs.",
             "4. Run `./explain_ranking.sh --paper-id ID` if a paper's tier or score needs explanation.",
             "5. Run `./ranking_eval.sh` after several labels to measure whether ranking matches your feedback.",
-            "6. Run `./semantic_rerank.sh` to find weak-keyword papers that are close to your profile or interested seeds.",
-            "7. Run `./fetch_pdf.sh --paper-id ID --extract` when a paper has an explicit/open PDF URL but no local file.",
-            "8. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
-            "9. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
-            "10. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "6. Run `./embedding_check.sh --backend sentence-transformers` before using optional embedding rerank.",
+            "7. Run `./semantic_rerank.sh` to find weak-keyword papers that are close to your profile or interested seeds.",
+            "8. Run `./fetch_pdf.sh --paper-id ID --extract` when a paper has an explicit/open PDF URL but no local file.",
+            "9. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
+            "10. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
+            "11. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
             "",
@@ -4441,6 +4453,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- {dashboard_link('Source check', project_dir / 'SOURCE_CHECK.md', base_dir)}",
             f"- {dashboard_link('Doctor report', project_dir / 'DOCTOR.md', base_dir)}",
             f"- {dashboard_link('Profile doctor', profile_doctor_path, base_dir)}",
+            f"- {dashboard_link('Embedding check', project_dir / 'EMBEDDING_CHECK.md', base_dir)}",
             f"- {dashboard_link('Privacy check', project_dir / 'PRIVACY_CHECK.md', base_dir)}",
             f"- {dashboard_link('Schedule report', project_dir / 'SCHEDULE.md', base_dir)}",
             f"- {dashboard_link('Capabilities report', project_dir / 'CAPABILITIES.md', base_dir)}",
@@ -4679,6 +4692,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "explain_ranking.sh": 'exec "${SKILL_CMD[@]}" explain-ranking --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ranking_eval.sh": 'exec "${SKILL_CMD[@]}" ranking-eval --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "embedding_check.sh": 'exec "${SKILL_CMD[@]}" embedding-check --project-dir "$PROJECT_DIR" "$@"\n',
         "semantic_rerank.sh": 'exec "${SKILL_CMD[@]}" semantic-rerank --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "tune_profile.sh": 'exec "${SKILL_CMD[@]}" profile-tune --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
@@ -4739,6 +4753,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "knowledge_base/feedback.json",
                     "DASHBOARD.md",
                     "DASHBOARD.html",
+                    "EMBEDDING_CHECK.md",
                     "PRIVACY_CHECK.md",
                     "SUPPORT_BUNDLE.md",
                     "SCHEDULE.md",
@@ -4855,6 +4870,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
                     "./explain_ranking.sh --paper-id <ID>",
                     "./ranking_eval.sh",
+                    "./embedding_check.sh --backend sentence-transformers",
                     "./semantic_rerank.sh",
                     "./tune_profile.sh",
                     "./reading_plan.sh",
@@ -8504,6 +8520,95 @@ def semantic_feedback_seed_texts(
     return positive, negative, positive_count, negative_count
 
 
+def embedding_check_command(args: argparse.Namespace) -> None:
+    from .semantic import DEFAULT_EMBEDDING_MODEL, EmbeddingBackendUnavailable, sentence_transformers_encoder
+
+    backend = args.backend
+    embedding_model = args.embedding_model or DEFAULT_EMBEDDING_MODEL
+    checks: list[tuple[str, str, str]] = []
+    result = "PASS"
+
+    if backend == "sparse":
+        checks.append(("Sparse TF-IDF backend", "PASS", "Built in; no extra packages or model cache required."))
+        checks.append(("sentence-transformers dependency", "SKIP", "Only needed for `--backend sentence-transformers`."))
+        checks.append(("Model load", "SKIP", "Sparse mode does not load embedding models."))
+    else:
+        checks.append(("Sparse TF-IDF fallback", "PASS", "Available with `semantic-rerank --backend sparse`."))
+        dependency_available = python_module_available("sentence_transformers")
+        if dependency_available:
+            version_text = package_version_or_unknown("sentence-transformers")
+            checks.append(("sentence-transformers dependency", "PASS", f"Installed version: {version_text}."))
+        else:
+            result = "WARN"
+            checks.append(
+                (
+                    "sentence-transformers dependency",
+                    "WARN",
+                    "Not installed in this Python environment. Install `.[embedding]` from a checkout or install `sentence-transformers`, then rerun this check.",
+                )
+            )
+        if dependency_available and args.load_model:
+            try:
+                vectors = sentence_transformers_encoder(
+                    ["seismic waveform representation learning", "earthquake monitoring"],
+                    embedding_model,
+                    args.embedding_batch_size,
+                )
+                dimensions = len(vectors[0]) if vectors and vectors[0] else 0
+                checks.append(("Model load", "PASS", f"Loaded `{embedding_model}` and encoded {len(vectors)} sample texts ({dimensions} dimensions)."))
+            except EmbeddingBackendUnavailable as exc:
+                result = "FAIL"
+                checks.append(("Model load", "FAIL", str(exc)))
+        elif dependency_available:
+            checks.append(
+                (
+                    "Model load",
+                    "SKIP",
+                    "Not attempted. Pass `--load-model` to verify model cache/download behavior before a real embedding rerank.",
+                )
+            )
+        else:
+            checks.append(("Model load", "SKIP", "Dependency is missing, so model loading was not attempted."))
+
+    project_dir = args.project_dir.expanduser() if args.project_dir else None
+    output = args.output.expanduser() if args.output else ((project_dir / "EMBEDDING_CHECK.md") if project_dir else None)
+    lines = [
+        "# Embedding Backend Check",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Result: {result}",
+        f"- Backend requested: `{backend}`",
+        f"- Embedding model: `{embedding_model}`",
+        f"- Model load attempted: {bool(args.load_model)}",
+        "",
+        "| Check | Result | Detail |",
+        "|---|---|---|",
+    ]
+    for name, status, detail in checks:
+        lines.append(f"| {md_cell(name)} | {status} | {md_cell(detail)} |")
+    lines.extend(
+        [
+            "",
+            "## Next Steps",
+            "",
+            "- Use `semantic-rerank --backend sparse` for deterministic zero-dependency reranking.",
+            "- Use `semantic-rerank --backend sentence-transformers` only after this check reports the dependency as installed.",
+            "- Run this command with `--load-model` when you want to verify model cache/download behavior before a scheduled workflow.",
+            "- If model loading fails, provide a local model path with `--embedding-model` or return to the sparse backend.",
+            "",
+        ]
+    )
+    report = "\n".join(lines).rstrip() + "\n"
+    if output:
+        write_report(output, report)
+        print(f"Embedding check: {output}")
+    else:
+        print(report)
+    print(f"Result: {result}")
+    if args.strict and result != "PASS":
+        raise SystemExit(1)
+
+
 def render_semantic_rerank_report(
     rows: list[Any],
     profile: dict[str, Any],
@@ -8980,6 +9085,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
         "- Evaluating saved ranking quality against interested/archive labels with precision, recall, average precision, false positives, and missed positives.",
         "- Reranking saved records with local semantic similarity to profile terms, interested seeds, and archived seeds, using sparse TF-IDF by default and optional user-installed sentence-transformers embeddings when requested.",
+        "- Checking optional embedding rerank readiness without loading models by default, with an explicit model-load preflight for users who want it.",
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
@@ -9009,11 +9115,12 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "3. Run `source-check --live` before expecting non-empty daily results.",
         "4. Build an initial `foundation`, then use `daily` for new papers only.",
         "5. Mark interested/archive papers and rerun `ranking-eval` plus `profile-tune` after several feedback rounds.",
-        "6. Sync Zotero local PDF paths when available, or run `fetch-pdf` for explicit/open PDF URLs, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
+        "6. Run `embedding-check --backend sentence-transformers` before using the optional embedding reranker.",
+        "7. Sync Zotero local PDF paths when available, or run `fetch-pdf` for explicit/open PDF URLs, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
         "",
         "## Practical Upgrade Path",
         "",
-        "- For better ranking: run `ranking-eval` after several labels, run `semantic-rerank` to inspect weak-keyword rescues, run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
+        "- For better ranking: run `ranking-eval` after several labels, run `semantic-rerank` to inspect weak-keyword rescues, run `embedding-check` before optional embedding rerank, run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
         "- For closer reading: use Zotero, explicit local PDF paths, or `fetch-pdf` for open PDF URLs with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
         "- For public support: run `privacy-check` first, then `support-bundle`, and review the redacted output before posting a GitHub issue.",
@@ -9667,6 +9774,16 @@ def build_parser() -> argparse.ArgumentParser:
     ranking_eval.add_argument("--strict", action="store_true", help="Exit non-zero unless the result is PASS")
     ranking_eval.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/ranking_evaluation.md")
     ranking_eval.set_defaults(func=ranking_eval_command)
+
+    embedding_check = sub.add_parser("embedding-check", aliases=["check-embedding"], help="Check local semantic rerank embedding backend readiness")
+    embedding_check.add_argument("--project-dir", type=Path, help="Project directory for default EMBEDDING_CHECK.md output")
+    embedding_check.add_argument("--backend", choices=["sparse", "sentence-transformers"], default="sparse", help="Backend to check")
+    embedding_check.add_argument("--embedding-model", help="sentence-transformers model name/path to check")
+    embedding_check.add_argument("--embedding-batch-size", type=int, default=32, help="Batch size for optional model load check")
+    embedding_check.add_argument("--load-model", action="store_true", help="Actually load the embedding model and encode sample text")
+    embedding_check.add_argument("--strict", action="store_true", help="Exit non-zero unless the requested backend is ready")
+    embedding_check.add_argument("--output", type=Path, help="Output markdown path. Defaults to project-dir/EMBEDDING_CHECK.md when --project-dir is set")
+    embedding_check.set_defaults(func=embedding_check_command)
 
     semantic_rerank = sub.add_parser("semantic-rerank", aliases=["rerank-semantic"], help="Rerank saved papers with local semantic similarity")
     semantic_rerank.add_argument("--profile", type=Path, required=True)

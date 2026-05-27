@@ -30,7 +30,7 @@ For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
 - Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `profiles/profile_doctor.md`, `knowledge_base/`.
-- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, semantic rerank, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, ask-library, advice, compare, map.
+- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, embedding check, semantic rerank, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -84,6 +84,7 @@ For users who want citation/PDF management.
 - A user can generate a ranking explanation report for one paper or a tier-filtered batch, including thresholds, matched terms, feedback status, stored reasons, and tuning moves.
 - A user can evaluate ranking quality after several feedback labels, with precision/recall at K, average precision, tier calibration, high-ranked archive false positives, and low-ranked interested missed positives.
 - A user can run local semantic reranking to inspect weak-keyword rescues and archive-like downranks, with a markdown report and reranked JSON. The default sparse backend requires no extra dependencies; an optional local `sentence-transformers` backend supports embedding reranking when the user installs it explicitly.
+- A user can run `embedding-check` before optional embedding rerank to verify dependency readiness, and only load the model when they explicitly pass `--load-model`.
 - A user can fetch explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata into `knowledge_base/pdfs/` without crawling paywalled publisher pages.
 - A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
@@ -106,6 +107,6 @@ For users who want citation/PDF management.
 ## Roadmap
 
 - Optional LLM review over extracted local full-text caches.
-- Model-cache controls and stronger defaults for optional embedding rerank backends.
+- Stronger model-cache guidance and local model-path examples for optional embedding rerank backends.
 - More demo scenarios with sanitized sample alerts, feedback, retained-library files, capability reports, and support-bundle outputs.
 - Optional PyPI release packaging after the GitHub install path is stable.

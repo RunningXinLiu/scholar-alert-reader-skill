@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.49 - 2026-05-28
+
+- Add `embedding-check` / `check-embedding` plus generated `embedding_check.sh` to verify semantic rerank backend readiness before a real run.
+- Keep embedding model loading opt-in through `--load-model`, so users can inspect dependencies without accidental model downloads.
+- Link the embedding check from generated guides, dashboards, capabilities, README, SKILL guidance, product notes, and tests.
+
 ## v0.2.48 - 2026-05-28
 
 - Add an optional `semantic-rerank --backend sentence-transformers` path for local embedding-based reranking while keeping `--backend sparse` as the zero-dependency default.
