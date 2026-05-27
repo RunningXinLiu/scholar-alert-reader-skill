@@ -1731,6 +1731,23 @@ SCHEDULE_TIME=09:00
             kb.mkdir()
             library = kb / "library.json"
             library.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            core.save_feedback(
+                core.default_feedback_file(kb),
+                {
+                    "papers": {
+                        "p1": {
+                            "id": "p1",
+                            "title": sample_paper()["title"],
+                            "url": sample_paper()["url"],
+                            "status": "interested",
+                            "reading_status": "reading",
+                            "labels": ["must-cite"],
+                            "note": "Useful comparison for the Taiwan manuscript.",
+                        }
+                    },
+                    "terms": [],
+                },
+            )
 
             deep = root / "deep.md"
             subprocess.run(
@@ -1751,7 +1768,10 @@ SCHEDULE_TIME=09:00
                 capture_output=True,
                 check=True,
             )
-            self.assertIn("Deep Read", deep.read_text(encoding="utf-8"))
+            deep_content = deep.read_text(encoding="utf-8")
+            self.assertIn("Deep Read", deep_content)
+            self.assertIn("Your Feedback", deep_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", deep_content)
 
             answer = root / "answer.md"
             subprocess.run(
@@ -1813,7 +1833,9 @@ SCHEDULE_TIME=09:00
                 capture_output=True,
                 check=True,
             )
-            self.assertIn("reading", (kb / "reading_status.md").read_text(encoding="utf-8"))
+            reading_status_content = (kb / "reading_status.md").read_text(encoding="utf-8")
+            self.assertIn("reading", reading_status_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", reading_status_content)
 
             reading_plan = root / "reading_plan.md"
             reading_plan_html = root / "reading_plan.html"
@@ -2130,6 +2152,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             workup_content = workup.read_text(encoding="utf-8")
             self.assertIn("Paper Workup", workup_content)
             self.assertIn("Decision Snapshot", workup_content)
+            self.assertIn("Personal Note", workup_content)
+            self.assertIn("Useful comparison for the Taiwan manuscript.", workup_content)
             self.assertIn("Possible Manuscript Role", workup_content)
             self.assertIn("What To Check Before Citing", workup_content)
             self.assertIn("Visual/data/code signals: Figures, Tables, Data Availability, Code / Software", workup_content)
@@ -2361,6 +2385,24 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
                 self.assertIn("Useful comparison for the Taiwan manuscript.", feedback["papers"]["p1"]["note"])
 
+                body = urllib.parse.urlencode({"paper_id": "p1", "action": "deep"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    html_body = response.read().decode("utf-8")
+                deep = kb / "analysis" / "p1_deep_read.md"
+                self.assertTrue(deep.exists())
+                self.assertIn("Saved feedback for p1: deep", html_body)
+                self.assertIn("/report?name=p1_deep_read.md", html_body)
+                with urllib.request.urlopen(f"{base_url}/report?name=p1_deep_read.md", timeout=5) as response:
+                    report_body = response.read().decode("utf-8")
+                self.assertIn("Your Feedback", report_body)
+                self.assertIn("Useful comparison for the Taiwan manuscript.", report_body)
+
                 body = urllib.parse.urlencode({"paper_id": "p1", "action": "workup"}).encode("utf-8")
                 request = urllib.request.Request(
                     f"{base_url}/feedback",
@@ -2378,6 +2420,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     report_body = response.read().decode("utf-8")
                 self.assertIn("Paper Workup", report_body)
                 self.assertIn("Decision Snapshot", report_body)
+                self.assertIn("Personal Note", report_body)
+                self.assertIn("Useful comparison for the Taiwan manuscript.", report_body)
 
                 body = urllib.parse.urlencode({"paper_id": "p1", "action": "review_pack"}).encode("utf-8")
                 request = urllib.request.Request(

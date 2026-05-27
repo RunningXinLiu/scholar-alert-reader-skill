@@ -527,6 +527,7 @@ def make_handler(config: ServerConfig):
                     kb_dir=config.kb_dir,
                     paper_id=paper_id,
                     papers_json=config.papers_json,
+                    feedback_file=feedback_file,
                 )
             elif action == "review_workflow":
                 workflow_report, _, workup_report, review_pack_report = core.write_review_workflow_report(
@@ -542,6 +543,7 @@ def make_handler(config: ServerConfig):
                     kb_dir=config.kb_dir,
                     paper_id=paper_id,
                     papers_json=config.papers_json,
+                    feedback_file=feedback_file,
                 )
             elif action == "review_pack":
                 review_pack_report, _, _ = core.write_review_context_pack_report(
@@ -549,6 +551,7 @@ def make_handler(config: ServerConfig):
                     kb_dir=config.kb_dir,
                     paper_id=paper_id,
                     papers_json=config.papers_json,
+                    feedback_file=feedback_file,
                 )
 
             papers = core.load_papers_json(config.papers_json)

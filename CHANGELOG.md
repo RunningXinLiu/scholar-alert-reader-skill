@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.56 - 2026-05-28
+
+- Carry saved personal reading notes into selected-paper `deep-read`, `workup`, and `reading_status.md` reports.
+- Add `deep-read --feedback-file` while still loading `knowledge_base/feedback.json` by default.
+- Make local feedback-UI deep-read/workup/review-pack actions pass the current feedback file explicitly.
+
 ## v0.2.55 - 2026-05-28
 
 - Add personal note entry and display to each paper card in the local feedback UI.

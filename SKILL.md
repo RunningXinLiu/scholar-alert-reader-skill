@@ -339,7 +339,7 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
-The browser UI can mark papers, show and filter current feedback/reading-status badges, save personal reading notes, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` links.
+The browser UI can mark papers, show and filter current feedback/reading-status badges, save personal reading notes, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, update reading labels, mark papers as `Background only` or `Not relevant`, and open generated markdown reports through local `/report?name=...` links. Saved notes are included in reading-status, deep-read, and workup reports.
 
 Suggest profile updates from accumulated feedback:
 
@@ -361,7 +361,7 @@ python3 scripts/scholar_reader.py deep-read \
   --paper-id <ID>
 ```
 
-When `knowledge_base/analysis/<paper-id>_full_text_brief.md` exists, `deep-read` includes a local full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. Use `--full-text-brief-path` and `--full-text-path` for custom caches.
+When `knowledge_base/analysis/<paper-id>_full_text_brief.md` exists, `deep-read` includes a local full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. It loads `knowledge_base/feedback.json` by default, so saved reading status, labels, and personal notes appear in the report. Use `--feedback-file`, `--full-text-brief-path`, and `--full-text-path` for custom files.
 
 Extract local PDF/text content and write a section-aware full-text brief:
 

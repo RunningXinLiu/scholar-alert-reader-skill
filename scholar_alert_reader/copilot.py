@@ -146,6 +146,22 @@ def reading_labels(record: dict[str, Any], feedback: dict[str, Any] | None) -> l
     return []
 
 
+def feedback_note(record: dict[str, Any], feedback: dict[str, Any] | None, limit: int = 1200) -> str:
+    note = str(feedback_record(record, feedback).get("note", "") or "").strip()
+    if not note:
+        return ""
+    if limit <= 0 or len(note) <= limit:
+        return note
+    return note[:limit].rstrip() + f"\n\n[Truncated to {limit} characters.]"
+
+
+def feedback_note_summary(record: dict[str, Any], feedback: dict[str, Any] | None, limit: int = 280) -> str:
+    note = " ".join(feedback_note(record, feedback, limit=limit + 80).split())
+    if limit <= 0 or len(note) <= limit:
+        return note
+    return note[:limit].rstrip() + "..."
+
+
 def top_counter(values: list[str], limit: int) -> list[tuple[str, int]]:
     return Counter(value for value in values if value).most_common(limit)
 
@@ -223,6 +239,7 @@ def render_deep_read(
     target: dict[str, Any],
     library: list[dict[str, Any]],
     profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
     limit: int = 12,
     full_text_brief: str = "",
     full_text_brief_path: Path | None = None,
@@ -236,6 +253,9 @@ def render_deep_read(
     reasons = [str(reason) for reason in target.get("reasons", []) if str(reason).strip()]
     brief_snapshot = full_text_brief_snapshot(full_text_brief) if full_text_brief else {}
     brief_excerpt = limited_text(full_text_brief, max_full_text_brief_chars) if full_text_brief else ""
+    target_feedback = feedback_record(target, feedback)
+    target_labels = reading_labels(target, feedback)
+    target_note = feedback_note(target, feedback)
 
     lines = [
         f"# Deep Read: {text(target.get('title', 'Untitled'))}",
@@ -248,13 +268,31 @@ def render_deep_read(
         f"- Directions: {', '.join(directions) if directions else 'uncategorized'}",
         f"- Matched terms: {', '.join(matched) if matched else 'none'}",
         "",
-        "## Working Take",
-        "",
-        "This is a retrieval-based reading brief from Scholar Alert metadata, your profile, and your local foundation. It should be treated as a triage and discussion scaffold until the full paper is read.",
-        "",
-        "## Why It Matters For Your Library",
-        "",
     ]
+    if target_feedback or target_labels or target_note:
+        lines.extend(
+            [
+                "## Your Feedback",
+                "",
+                f"- Feedback status: `{target_feedback.get('status', 'neutral')}`" if target_feedback else "- Feedback status: `none`",
+                f"- Reading status: `{reading_status(target, feedback)}`",
+            ]
+        )
+        if target_labels:
+            lines.append("- Labels: " + ", ".join(f"`{label}`" for label in target_labels))
+        if target_note:
+            lines.extend(["", "### Personal Note", "", target_note])
+        lines.append("")
+    lines.extend(
+        [
+            "## Working Take",
+            "",
+            "This is a retrieval-based reading brief from Scholar Alert metadata, your profile, and your local foundation. It should be treated as a triage and discussion scaffold until the full paper is read.",
+            "",
+            "## Why It Matters For Your Library",
+            "",
+        ]
+    )
     if profile_hits:
         lines.append("- Directly overlaps profile terms: " + ", ".join(profile_hits[:12]))
     if reasons:
@@ -615,6 +653,9 @@ def render_paper_workup(
     profile_hits = [term for term in profile_terms(profile) if term.lower() in record_text(target).lower()]
     reasons = [str(reason) for reason in target.get("reasons", []) if str(reason).strip()]
     brief_snapshot = full_text_brief_snapshot(full_text_brief) if full_text_brief else {}
+    target_feedback = feedback_record(target, feedback)
+    target_labels = reading_labels(target, feedback)
+    target_note = feedback_note(target, feedback)
     recommendation, recommendation_reasons = workup_recommendation(
         target,
         feedback,
@@ -639,7 +680,14 @@ def render_paper_workup(
         "",
     ]
     lines.extend(f"- {reason}" for reason in recommendation_reasons)
+    if target_feedback or target_labels or target_note:
+        lines.append(f"- Feedback status: `{target_feedback.get('status', 'neutral')}`" if target_feedback else "- Feedback status: `none`")
+        lines.append(f"- Reading status: `{reading_status(target, feedback)}`")
+        if target_labels:
+            lines.append("- Labels: " + ", ".join(f"`{label}`" for label in target_labels))
     lines.append("")
+    if target_note:
+        lines.extend(["## Personal Note", "", target_note, ""])
 
     lines.extend(["## Why It Matches Your Research Memory", ""])
     if profile_hits:
@@ -1069,6 +1117,9 @@ def render_reading_status(records: list[dict[str, Any]], feedback: dict[str, Any
             labels = reading_labels(record, feedback)
             suffix = f" labels: {', '.join(labels)}" if labels else ""
             lines.append(paper_line(record) + suffix)
+            note = feedback_note_summary(record, feedback)
+            if note:
+                lines.append(f"  - Note: {note}")
         if len(items) > 80:
             lines.append(f"- ... {len(items) - 80} more")
         lines.append("")
@@ -1078,6 +1129,9 @@ def render_reading_status(records: list[dict[str, Any]], feedback: dict[str, Any
         lines.extend([f"## {status} ({len(items)})", ""])
         for record in items[:80]:
             lines.append(paper_line(record))
+            note = feedback_note_summary(record, feedback)
+            if note:
+                lines.append(f"  - Note: {note}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 

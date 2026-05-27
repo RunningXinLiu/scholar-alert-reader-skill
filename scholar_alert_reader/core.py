@@ -7420,6 +7420,7 @@ def write_deep_read_report(
     paper_id: str | None = None,
     title: str | None = None,
     papers_json: Path | None = None,
+    feedback_file: Path | None = None,
     output: Path | None = None,
     limit: int = 12,
     full_text_path: Path | None = None,
@@ -7429,6 +7430,7 @@ def write_deep_read_report(
     from .copilot import render_deep_read
 
     profile = load_profile(profile_path)
+    feedback = load_feedback(feedback_file or default_feedback_file(kb_dir))
     library_records = paper_records_from_library(kb_dir)
     records = merged_paper_records(kb_dir, papers_json)
     target = select_paper_record(records, paper_id, title)
@@ -7448,6 +7450,7 @@ def write_deep_read_report(
             target,
             library_records,
             profile,
+            feedback=feedback,
             limit=limit,
             full_text_brief=full_text_brief,
             full_text_brief_path=actual_full_text_brief_path,
@@ -7465,6 +7468,7 @@ def deep_read_command(args: argparse.Namespace) -> None:
         paper_id=args.paper_id,
         title=args.title,
         papers_json=args.papers_json,
+        feedback_file=args.feedback_file,
         output=args.output,
         limit=args.limit,
         full_text_path=args.full_text_path,
@@ -9811,6 +9815,7 @@ def build_parser() -> argparse.ArgumentParser:
     deep.add_argument("--profile", type=Path, required=True)
     deep.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
     deep.add_argument("--papers-json", type=Path, help="Optional digest papers.json to select a paper that is not yet retained")
+    deep.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
     deep.add_argument("--paper-id", help="Paper ID from a digest or paper note")
     deep.add_argument("--title", help="Case-insensitive title substring")
     deep.add_argument("--limit", type=int, default=12, help="Related foundation papers to include")
