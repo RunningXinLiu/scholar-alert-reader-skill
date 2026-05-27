@@ -79,7 +79,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/comparisons/*.md`: side-by-side paper comparisons.
 - `knowledge_base/research_map.md`: topic clusters and representative papers.
 - `knowledge_base/zotero/`: Zotero-ready BibTeX/RIS files.
-- `knowledge_base/obsidian/`: Obsidian-ready Markdown dashboard, paper notes, maps, reading status, library answers, comparisons, and deep reads. In a real vault, sync it into a generated folder such as `01_Literatures/10_Scholar_Alert_Reader/`.
+- `knowledge_base/obsidian/`: Obsidian-ready Markdown dashboard, paper notes, maps, reading status, library answers, comparisons, deep reads, and generated answer/comparison/analysis indexes. In a real vault, sync it into a generated folder such as `01_Literatures/10_Scholar_Alert_Reader/`.
 
 `zotero-sync` can read a Better BibTeX/BibTeX export back into `knowledge_base/library.json` so retained papers keep Zotero citation keys, item keys, and local PDF paths under `metadata.zotero`.
 
@@ -562,7 +562,7 @@ python3 scripts/scholar_reader.py obsidian \
   --vault-dir "~/Documents/Obsidian Vault/01_Literatures/10_Scholar_Alert_Reader"
 ```
 
-The Obsidian export is generated content. Prefer syncing it into a dedicated folder such as `01_Literatures/10_Scholar_Alert_Reader/`; keep user-authored reading notes, topic synthesis, and writing drafts in sibling folders so reruns never overwrite personal notes.
+The Obsidian export is generated content. The dashboard links generated indexes for answers, comparisons, and analysis reports. Prefer syncing it into a dedicated folder such as `01_Literatures/10_Scholar_Alert_Reader/`; keep user-authored reading notes, topic synthesis, and writing drafts in sibling folders so reruns never overwrite personal notes.
 
 Enrich retained papers and write a weekly review:
 

@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.65`
+Version: `0.2.66`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -140,7 +140,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
 - Adds a literature-copilot layer: selected-paper metadata briefs, one-command paper review workflows, human-readable paper workups, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
 - Fetches explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata into local files before full-text extraction.
-- Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
+- Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes with generated dashboard/index pages while keeping both tools optional.
 
 ## Capability Boundary
 
@@ -804,7 +804,7 @@ python3 scripts/scholar_reader.py obsidian \
   --vault-dir "~/Documents/Obsidian Vault/01_Literatures/10_Scholar_Alert_Reader"
 ```
 
-The Obsidian export is structured as `00_Dashboard/`, `01_Papers/`, `02_Maps/`, `03_Reading/`, `04_Answers/`, `05_Comparisons/`, and `06_Deep_Reads/` inside the target folder. Keep that generated folder separate from user-written reading notes and topic notes.
+The Obsidian export is structured as `00_Dashboard/`, `01_Papers/`, `02_Maps/`, `03_Reading/`, `04_Answers/`, `05_Comparisons/`, and `06_Deep_Reads/` inside the target folder. The dashboard links generated index notes for answers, comparisons, and analysis reports so synced folders are browsable without searching the filesystem. Keep that generated folder separate from user-written reading notes and topic notes.
 
 Project scaffolds also provide `./status_reader.sh`, `./compare_papers.sh`, `./map_reader.sh`, `./zotero_export.sh`, `./zotero_sync.sh`, `./obsidian_export.sh`, and `./sync_obsidian_vault.sh`.
 

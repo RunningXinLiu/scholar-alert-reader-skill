@@ -1526,10 +1526,12 @@ def render_obsidian_index(records: list[dict[str, Any]], feedback: dict[str, Any
         "",
         "## Navigation",
         "",
-        "- [[Research Map]]",
-        "- [[Reading Status]]",
+        "- [[02_Maps/Research Map|Research Map]]",
+        "- [[03_Reading/Reading Status|Reading Status]]",
+        "- [[04_Answers/Answer Index|Library And Paper Answers]]",
+        "- [[05_Comparisons/Comparison Index|Paper Comparisons]]",
+        "- [[06_Deep_Reads/Analysis Index|Deep Reads And Review Reports]]",
         "- Paper notes live in `01_Papers/`.",
-        "- Deep reads, library answers, and comparisons are synced into sibling generated folders.",
         "- User-written synthesis should live outside this generated folder.",
         "",
         "## Status",
@@ -1542,4 +1544,33 @@ def render_obsidian_index(records: list[dict[str, Any]], feedback: dict[str, Any
     for record in sorted(records, key=lambda item: (-int(item.get("score", 0) or 0), text(item.get("title")).lower())):
         lines.append(f"- [[{obsidian_note_name(record)}]]")
     lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_obsidian_output_index(title: str, description: str, copied_files: list[Path]) -> str:
+    lines = [
+        f"# {title}",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Files: {len(copied_files)}",
+        "",
+        description,
+        "",
+        "## Files",
+        "",
+    ]
+    if copied_files:
+        for path in sorted(copied_files, key=lambda item: item.name.lower()):
+            lines.append(f"- [[{path.stem}]] (`{path.name}`)")
+    else:
+        lines.append("- No generated files copied yet.")
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            "These notes are generated from local Scholar Alert Reader outputs. Keep your own synthesis in separate hand-written Obsidian notes so reruns can safely replace this generated folder.",
+            "",
+        ]
+    )
     return "\n".join(lines).rstrip() + "\n"

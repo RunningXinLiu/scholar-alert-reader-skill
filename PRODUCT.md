@@ -48,6 +48,7 @@ For users who want notes in a local vault.
 - Generated area: `10_Scholar_Alert_Reader/`.
 - User-owned areas: reading notes, topic notes, writing drafts.
 - Rule: generated export folders can be refreshed; user-written notes should live outside them.
+- Generated dashboard links answer, comparison, and analysis indexes so exported folders are navigable inside Obsidian.
 
 ### Zotero optional
 
@@ -94,6 +95,7 @@ For users who want citation/PDF management.
 - A user can trigger selected-paper deep-read/full-review/workup/review-pack reports from the local feedback UI, see and filter current feedback/reading-status badges, save personal reading notes that carry into deep-read/workup/reading-status reports, knowledge-base paper pages, and Obsidian paper notes, mark papers as background-only or not-relevant after reading, and open generated markdown reports from local browser links.
 - A browser UI user can ask a question against the retained library and current digest, generate an answer report under `knowledge_base/answers/`, and open it through a safe local route.
 - A browser UI user can open a one-paper workspace from a digest card and ask a selected-paper question that compares that paper against the retained foundation, interested papers, reading labels, and saved personal notes.
+- An Obsidian export user can open dashboard-linked generated indexes for answers, comparisons, and analysis reports instead of browsing copied markdown files manually.
 - A user can see saved feedback status, reading labels, and personal note excerpts in `foundation.md`, `interested.md`, and direction-specific indexes, so the main knowledge-base entry points reflect the user's own reading memory.
 - A user can mark feedback or reading status from CLI or browser UI and immediately get refreshed `reading_plan.md/html`; when the project root can be inferred, `DASHBOARD.md/html` is refreshed too.
 - A browser UI user can open refreshed reading plan, dashboard, foundation, interested queue, reading status, weekly review, and generated reports from local allowlisted links without browsing the file tree.

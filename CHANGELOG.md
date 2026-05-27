@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.66 - 2026-05-28
+
+- Add generated Obsidian index notes for library/paper answers, comparisons, and analysis reports so exported vault folders are navigable.
+- Link those generated indexes from the Obsidian dashboard.
+- Keep copied answer/comparison/deep-read counts in the Obsidian export output while retaining the copied file list for index rendering.
+
 ## v0.2.65 - 2026-05-28
 
 - Add a browser paper workspace at `/paper?id=...` so users can focus on one selected digest paper without losing feedback/report controls.

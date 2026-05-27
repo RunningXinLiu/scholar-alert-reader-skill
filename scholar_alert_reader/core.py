@@ -9357,6 +9357,7 @@ def obsidian_export_command(args: argparse.Namespace) -> None:
     from .copilot import (
         obsidian_note_name,
         render_obsidian_index,
+        render_obsidian_output_index,
         render_obsidian_paper,
         render_reading_status,
         render_research_map,
@@ -9392,21 +9393,46 @@ def obsidian_export_command(args: argparse.Namespace) -> None:
     copied_answers = copy_markdown_outputs(kb_dir / "answers", answers_dir)
     copied_comparisons = copy_markdown_outputs(kb_dir / "comparisons", comparisons_dir)
     copied_deep_reads = copy_markdown_outputs(kb_dir / "analysis", deep_reads_dir)
+    (answers_dir / "Answer Index.md").write_text(
+        render_obsidian_output_index(
+            "Library And Paper Answers",
+            "Generated answers from library-wide questions and selected-paper workspaces.",
+            copied_answers,
+        ),
+        encoding="utf-8",
+    )
+    (comparisons_dir / "Comparison Index.md").write_text(
+        render_obsidian_output_index(
+            "Paper Comparisons",
+            "Generated side-by-side paper comparisons.",
+            copied_comparisons,
+        ),
+        encoding="utf-8",
+    )
+    (deep_reads_dir / "Analysis Index.md").write_text(
+        render_obsidian_output_index(
+            "Deep Reads And Review Reports",
+            "Generated deep reads, full-text briefs, workups, review workflows, review packs, and ranking reports.",
+            copied_deep_reads,
+        ),
+        encoding="utf-8",
+    )
     print(f"Obsidian export: {vault_dir}")
     print(f"Paper notes: {len(records)}")
-    print(f"Copied answers: {copied_answers}")
-    print(f"Copied comparisons: {copied_comparisons}")
-    print(f"Copied deep reads: {copied_deep_reads}")
+    print(f"Copied answers: {len(copied_answers)}")
+    print(f"Copied comparisons: {len(copied_comparisons)}")
+    print(f"Copied deep reads: {len(copied_deep_reads)}")
 
 
-def copy_markdown_outputs(source_dir: Path, target_dir: Path) -> int:
+def copy_markdown_outputs(source_dir: Path, target_dir: Path) -> list[Path]:
     if not source_dir.exists():
-        return 0
-    count = 0
+        return []
+    copied: list[Path] = []
     for source in sorted(source_dir.glob("*.md")):
-        shutil.copy2(source, target_dir / source.name)
-        count += 1
-    return count
+        target = target_dir / source.name
+        shutil.copy2(source, target)
+        copied.append(target)
+    return copied
 
 
 def doctor_command(args: argparse.Namespace) -> None:

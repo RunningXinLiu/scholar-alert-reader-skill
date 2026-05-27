@@ -2355,6 +2355,18 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("ambient noise tomography", queued_pack)
             self.assertIn("Local Full-Text Brief", queued_pack)
             self.assertIn("Visual, Table, Data, And Code Signals", queued_pack)
+            answers_dir = kb / "answers"
+            answers_dir.mkdir(parents=True, exist_ok=True)
+            (answers_dir / "2026-05-28_p1_selected_answer.md").write_text(
+                "# Selected Paper Answer\n\nUseful selected-paper answer.",
+                encoding="utf-8",
+            )
+            comparisons_dir = kb / "comparisons"
+            comparisons_dir.mkdir(parents=True, exist_ok=True)
+            (comparisons_dir / "2026-05-28_p1_vs_p2.md").write_text(
+                "# Paper Comparison\n\nUseful comparison.",
+                encoding="utf-8",
+            )
 
             obsidian_dir = root / "obsidian"
             subprocess.run(
@@ -2380,8 +2392,18 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertTrue((obsidian_dir / "04_Answers").exists())
             self.assertTrue((obsidian_dir / "05_Comparisons").exists())
             self.assertTrue((obsidian_dir / "06_Deep_Reads").exists())
+            self.assertTrue((obsidian_dir / "04_Answers" / "Answer Index.md").exists())
+            self.assertTrue((obsidian_dir / "05_Comparisons" / "Comparison Index.md").exists())
+            self.assertTrue((obsidian_dir / "06_Deep_Reads" / "Analysis Index.md").exists())
             dashboard_note = (obsidian_dir / "00_Dashboard" / "Scholar Alert Dashboard.md").read_text(encoding="utf-8")
             self.assertIn("Personal notes: 1", dashboard_note)
+            self.assertIn("[[04_Answers/Answer Index|Library And Paper Answers]]", dashboard_note)
+            answer_index = (obsidian_dir / "04_Answers" / "Answer Index.md").read_text(encoding="utf-8")
+            self.assertIn("[[2026-05-28_p1_selected_answer]]", answer_index)
+            comparison_index = (obsidian_dir / "05_Comparisons" / "Comparison Index.md").read_text(encoding="utf-8")
+            self.assertIn("[[2026-05-28_p1_vs_p2]]", comparison_index)
+            analysis_index = (obsidian_dir / "06_Deep_Reads" / "Analysis Index.md").read_text(encoding="utf-8")
+            self.assertIn("[[p1_review_pack]]", analysis_index)
             paper_note = next((obsidian_dir / "01_Papers").glob("*.md"))
             note = paper_note.read_text(encoding="utf-8")
             self.assertIn('citation_key: "zoteroAmbient2026"', note)
