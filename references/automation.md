@@ -80,6 +80,16 @@ ZOTERO_BIBTEX_PATH=~/Downloads/My_Library.bib ./zotero_sync.sh
 
 The sync matches retained papers by DOI first and normalized title second. Keep the exported `zotero.bib` private because it may expose local file paths.
 
+## Local Full-text Briefs
+
+After Zotero read-back has added local PDF paths, generate a local full-text cache and brief for one retained paper:
+
+```bash
+./full_text_paper.sh --paper-id <ID>
+```
+
+The command uses local files only. It tries `pdftotext`, then optional Python PDF libraries, and can also accept a text export through `--pdf-path`. Treat the generated text cache as private research material.
+
 ## RSS/Atom And arXiv
 
 Best fallback when the user wants structured web monitoring without maintaining Gmail or Zotero. Prefer RSS/Atom feeds and the arXiv public Atom API over arbitrary webpage scraping.

@@ -2990,6 +2990,7 @@ exec "${cmd[@]}"
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
         "serve_recent.sh": 'PAPERS_JSON="${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" exec "$PROJECT_DIR/serve_reader.sh" "$@"\n',
         "deep_read_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "full_text_paper.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ask_library.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "advice_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "guide_reader.sh": 'exec "$PYTHON_BIN" "$SKILL_SCRIPT" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
@@ -3113,6 +3114,7 @@ exec "${cmd[@]}"
                     "",
                     "```bash",
                     "./deep_read_paper.sh --paper-id <ID>",
+                    "./full_text_paper.sh --paper-id <ID>",
                     "./ask_library.sh --question \"receiver function + Tibet 有什么关键论文？\"",
                     "./advice_reader.sh",
                     "```",
@@ -4130,7 +4132,7 @@ def merged_paper_records(kb_dir: Path, papers_json: Path | None = None) -> list[
         paper_id = str(record.get("id", ""))
         if paper_id:
             records_by_id[paper_id] = record
-    if papers_json:
+    if papers_json and papers_json.exists():
         for record in load_paper_records(papers_json):
             paper_id = str(record.get("id", ""))
             if paper_id:
@@ -4212,6 +4214,26 @@ def deep_read_command(args: argparse.Namespace) -> None:
         limit=args.limit,
     )
     print(f"Deep-read report: {output}")
+
+
+def full_text_command(args: argparse.Namespace) -> None:
+    from .fulltext import extract_local_text, first_full_text_path, render_full_text_brief
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    target = select_paper_record(records, args.paper_id, args.title)
+    source_path = first_full_text_path(target, args.pdf_path)
+    extracted = extract_local_text(source_path, max_chars=args.max_chars, timeout=args.timeout)
+    stem = str(target.get("id", "paper") or "paper")
+    text_output = args.text_output or (kb_dir / "full_text" / f"{stem}.txt")
+    report_output = args.output or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
+    write_report(text_output, extracted.text)
+    write_report(report_output, render_full_text_brief(target, extracted, profile, text_output))
+    print(f"Full-text source: {source_path}")
+    print(f"Extraction method: {extracted.method}")
+    print(f"Text cache: {text_output}")
+    print(f"Full-text brief: {report_output}")
 
 
 def ask_library_command(args: argparse.Namespace) -> None:
@@ -4647,6 +4669,19 @@ def build_parser() -> argparse.ArgumentParser:
     deep.add_argument("--limit", type=int, default=12, help="Related foundation papers to include")
     deep.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_deep_read.md")
     deep.set_defaults(func=deep_read_command)
+
+    full_text = sub.add_parser("full-text", help="Extract local PDF/text content and write a full-text reading brief")
+    full_text.add_argument("--profile", type=Path, required=True)
+    full_text.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    full_text.add_argument("--papers-json", type=Path, help="Optional digest papers.json to select a paper that is not yet retained")
+    full_text.add_argument("--paper-id", help="Paper ID from a digest or paper note")
+    full_text.add_argument("--title", help="Case-insensitive title substring")
+    full_text.add_argument("--pdf-path", type=Path, help="Explicit local PDF/text path. Defaults to metadata.zotero.pdf_paths")
+    full_text.add_argument("--max-chars", type=int, default=120000, help="Maximum extracted text characters to cache")
+    full_text.add_argument("--timeout", type=int, default=30, help="PDF extraction timeout in seconds")
+    full_text.add_argument("--text-output", type=Path, help="Output text cache. Defaults to kb-dir/full_text/<paper-id>.txt")
+    full_text.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md")
+    full_text.set_defaults(func=full_text_command)
 
     ask = sub.add_parser("ask", help="Ask a question against the retained local literature library")
     ask.add_argument("--profile", type=Path, required=True)

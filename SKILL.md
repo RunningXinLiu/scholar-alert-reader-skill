@@ -50,6 +50,8 @@ Capability boundary: ranking and literature-copilot commands are currently based
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
 - `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation.
+- `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
+- `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief for a selected paper.
 - `knowledge_base/answers/*.md`: local-library answers to user research questions.
 - `knowledge_base/research_advice.md`: gap and reading-strategy advice from retained/interested papers.
 - `knowledge_base/reading_status.md`: reading tracker grouped by status.
@@ -232,6 +234,15 @@ python3 scripts/scholar_reader.py deep-read \
   --profile profiles/research_profile.json \
   --kb-dir knowledge_base \
   --papers-json out/recent/papers.json \
+  --paper-id <ID>
+```
+
+Extract local PDF/text content and write a full-text brief:
+
+```bash
+python3 scripts/scholar_reader.py full-text \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
   --paper-id <ID>
 ```
 

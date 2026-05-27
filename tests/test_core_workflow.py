@@ -124,6 +124,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
             self.assertTrue((project / "zotero_sync.sh").exists())
+            self.assertTrue((project / "full_text_paper.sh").exists())
             self.assertTrue((project / "START_HERE.md").exists())
             self.assertIn("reader.env", (project / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("zotero.bib", (project / ".gitignore").read_text(encoding="utf-8"))
@@ -639,6 +640,50 @@ ER  -
             self.assertIn(str(pdf_path), zotero_meta["pdf_paths"])
             self.assertIn("Matched papers: 1", sync_report.read_text(encoding="utf-8"))
             self.assertIn("Citation key: zoteroAmbient2026", (kb / "papers" / "p1.md").read_text(encoding="utf-8"))
+
+            full_text_source = root / "ambient_full_text.txt"
+            full_text_source.write_text(
+                """
+Abstract
+This study uses ambient noise tomography and uncertainty quantification to image the Taiwan crust.
+
+Methods
+We measure seismic surface wave dispersion from continuous waveform data and invert for crustal structure.
+
+Conclusions
+The results show a robust low velocity zone and demonstrate how ambient noise tomography can constrain tectonic interpretation.
+""".strip(),
+                encoding="utf-8",
+            )
+            full_text_report = root / "full_text.md"
+            full_text_cache = root / "full_text.txt"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "full-text",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--pdf-path",
+                    str(full_text_source),
+                    "--text-output",
+                    str(full_text_cache),
+                    "--output",
+                    str(full_text_report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("ambient noise tomography", full_text_cache.read_text(encoding="utf-8"))
+            full_text_content = full_text_report.read_text(encoding="utf-8")
+            self.assertIn("Full-Text Brief", full_text_content)
+            self.assertIn("Profile Overlap", full_text_content)
+            self.assertIn("Methods Excerpt", full_text_content)
 
             obsidian_dir = root / "obsidian"
             subprocess.run(

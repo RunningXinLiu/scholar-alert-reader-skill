@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.4 - 2026-05-27
+
+- Add `full-text` / generated `full_text_paper.sh` for local PDF/text extraction and full-text reading briefs.
+- Cache extracted text under `knowledge_base/full_text/` and write briefs under `knowledge_base/analysis/`.
+- Support `pdftotext`, optional Python PDF libraries, and plain text/Markdown exports with graceful errors when tooling is missing.
+
 ## v0.2.3 - 2026-05-27
 
 - Add `zotero-sync` / generated `zotero_sync.sh` to read Better BibTeX/BibTeX metadata back into retained papers.

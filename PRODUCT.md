@@ -20,7 +20,7 @@ Turn scattered paper alerts, bibliography exports, and structured web feeds into
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, deep-read briefs, Q&A, comparisons, maps, and advice use metadata, snippets, bibliography fields, profile terms, feedback, and retained-library context. They do not yet automatically download and read complete PDFs, so public copy should not promise full-paper understanding until that pipeline exists.
+Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, and advice use metadata, snippets, bibliography fields, profile terms, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and brief when the user provides a local file path, but public copy should still describe this as a reading scaffold rather than autonomous expert full-paper review.
 
 ## User Tiers
 
@@ -54,8 +54,9 @@ For users who want citation/PDF management.
 
 - Export: BibTeX and RIS from retained papers.
 - Read-back: Better BibTeX/BibTeX exports can add citation keys, Zotero item keys, and local PDF paths back into retained papers.
+- Full-text scaffold: local PDF/text paths can be extracted into text caches and brief reports.
 - Obsidian paper notes include citation-oriented frontmatter such as `citation_key`, `doi`, `year`, and `journal`.
-- Future direction: use synced local PDF paths for full-text parsing and deep-read reports.
+- Future direction: add stronger section-aware parsing and optional LLM review over extracted local text.
 
 ## Product Requirements
 
@@ -75,6 +76,6 @@ For users who want citation/PDF management.
 ## Roadmap
 
 - Interactive setup prompts layered on top of the current non-interactive `setup` command.
-- PDF full-text deep-read when a local Zotero PDF is available.
+- Better section-aware parsing for extracted local PDF text.
 - More demo scenarios with sanitized sample alerts, feedback, and retained-library files.
 - Release packaging with a versioned changelog and minimal public sample profile.

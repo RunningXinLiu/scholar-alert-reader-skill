@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, and structured web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.3`
+Version: `0.2.4`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -373,6 +373,17 @@ python3 scripts/scholar_reader.py deep-read \
 
 Capability boundary: `deep-read`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, feedback, and the retained local library. They are designed for triage and research planning. Current releases do not automatically download and read full PDFs, so use the deep-read output as a scaffold before final citation or manuscript decisions.
 
+If a local PDF path has been synced from Zotero, extract text and write a full-text brief:
+
+```bash
+python3 scripts/scholar_reader.py full-text \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --paper-id <ID>
+```
+
+`full-text` uses local files only. It tries `pdftotext` first, then optional Python PDF libraries (`pypdf` / `PyPDF2`), and also accepts `.txt` / `.md` text exports through `--pdf-path`. It writes `knowledge_base/full_text/<paper-id>.txt` and `knowledge_base/analysis/<paper-id>_full_text_brief.md`.
+
 Ask a question against the local literature base:
 
 ```bash
@@ -453,7 +464,7 @@ python3 scripts/scholar_reader.py obsidian \
 
 The Obsidian export is structured as `00_Dashboard/`, `01_Papers/`, `02_Maps/`, `03_Reading/`, `04_Answers/`, `05_Comparisons/`, and `06_Deep_Reads/` inside the target folder. Keep that generated folder separate from user-written reading notes and topic notes.
 
-Project scaffolds also provide `./status_reader.sh`, `./compare_papers.sh`, `./map_reader.sh`, `./zotero_export.sh`, `./zotero_sync.sh`, `./obsidian_export.sh`, and `./sync_obsidian_vault.sh`.
+Project scaffolds also provide `./status_reader.sh`, `./compare_papers.sh`, `./map_reader.sh`, `./zotero_export.sh`, `./zotero_sync.sh`, `./full_text_paper.sh`, `./obsidian_export.sh`, and `./sync_obsidian_vault.sh`.
 
 Check input-source readiness without running the full workflow:
 
@@ -556,5 +567,6 @@ Do not commit:
 - `reader.env`
 - `seen_papers.json`
 - `feedback.json`
+- generated `knowledge_base/full_text/` text caches
 - generated `out/`
 - generated `knowledge_base/`
