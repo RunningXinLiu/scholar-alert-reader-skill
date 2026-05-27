@@ -151,6 +151,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
             self.assertTrue((project / "zotero_sync.sh").exists())
+            self.assertTrue((project / "workup_paper.sh").exists())
             self.assertTrue((project / "full_text_paper.sh").exists())
             self.assertTrue((project / "review_paper.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
@@ -1444,6 +1445,37 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Local Full Text", review_pack_content)
             self.assertIn("ambient noise tomography", review_pack_content)
 
+            workup = root / "workup.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "workup",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--full-text-path",
+                    str(full_text_cache),
+                    "--full-text-brief-path",
+                    str(full_text_report),
+                    "--output",
+                    str(workup),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            workup_content = workup.read_text(encoding="utf-8")
+            self.assertIn("Paper Workup", workup_content)
+            self.assertIn("Decision Snapshot", workup_content)
+            self.assertIn("Possible Manuscript Role", workup_content)
+            self.assertIn("What To Check Before Citing", workup_content)
+            self.assertIn("Visual/data/code signals: Figures, Tables, Data Availability, Code / Software", workup_content)
+            self.assertIn("review-pack", workup_content)
+
             default_full_text_dir = kb / "full_text"
             default_full_text_dir.mkdir(parents=True, exist_ok=True)
             (default_full_text_dir / "p1.txt").write_text(full_text_cache.read_text(encoding="utf-8"), encoding="utf-8")
@@ -1519,6 +1551,51 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn('citation_key: "zoteroAmbient2026"', note)
             self.assertIn('doi: "10.0000/test"', note)
             self.assertIn(str(pdf_path), note)
+
+    def test_workup_accepts_loose_library_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = root / "kb"
+            kb.mkdir()
+            (kb / "library.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": "loose1",
+                            "title": "Ambient noise tomography of the Taiwan crust",
+                            "snippet": "A loose imported record with enough metadata for a workup.",
+                            "score": 18,
+                            "tier": "Skim",
+                            "matched_terms": ["ambient noise", "tomography"],
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            output = root / "loose_workup.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "workup",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "loose1",
+                    "--output",
+                    str(output),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = output.read_text(encoding="utf-8")
+            self.assertIn("Paper Workup", content)
+            self.assertIn("Decision Snapshot", content)
 
 
 if __name__ == "__main__":

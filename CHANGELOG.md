@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.36 - 2026-05-28
+
+- Add `workup` / generated `workup_paper.sh` for a selected-paper decision brief against the user's foundation, feedback, full-text brief, and possible manuscript role.
+- Surface the workup flow in the project dashboard, START_HERE guide, README, SKILL, and capability report.
+- Add regression coverage for generated workup scripts and workup report content.
+
 ## v0.2.35 - 2026-05-28
 
 - Add `schedule` / generated `schedule_reader.sh` to render, install, inspect, and uninstall macOS LaunchAgent schedules from `reader.env`.

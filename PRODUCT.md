@@ -20,7 +20,7 @@ Turn scattered paper alerts, bibliography exports, structured scholarly webpages
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and section-aware brief with figure, table, data, and code signals when the user provides a local file path. `review-pack` turns the selected paper, user profile, foundation, interested papers, optional full-text brief, and optional full-text cache into an LLM-ready markdown context pack, but public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
+Current releases are strongest as a triage and research-memory layer. Ranking, alert-level deep-read briefs, selected-paper workups, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and section-aware brief with figure, table, data, and code signals when the user provides a local file path. `workup` turns one selected paper into a human-readable reading/citation/manuscript decision brief, and `review-pack` turns the selected paper, user profile, foundation, interested papers, optional full-text brief, and optional full-text cache into an LLM-ready markdown context pack. Public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
 
 ## User Tiers
 
@@ -30,7 +30,7 @@ For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
 - Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `knowledge_base/`.
-- Main actions: self-test, profile-based ranking, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, full-text, review-pack, review-queue, ask-library, advice, compare, map.
+- Main actions: self-test, profile-based ranking, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, full-text, review-pack, review-queue, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -80,6 +80,7 @@ For users who want citation/PDF management.
 - A user can tune ranking with focus terms, methods, regions, authors, exclusions, semantic queries, adaptive feedback similarity, temporary boosts, explicit paper feedback, and generated profile-tuning reports.
 - A user can generate a browser-friendly next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability; normal knowledge-base-updating runs refresh it automatically.
 - A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
+- A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
 - A user can build a review pack that automatically includes the section-aware full-text brief and raw text cache when they exist, so downstream assistants get structured evidence before raw text.
 - A user can open `review_queue.md` or `review_queue.html` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
 - Successful generated `run_reader.sh` runs should refresh `DASHBOARD.md` / `DASHBOARD.html` automatically, with an escape hatch for scripted users who set `REFRESH_DASHBOARD=0`.

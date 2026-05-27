@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.35`
+Version: `0.2.36`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -50,6 +50,7 @@ Good next prompts:
 - "Open my Scholar Alert dashboard so I can see the digest, reading plan, review queue, and setup status."
 - "Make a reading plan from my retained and recent papers."
 - "Deep-read this paper against my foundation."
+- "Make a workup for this paper and tell me whether it is worth reading or citing."
 - "Export my retained library to Obsidian and Zotero."
 
 The skill works without Obsidian or Zotero. Those are optional upgrades for people who want a larger personal knowledge system.
@@ -124,7 +125,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
-- Adds a literature-copilot layer: selected-paper metadata briefs, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
+- Adds a literature-copilot layer: selected-paper metadata briefs, human-readable paper workups, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
 - Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes while keeping both tools optional.
 
 ## Capability Boundary
@@ -139,13 +140,13 @@ python3 -m scholar_alert_reader capabilities
 
 The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, and adaptive similarity to retained/interested papers. It is not a hosted embedding service or autonomous reviewer.
 
-`deep-read`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, and the retained library. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, run `full-text`, then build `review-pack` / `review-queue` for Codex, Claude, ChatGPT, or another assistant.
+`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, and the retained library. They are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, run `full-text`, then build a human-readable `workup` or an assistant-facing `review-pack` / `review-queue`.
 
 ## Product Modes
 
 Scholar Alert Reader is useful without any external note app:
 
-1. **Codex-only**: read alerts or bibliography exports, rank papers, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/Q&A/review-pack/advice commands.
+1. **Codex-only**: read alerts or bibliography exports, rank papers, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/Q&A/review-pack/advice commands.
 2. **Codex + Obsidian**: sync generated notes, maps, reading status, answers, comparisons, and deep reads into a generated Obsidian folder.
 3. **Codex + Zotero + Obsidian**: use Zotero for citations/PDFs and Obsidian for durable human-written notes and synthesis.
 
@@ -172,7 +173,7 @@ Chinese sharing assets are also included under `docs/assets/*.zh.*` and paired w
 ```text
 scholar_alert_reader/
 ├── core.py        # CLI, source parsing/ranking pipeline, knowledge-base writes
-├── copilot.py     # deep-read, Q&A, advice, maps, Obsidian rendering
+├── copilot.py     # deep-read, workups, Q&A, advice, maps, Obsidian rendering
 ├── diagnostics.py # setup checks
 ├── enrich.py      # OpenAlex/Crossref enrichment
 ├── export.py      # BibTeX/RIS/Markdown/JSONL exporters
@@ -499,7 +500,7 @@ python3 scripts/scholar_reader.py deep-read \
   --paper-id <ID>
 ```
 
-Capability boundary: `deep-read`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, adaptive feedback similarity, and the retained local library. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path or sync it from Zotero; the tool does not automatically download publisher PDFs.
+Capability boundary: `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, adaptive feedback similarity, and the retained local library. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path or sync it from Zotero; the tool does not automatically download publisher PDFs.
 
 If a local PDF path has been synced from Zotero, extract text and write a full-text brief:
 
@@ -511,6 +512,17 @@ python3 scripts/scholar_reader.py full-text \
 ```
 
 `full-text` uses local files only. It tries `pdftotext` first, then optional Python PDF libraries (`pypdf` / `PyPDF2`), and also accepts `.txt` / `.md` text exports through `--pdf-path`. It writes `knowledge_base/full_text/<paper-id>.txt` and `knowledge_base/analysis/<paper-id>_full_text_brief.md`. The brief detects common paper sections, reports section coverage, extracts evidence by section, flags figure/table/supplement/data/code signals, lists missing or weak sections, and adds a citation-readiness checklist before you build a `review-pack`.
+
+Build a human-readable paper workup for one selected paper:
+
+```bash
+python3 scripts/scholar_reader.py workup \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --paper-id <ID>
+```
+
+`workup` writes `knowledge_base/analysis/<paper-id>_workup.md`. It connects one paper to your profile, feedback state, closest foundation/interested papers, optional full-text brief, possible manuscript role, citation checks, and next commands. Use it when you want to decide whether a paper should become `reading`, `must-cite`, `method-reference`, `background-only`, or `not-relevant`.
 
 Build an LLM-ready review context pack for Codex, Claude, ChatGPT, or another markdown-capable assistant:
 
@@ -545,7 +557,7 @@ python3 scripts/scholar_reader.py reading-plan \
   --limit 10
 ```
 
-`reading-plan` writes `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `review-pack`, or `review-queue` next. Normal runs that update the knowledge base refresh both files automatically; use the command directly when you want to include a specific recent `papers.json`, change the limit, or write to another path.
+`reading-plan` writes `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `workup`, `review-pack`, or `review-queue` next. Normal runs that update the knowledge base refresh both files automatically; use the command directly when you want to include a specific recent `papers.json`, change the limit, or write to another path.
 
 Open the project dashboard:
 
@@ -577,7 +589,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_queue.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./review_paper.sh`, `./review_queue.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 
@@ -700,6 +712,7 @@ The richer knowledge base includes:
 - `reading_plan.md` / `reading_plan.html`: prioritized next-reading queue from retained/recent papers
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
+- `analysis/<paper-id>_workup.md`: selected-paper decision brief for reading, citation, and manuscript use
 - `analysis/<paper-id>_review_pack.md`: selected-paper review context for an assistant
 - `analysis/review_queue.md` / `analysis/review_queue.html`: batch index for review packs and full-text extraction status
 - Project-root `DASHBOARD.md` / `DASHBOARD.html`: home page for current outputs, setup status, and next actions

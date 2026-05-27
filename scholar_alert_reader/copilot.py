@@ -485,6 +485,218 @@ def render_review_context_pack(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def full_text_brief_snapshot(full_text_brief: str) -> dict[str, str]:
+    categories = ["Figures", "Tables", "Supplement", "Data Availability", "Code / Software"]
+    signals = [category for category in categories if f"**{category}**" in full_text_brief]
+    found = re.search(r"(?m)^- Found: (.+)$", full_text_brief)
+    missing = re.search(r"(?m)^- Missing or weak: (.+)$", full_text_brief)
+    profile_overlap = re.search(r"(?ms)^## Profile Overlap\s+(.+?)(?:\n## |\Z)", full_text_brief)
+    citation = re.search(r"(?ms)^## Citation Readiness Checklist\s+(.+?)(?:\n## |\Z)", full_text_brief)
+    inspect = re.search(r"(?ms)^## Sentences To Inspect\s+(.+?)(?:\n## |\Z)", full_text_brief)
+    return {
+        "signals": ", ".join(signals) if signals else "none detected",
+        "section_coverage": found.group(1).strip() if found else "not summarized",
+        "missing_sections": missing.group(1).strip() if missing else "not summarized",
+        "profile_overlap": limited_text(profile_overlap.group(1), 1400) if profile_overlap else "",
+        "citation_checklist": limited_text(citation.group(1), 1800) if citation else "",
+        "sentences_to_inspect": limited_text(inspect.group(1), 1800) if inspect else "",
+    }
+
+
+def manuscript_fit(target: dict[str, Any], full_text_brief: str = "") -> list[str]:
+    combined = " ".join(
+        [
+            text(target.get("title", "")),
+            text(target.get("snippet", "")),
+            " ".join(str(term) for term in target.get("matched_terms", [])),
+            " ".join(str(tag) for tag in target.get("tags", [])),
+            full_text_brief[:4000],
+        ]
+    ).lower()
+    suggestions: list[str] = []
+    if any(term in combined for term in ["review", "survey", "overview", "benchmark"]):
+        suggestions.append("Introduction / Related Work: use cautiously as a framing or benchmark reference after checking scope.")
+    if any(term in combined for term in ["tomography", "inversion", "receiver function", "dispersion", "waveform", "picking", "association", "relocation", "model", "method"]):
+        suggestions.append("Methods: inspect equations, preprocessing, assumptions, baselines, and uncertainty treatment before treating it as a method reference.")
+    if any(term in combined for term in ["data", "dataset", "catalog", "array", "network", "station", "waveform", "code", "software", "github", "repository"]):
+        suggestions.append("Data / Reproducibility: check station coverage, time window, selection criteria, data availability, and code/software links.")
+    if any(term in combined for term in ["taiwan", "tibet", "japan", "sichuan", "weiyuan", "china", "region", "crust", "mantle", "basin", "fault"]):
+        suggestions.append("Study Area / Interpretation: compare claimed regional interpretation with your retained foundation before citing it as geological context.")
+    if any(term in combined for term in ["figure", "table", "result", "low velocity", "anisotropy", "uncertainty", "limitation", "discussion"]):
+        suggestions.append("Results / Discussion: verify the exact figure or table that supports the sentence you want to cite.")
+    if not suggestions:
+        suggestions.append("Background only for now: read the abstract and conclusion first, then decide whether a stronger manuscript role exists.")
+    return suggestions
+
+
+def workup_recommendation(
+    target: dict[str, Any],
+    feedback: dict[str, Any] | None,
+    has_full_text_brief: bool,
+    has_full_text_cache: bool,
+) -> tuple[str, list[str]]:
+    item = feedback_record(target, feedback)
+    status = reading_status(target, feedback)
+    labels = set(reading_labels(target, feedback))
+    tier = text(target.get("tier", ""))
+    score = int(target.get("score", 0) or 0)
+    reasons: list[str] = []
+    if item.get("status"):
+        reasons.append(f"feedback status is `{item.get('status')}`")
+    if status:
+        reasons.append(f"reading status is `{status}`")
+    if labels:
+        reasons.append("labels: " + ", ".join(sorted(labels)))
+    if tier:
+        reasons.append(f"triage tier is `{tier}` with score {score}")
+    if has_full_text_brief:
+        reasons.append("local full-text brief is available")
+    elif has_full_text_cache:
+        reasons.append("local text cache exists, but the section-aware brief is missing")
+    else:
+        reasons.append("no local full text is available yet")
+
+    if item.get("status") == "archive" or status in {"not-relevant", "background-only"}:
+        return "Keep out of active reading unless a specific citation need appears.", reasons
+    if "must-cite" in labels or status == "must-cite":
+        return "Citation candidate, but verify the full-text method/results evidence before using it in a manuscript.", reasons
+    if has_full_text_brief and tier == "Must read":
+        return "Read closely now: the paper is high-ranked and has local evidence ready for inspection.", reasons
+    if tier == "Must read":
+        return "Worth active reading; attach/sync the PDF and run `full-text` before citation decisions.", reasons
+    if tier == "Skim":
+        return "Skim first; promote only if the abstract, figures, or method changes your current research question.", reasons
+    return "Low-priority unless it fills a specific gap in the foundation.", reasons
+
+
+def render_paper_workup(
+    target: dict[str, Any],
+    library: list[dict[str, Any]],
+    profile: dict[str, Any],
+    feedback: dict[str, Any] | None = None,
+    full_text_brief: str = "",
+    full_text_brief_path: Path | None = None,
+    has_full_text_cache: bool = False,
+    limit: int = 10,
+    max_full_text_brief_chars: int = 7000,
+) -> str:
+    related = related_records(target, library, limit)
+    target_id = text(target.get("id"))
+    matched = [str(term) for term in target.get("matched_terms", []) if str(term).strip()]
+    profile_hits = [term for term in profile_terms(profile) if term.lower() in record_text(target).lower()]
+    reasons = [str(reason) for reason in target.get("reasons", []) if str(reason).strip()]
+    brief_snapshot = full_text_brief_snapshot(full_text_brief) if full_text_brief else {}
+    recommendation, recommendation_reasons = workup_recommendation(
+        target,
+        feedback,
+        has_full_text_brief=bool(full_text_brief),
+        has_full_text_cache=has_full_text_cache,
+    )
+    brief_excerpt = limited_text(full_text_brief, max_full_text_brief_chars) if full_text_brief else ""
+
+    lines = [
+        f"# Paper Workup: {text(target.get('title', 'Untitled'))}",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Profile: {profile.get('name', 'unnamed')}",
+        f"- Paper ID: `{target_id}`",
+        f"- Tier: {target.get('tier', '')}; score: {target.get('score', 0)}",
+        f"- Link: {target.get('url', '')}",
+        f"- Source: {target.get('authors_source', '')}",
+        "",
+        "## Decision Snapshot",
+        "",
+        f"**Recommendation:** {recommendation}",
+        "",
+    ]
+    lines.extend(f"- {reason}" for reason in recommendation_reasons)
+    lines.append("")
+
+    lines.extend(["## Why It Matches Your Research Memory", ""])
+    if profile_hits:
+        lines.append("- Profile overlap: " + ", ".join(profile_hits[:14]))
+    if matched:
+        lines.append("- Matched terms: " + ", ".join(matched[:18]))
+    if reasons:
+        lines.extend(f"- Ranking reason: {reason}" for reason in reasons[:8])
+    if not (profile_hits or matched or reasons):
+        lines.append("- No strong local profile overlap was recorded; treat this as a manual-inspection candidate.")
+    lines.extend(["", "## Alert / Bibliography Signal", "", text(target.get("snippet", "No snippet available.")), ""])
+
+    lines.extend(["## Full-Text Evidence Status", ""])
+    if full_text_brief:
+        lines.append(f"- Full-text brief: `{full_text_brief_path}`" if full_text_brief_path else "- Full-text brief: provided")
+        lines.append(f"- Section coverage: {brief_snapshot.get('section_coverage', 'not summarized')}")
+        lines.append(f"- Missing or weak sections: {brief_snapshot.get('missing_sections', 'not summarized')}")
+        lines.append(f"- Visual/data/code signals: {brief_snapshot.get('signals', 'none detected')}")
+        if brief_snapshot.get("profile_overlap"):
+            lines.extend(["", "### Profile Overlap From Full Text", "", brief_snapshot["profile_overlap"], ""])
+        if brief_snapshot.get("sentences_to_inspect"):
+            lines.extend(["### Sentences To Inspect", "", brief_snapshot["sentences_to_inspect"], ""])
+    elif has_full_text_cache:
+        lines.append("- A local full-text cache exists, but no section-aware full-text brief was found. Run `full-text` before making citation decisions.")
+    else:
+        lines.append("- No local full text was found. Use Zotero sync or pass a local PDF/text path to `full-text` before treating this as citation-ready.")
+    lines.append("")
+
+    lines.extend(["## Closest Foundation / Interested Context", ""])
+    if related:
+        for score, record, shared in related:
+            lines.append(paper_line(record))
+            lines.append(f"  - Relation score: {score}; overlap: {', '.join(shared) if shared else 'metadata similarity'}")
+            snippet = text(record.get("snippet"))
+            if snippet:
+                lines.append(f"  - Signal: {snippet[:320]}")
+    else:
+        lines.append("No close retained-paper context found. This may be new territory or the profile/foundation is still sparse.")
+    lines.append("")
+
+    lines.extend(["## Possible Manuscript Role", ""])
+    for suggestion in manuscript_fit(target, full_text_brief):
+        lines.append(f"- {suggestion}")
+    lines.append("")
+
+    lines.extend(
+        [
+            "## What To Check Before Citing",
+            "",
+        ]
+    )
+    if brief_snapshot.get("citation_checklist"):
+        lines.append(brief_snapshot["citation_checklist"])
+    else:
+        lines.extend(
+            [
+                "- Verify the actual problem statement and contribution from the abstract/introduction.",
+                "- Verify data, study area, method assumptions, baselines, uncertainty treatment, and limitations from the full paper.",
+                "- Identify the exact figure/table/equation that supports any sentence you want to cite.",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "## Suggested Next Commands",
+            "",
+            "```bash",
+            f"python3 -m scholar_alert_reader full-text --profile profiles/research_profile.json --kb-dir knowledge_base --paper-id {target_id}",
+            f"python3 -m scholar_alert_reader review-pack --profile profiles/research_profile.json --kb-dir knowledge_base --paper-id {target_id}",
+            f"python3 -m scholar_alert_reader status --profile profiles/research_profile.json --kb-dir knowledge_base --paper-id {target_id} --status reading --label must-cite",
+            "```",
+            "",
+            "## Prompts For A Follow-Up Assistant Discussion",
+            "",
+            "- Based only on the evidence above, what is this paper's likely contribution and what remains unverified?",
+            "- Which foundation papers are closest, and is this paper novel, complementary, redundant, or just background?",
+            "- If I cite it, should it support motivation, method choice, data comparison, regional interpretation, or limitations?",
+            "- What should I inspect in the PDF before trusting the conclusion?",
+            "",
+        ]
+    )
+    if brief_excerpt:
+        lines.extend(["## Full-Text Brief Excerpt", "", brief_excerpt, ""])
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def render_literature_answer(
     question: str,
     records: list[dict[str, Any]],

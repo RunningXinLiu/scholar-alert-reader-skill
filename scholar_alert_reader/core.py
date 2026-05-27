@@ -3809,6 +3809,7 @@ def render_project_guide(
         "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, or optional Mail.app source readiness.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
+        "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
         "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
         "- `./reading_plan.sh`: choose what to read next and which paper IDs to send into review packs.",
         "- `./advice_reader.sh`: generate reading strategy and gap advice.",
@@ -4006,9 +4007,10 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "",
             "1. Open the latest digest and mark obvious interested/archive papers in `./serve_reader.sh`.",
             "2. Open the reading plan to choose the next few IDs.",
-            "3. Run `./review_queue.sh --paper-id ID1,ID2` for selected papers.",
-            "4. If Zotero has local PDFs, run `./zotero_sync.sh` first so review packs can include full-text briefs.",
-            "5. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "3. Run `./workup_paper.sh --paper-id ID` for a human-readable decision brief on one paper.",
+            "4. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
+            "5. If Zotero has local PDFs, run `./zotero_sync.sh` first so review packs can include full-text briefs.",
+            "6. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
             "",
@@ -4239,6 +4241,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
         "serve_recent.sh": 'PAPERS_JSON="${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" exec "$PROJECT_DIR/serve_reader.sh" "$@"\n',
         "deep_read_paper.sh": 'exec "${SKILL_CMD[@]}" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "workup_paper.sh": 'exec "${SKILL_CMD[@]}" workup --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "full_text_paper.sh": 'exec "${SKILL_CMD[@]}" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_paper.sh": 'exec "${SKILL_CMD[@]}" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -4392,6 +4395,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "",
                     "```bash",
                     "./deep_read_paper.sh --paper-id <ID>",
+                    "./workup_paper.sh --paper-id <ID>",
                     "./full_text_paper.sh --paper-id <ID>",
                     "./review_paper.sh --paper-id <ID>",
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
@@ -6267,7 +6271,16 @@ def export_library(args: argparse.Namespace) -> None:
 
 
 def paper_records_from_library(kb_dir: Path) -> list[dict[str, Any]]:
-    return [asdict(paper) for paper in load_paper_library(kb_dir)]
+    papers = [asdict(paper) for paper in load_paper_library(kb_dir)]
+    if papers:
+        return papers
+    library_path = kb_dir / "library.json"
+    if not library_path.exists():
+        return []
+    try:
+        return load_paper_records(library_path)
+    except Exception:
+        return []
 
 
 def merged_paper_records(kb_dir: Path, papers_json: Path | None = None) -> list[dict[str, Any]]:
@@ -6449,6 +6462,45 @@ def review_pack_command(args: argparse.Namespace) -> None:
         print(f"Included full-text cache: {actual_full_text_path}")
     else:
         print("Included full-text cache: none")
+
+
+def paper_workup_command(args: argparse.Namespace) -> None:
+    from .copilot import render_paper_workup
+
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    target = select_paper_record(records, args.paper_id, args.title)
+    library = paper_records_from_library(kb_dir) or records
+    stem = str(target.get("id", "paper") or "paper")
+    full_text_path = args.full_text_path or (kb_dir / "full_text" / f"{stem}.txt")
+    full_text_brief_path = args.full_text_brief_path or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
+    full_text_brief, actual_full_text_brief_path = read_context_text(full_text_brief_path, args.max_full_text_brief_chars)
+    output = args.output or (kb_dir / "analysis" / f"{stem}_workup.md")
+    write_report(
+        output,
+        render_paper_workup(
+            target,
+            library,
+            profile,
+            feedback=feedback,
+            full_text_brief=full_text_brief,
+            full_text_brief_path=actual_full_text_brief_path,
+            has_full_text_cache=full_text_path.exists(),
+            limit=args.limit,
+            max_full_text_brief_chars=args.max_full_text_brief_chars,
+        ),
+    )
+    print(f"Paper workup: {output}")
+    if actual_full_text_brief_path:
+        print(f"Included full-text brief: {actual_full_text_brief_path}")
+    else:
+        print("Included full-text brief: none")
+    if full_text_path.exists():
+        print(f"Full-text cache: {full_text_path}")
+    else:
+        print("Full-text cache: none")
 
 
 def review_queue_command(args: argparse.Namespace) -> None:
@@ -6895,11 +6947,12 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Producing HTML/Markdown digests, CSV/JSON outputs, and a retained local knowledge base.",
         "- Capturing feedback such as interested, archive, more-like-this, less-like-this, reading, read, must-cite, and method-reference labels.",
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
+        "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
         "",
         "## Capability Boundary",
         "",
-        "- `deep-read`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, and feedback signals.",
+        "- `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, and feedback signals.",
         "- `semantic_queries` and adaptive ranking are lightweight local matching features, not a hosted embedding service or a neural reranker.",
         "- `full-text` works when a local PDF/text path is provided directly or synced from Zotero; it does not automatically bypass publisher access or download paywalled PDFs.",
         "- `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant. It does not upload data or claim autonomous expert peer review.",
@@ -6919,12 +6972,12 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "3. Run `source-check --live` before expecting non-empty daily results.",
         "4. Build an initial `foundation`, then use `daily` for new papers only.",
         "5. Mark interested/archive papers and rerun `profile-tune` after several feedback rounds.",
-        "6. Sync Zotero local PDF paths when available, then run `full-text`, `review-pack`, or `review-queue` for selected papers.",
+        "6. Sync Zotero local PDF paths when available, then run `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
         "",
         "## Practical Upgrade Path",
         "",
         "- For better ranking: tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
-        "- For closer reading: use Zotero or explicit local PDF paths with `full-text` and `review-pack`.",
+        "- For closer reading: use Zotero or explicit local PDF paths with `full-text`, then run `workup` for a human decision brief or `review-pack` for an assistant context pack.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
         "- For public support: run `support-bundle` and review the redacted output before posting a GitHub issue.",
         "",
@@ -7396,6 +7449,20 @@ def build_parser() -> argparse.ArgumentParser:
     full_text.add_argument("--text-output", type=Path, help="Output text cache. Defaults to kb-dir/full_text/<paper-id>.txt")
     full_text.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md")
     full_text.set_defaults(func=full_text_command)
+
+    workup = sub.add_parser("workup", aliases=["paper-workup"], help="Build a human-readable selected-paper workup against the local foundation")
+    workup.add_argument("--profile", type=Path, required=True)
+    workup.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    workup.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
+    workup.add_argument("--papers-json", type=Path, help="Optional digest papers.json to select a paper that is not yet retained")
+    workup.add_argument("--paper-id", help="Paper ID from a digest or paper note")
+    workup.add_argument("--title", help="Case-insensitive title substring")
+    workup.add_argument("--full-text-path", type=Path, help="Optional local text cache path. Defaults to kb-dir/full_text/<paper-id>.txt")
+    workup.add_argument("--full-text-brief-path", type=Path, help="Optional full-text brief path. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md")
+    workup.add_argument("--max-full-text-brief-chars", type=int, default=7000, help="Maximum full-text brief characters to include")
+    workup.add_argument("--limit", type=int, default=10, help="Related foundation papers to include")
+    workup.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_workup.md")
+    workup.set_defaults(func=paper_workup_command)
 
     review_pack = sub.add_parser("review-pack", help="Build an LLM-ready paper review context pack")
     review_pack.add_argument("--profile", type=Path, required=True)
