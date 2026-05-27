@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.63 - 2026-05-28
+
+- Add allowlisted local navigation links to the browser feedback UI for the refreshed reading plan, dashboard, foundation, interested queue, reading status, weekly review, and generated reports.
+- Serve those local outputs through safe `/local?name=...` routes instead of exposing arbitrary filesystem paths.
+- Cover feedback-UI local navigation routes in workflow tests.
+
 ## v0.2.62 - 2026-05-28
 
 - Refresh `reading_plan.md` / `reading_plan.html` after `feedback`, `status`, and browser feedback UI actions.

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import urllib.error
 import urllib.parse
 import urllib.request
 import unittest
@@ -2438,12 +2439,14 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
         from scholar_alert_reader.server import ServerConfig, make_handler
 
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            profile = root / "profile.json"
+            root = Path(tmp) / "reader"
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
             profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
-            kb = root / "kb"
+            kb = root / "knowledge_base"
             kb.mkdir()
-            papers_json = root / "papers.json"
+            papers_json = root / "reader_out" / "daily" / "papers.json"
+            papers_json.parent.mkdir(parents=True)
             papers_json.write_text(json.dumps([sample_paper()]), encoding="utf-8")
             config = ServerConfig(profile_path=profile, kb_dir=kb, papers_json=papers_json)
             server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(config))
@@ -2481,7 +2484,23 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertIn("Saved feedback for p1: save_note", html_body)
                 self.assertIn("reading plan:", html_body)
                 self.assertTrue((kb / "reading_plan.html").exists())
+                self.assertTrue((root / "DASHBOARD.html").exists())
+                self.assertIn('/local?name=reading_plan', html_body)
+                self.assertIn('/local?name=dashboard', html_body)
+                self.assertIn('/local?name=foundation', html_body)
                 self.assertIn("Useful comparison for the Taiwan manuscript.", html_body)
+                with urllib.request.urlopen(f"{base_url}/local?name=reading_plan", timeout=5) as response:
+                    plan_body = response.read().decode("utf-8")
+                self.assertIn("Reading Plan", plan_body)
+                with urllib.request.urlopen(f"{base_url}/local?name=dashboard", timeout=5) as response:
+                    dashboard_body = response.read().decode("utf-8")
+                self.assertIn("Scholar Alert Reader Dashboard", dashboard_body)
+                with urllib.request.urlopen(f"{base_url}/local?name=foundation", timeout=5) as response:
+                    foundation_body = response.read().decode("utf-8")
+                self.assertIn("Foundation Library", foundation_body)
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(f"{base_url}/local?name=../VERSION", timeout=5)
+                raised.exception.close()
                 feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
                 self.assertIn("Useful comparison for the Taiwan manuscript.", feedback["papers"]["p1"]["note"])
 

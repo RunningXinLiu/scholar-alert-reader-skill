@@ -133,6 +133,41 @@ def safe_report_path(config: ServerConfig, name: str) -> Path | None:
     return report_path
 
 
+def local_file_targets(config: ServerConfig) -> list[tuple[str, str, Path]]:
+    from . import core
+
+    project_dir = core.infer_project_dir(config.profile_path, config.kb_dir, config.papers_json)
+    candidates: list[tuple[str, str, Path | None]] = [
+        ("reading_plan", "Reading plan", config.kb_dir / "reading_plan.html"),
+        ("foundation", "Foundation", config.kb_dir / "foundation.md"),
+        ("interested", "Interested", config.kb_dir / "interested.md"),
+        ("reading_status", "Reading status", config.kb_dir / "reading_status.md"),
+        ("weekly_review", "Weekly review", config.kb_dir / "weekly_review.md"),
+    ]
+    if project_dir:
+        candidates.insert(0, ("dashboard", "Dashboard", project_dir / "DASHBOARD.html"))
+    return [(key, label, path) for key, label, path in candidates if path is not None and path.exists()]
+
+
+def local_nav_links(config: ServerConfig) -> str:
+    links = [
+        f'<a href="/local?name={quote(key, safe="")}">{html.escape(label)}</a>'
+        for key, label, _ in local_file_targets(config)
+    ]
+    if not links:
+        return ""
+    return '<nav class="quick-links">' + "".join(links) + "</nav>"
+
+
+def safe_local_file_path(config: ServerConfig, name: str) -> Path | None:
+    if not name or "/" in name or "\\" in name:
+        return None
+    for key, _, path in local_file_targets(config):
+        if key == name:
+            return path.resolve()
+    return None
+
+
 def render_page(papers: list[Any], config: ServerConfig, message: str = "", feedback: dict[str, Any] | None = None) -> str:
     cards = []
     for paper in papers:
@@ -249,6 +284,21 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
               background: #d9f4ef;
               color: #0f5f59;
             }
+            .quick-links {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              margin: 14px 0 2px;
+            }
+            .quick-links a {
+              border: 1px solid var(--line);
+              border-radius: 8px;
+              background: #fff;
+              color: var(--ink);
+              padding: 7px 10px;
+              font-size: 14px;
+            }
+            .quick-links a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
             .reports {
               color: var(--muted);
               font-size: 14px;
@@ -320,6 +370,7 @@ def render_page(papers: list[Any], config: ServerConfig, message: str = "", feed
             f'<div class="meta">Profile: {html.escape(str(config.profile_path))}</div>',
             f'<div class="meta">Papers: {html.escape(str(config.papers_json))}</div>',
             f'<div class="meta">Knowledge base: {html.escape(str(config.kb_dir))}</div>',
+            local_nav_links(config),
             '<div class="toolbar">',
             '<input id="search" type="search" placeholder="Search title, alert, term, source">',
             '<select id="tier"><option value="">All tiers</option><option>Must read</option><option>Skim</option><option>Archive</option></select>',
@@ -379,6 +430,27 @@ def make_handler(config: ServerConfig):
                     return
                 content = report_path.read_text(encoding="utf-8", errors="replace")
                 body = core.markdown_to_basic_html(content, f"Scholar Alert Report: {report_path.stem}").encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            if parsed.path == "/local":
+                query = parse_qs(parsed.query)
+                name = (query.get("name") or [""])[0]
+                local_path = safe_local_file_path(config, name)
+                if local_path is None:
+                    self.send_error(400, "Invalid local file name")
+                    return
+                if not local_path.exists():
+                    self.send_error(404, "Local file not found")
+                    return
+                content = local_path.read_text(encoding="utf-8", errors="replace")
+                if local_path.suffix.lower() in {".html", ".htm"}:
+                    body = content.encode("utf-8")
+                else:
+                    body = core.markdown_to_basic_html(content, f"Scholar Alert: {local_path.stem}").encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
