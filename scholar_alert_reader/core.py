@@ -4505,12 +4505,54 @@ def count_marker(path: Path) -> str:
     return f"{count} {kind}"
 
 
-def source_onboarding_lines() -> list[str]:
+def source_config_path(project_dir: Path, env_values: dict[str, str], key: str, default: str | Path) -> Path:
+    raw_value = env_values.get(key, "")
+    path = Path(raw_value).expanduser() if raw_value else Path(default).expanduser()
+    if not path.is_absolute():
+        path = project_dir / path
+    return path
+
+
+def source_path_status(path: Path) -> str:
+    if path.exists():
+        kind = "directory" if path.is_dir() else "file"
+        return f"ready {kind} found: `{path}`"
+    return f"missing `{path}`"
+
+
+def source_input_status(project_dir: Path, env_values: dict[str, str], key: str, default: str | Path) -> str:
+    raw_value = str(env_values.get(key, "") or "").strip()
+    if raw_value.startswith(("http://", "https://")):
+        return f"configured URL in `reader.env`: `{raw_value}`"
+    path = source_config_path(project_dir, env_values, key, default)
+    if raw_value and not path.exists():
+        return f"configured path missing: `{path}`"
+    return source_path_status(path)
+
+
+def source_onboarding_lines(project_dir: Path, env_values: dict[str, str]) -> list[str]:
+    gmail_credentials = source_config_path(project_dir, env_values, "GMAIL_CREDENTIALS", DEFAULT_GMAIL_CREDENTIALS)
+    gmail_token = source_config_path(project_dir, env_values, "GMAIL_TOKEN", DEFAULT_GMAIL_TOKEN)
+    if gmail_credentials.exists() and gmail_token.exists():
+        gmail_status = "credentials and token present; run the live source check before scheduling."
+    elif gmail_credentials.exists():
+        gmail_status = "credentials present; token missing. Run Gmail OAuth once, then live source-check."
+    else:
+        gmail_status = f"credentials missing at `{gmail_credentials}`."
+
+    arxiv_query = str(env_values.get("ARXIV_QUERY", "") or "").strip()
+    arxiv_status = (
+        f"configured in `reader.env`: `{arxiv_query}`"
+        if arxiv_query
+        else "not configured; set `ARXIV_QUERY` inline or in `reader.env`."
+    )
+
     sources = [
         {
             "name": "Gmail API",
             "best": "Best for unattended daily Scholar Alert automation after one OAuth setup.",
             "prepare": "Create your own Google Desktop OAuth client, save it as `$HOME/.codex/scholar-alert-reader/gmail_credentials.json`, then run the OAuth flow once.",
+            "status": gmail_status,
             "check": "./source_check.sh --source gmail --live",
             "run": "SOURCE=gmail ./run_reader.sh",
         },
@@ -4518,6 +4560,7 @@ def source_onboarding_lines() -> list[str]:
             "name": "Apple Mail",
             "best": "Best for macOS users who already read Scholar Alerts in Mail.app.",
             "prepare": "Give Terminal/Codex Automation permission to control Mail.app and keep Scholar Alert messages in a searchable mailbox.",
+            "status": "not auto-detected here; run the live check on macOS after granting Mail.app Automation permission.",
             "check": "./source_check.sh --source mail-app --live",
             "run": "SOURCE=mail-app ./run_reader.sh",
         },
@@ -4525,6 +4568,7 @@ def source_onboarding_lines() -> list[str]:
             "name": "Exported mbox",
             "best": "Best for first foundation builds, offline review, or users who do not want live Gmail access.",
             "prepare": "Export Gmail or Apple Mail to `INBOX.mbox` in this project directory.",
+            "status": source_path_status(source_config_path(project_dir, env_values, "MBOX_PATH", "INBOX.mbox")),
             "check": "./source_check.sh --source mbox --live",
             "run": "SOURCE=mbox MODE=foundation ./run_reader.sh",
         },
@@ -4532,6 +4576,7 @@ def source_onboarding_lines() -> list[str]:
             "name": "BibTeX",
             "best": "Best for Zotero, Google Scholar library, publisher, or database exports.",
             "prepare": "Put a bibliography export at `import.bib`.",
+            "status": source_path_status(source_config_path(project_dir, env_values, "BIBTEX_PATH", "import.bib")),
             "check": "./source_check.sh --source bibtex --live",
             "run": "./bibtex_import.sh",
         },
@@ -4539,6 +4584,7 @@ def source_onboarding_lines() -> list[str]:
             "name": "RIS",
             "best": "Best for EndNote, Zotero, publisher, or database exports when RIS is easier than BibTeX.",
             "prepare": "Put a bibliography export at `import.ris`.",
+            "status": source_path_status(source_config_path(project_dir, env_values, "RIS_PATH", "import.ris")),
             "check": "./source_check.sh --source ris --live",
             "run": "./ris_import.sh",
         },
@@ -4546,6 +4592,7 @@ def source_onboarding_lines() -> list[str]:
             "name": "Structured web metadata",
             "best": "Best for article pages or saved HTML files that expose citation meta tags, JSON-LD, Dublin Core, or OpenGraph metadata.",
             "prepare": "Put article URLs or saved `.html` paths in `web_sources.txt`; avoid search-result pages when possible.",
+            "status": source_input_status(project_dir, env_values, "WEB_SOURCE", "web_sources.txt"),
             "check": "./source_check.sh --source web --live",
             "run": "./web_import.sh",
         },
@@ -4553,6 +4600,7 @@ def source_onboarding_lines() -> list[str]:
             "name": "RSS / Atom",
             "best": "Best for journal alerts, publisher feeds, and saved-search feeds without scraping pages.",
             "prepare": "Put feed URLs or local feed files in `feeds.txt`.",
+            "status": source_input_status(project_dir, env_values, "RSS_SOURCE", "feeds.txt"),
             "check": "./source_check.sh --source rss --live",
             "run": "./rss_import.sh",
         },
@@ -4560,6 +4608,7 @@ def source_onboarding_lines() -> list[str]:
             "name": "arXiv query",
             "best": "Best for targeted arXiv monitoring such as `cat:physics.geo-ph AND all:tomography`.",
             "prepare": "Choose a query string and set `ARXIV_QUERY` for one-off runs or in `reader.env` for repeated runs.",
+            "status": arxiv_status,
             "check": "ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./source_check.sh --source arxiv --live",
             "run": "ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh",
         },
@@ -4577,6 +4626,7 @@ def source_onboarding_lines() -> list[str]:
                 "",
                 f"- Best for: {source['best']}",
                 f"- Prepare: {source['prepare']}",
+                f"- Current status: {source['status']}",
                 f"- Check: `{source['check']}`",
                 f"- First run: `{source['run']}`",
                 "",
@@ -4607,6 +4657,11 @@ def render_project_guide(
     template_line = ", ".join(f"`{name}`" for name in template_names) if template_names else "No bundled templates found."
     env_file = project_env_path(project_dir)
     env_values = read_project_env(env_file)
+    gmail_credentials = source_config_path(project_dir, env_values, "GMAIL_CREDENTIALS", DEFAULT_GMAIL_CREDENTIALS)
+    gmail_token = source_config_path(project_dir, env_values, "GMAIL_TOKEN", DEFAULT_GMAIL_TOKEN)
+    mbox_path = source_config_path(project_dir, env_values, "MBOX_PATH", "INBOX.mbox")
+    bibtex_path = source_config_path(project_dir, env_values, "BIBTEX_PATH", "import.bib")
+    ris_path = source_config_path(project_dir, env_values, "RIS_PATH", "import.ris")
     lines = [
         "# Scholar Alert Reader Start Here",
         "",
@@ -4644,7 +4699,7 @@ def render_project_guide(
         "7. Run daily triage with `./run_reader.sh`.",
         "8. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
         "",
-        *source_onboarding_lines(),
+        *source_onboarding_lines(project_dir, env_values),
         "## Persistent Configuration",
         "",
         *render_env_summary(env_values),
@@ -4683,13 +4738,13 @@ def render_project_guide(
         f"- Project directory: `{project_dir}`",
         f"- Local config: {status_marker(env_file)}",
         f"- Profile: {status_marker(profile_path, required=True)}",
-        f"- Gmail credentials: {status_marker(DEFAULT_GMAIL_CREDENTIALS)}",
-        f"- Gmail token: {status_marker(DEFAULT_GMAIL_TOKEN)}",
-        f"- Local mbox: {status_marker(project_dir / 'INBOX.mbox')}",
-        f"- BibTeX import: {status_marker(project_dir / 'import.bib')}",
-        f"- RIS import: {status_marker(project_dir / 'import.ris')}",
-        f"- Web metadata source list: {status_marker(project_dir / 'web_sources.txt')}",
-        f"- RSS/Atom feed list: {status_marker(project_dir / 'feeds.txt')}",
+        f"- Gmail credentials: {status_marker(gmail_credentials)}",
+        f"- Gmail token: {status_marker(gmail_token)}",
+        f"- Local mbox: {status_marker(mbox_path)}",
+        f"- BibTeX import: {status_marker(bibtex_path)}",
+        f"- RIS import: {status_marker(ris_path)}",
+        f"- Web metadata source: {source_input_status(project_dir, env_values, 'WEB_SOURCE', 'web_sources.txt')}",
+        f"- RSS/Atom source: {source_input_status(project_dir, env_values, 'RSS_SOURCE', 'feeds.txt')}",
         f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
         f"- Project dashboard HTML: {status_marker(project_dir / 'DASHBOARD.html')}",
         f"- Privacy check: {status_marker(project_dir / 'PRIVACY_CHECK.md')}",

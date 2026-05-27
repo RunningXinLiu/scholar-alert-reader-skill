@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.72 - 2026-05-28
+
+- Add current readiness hints to the `START_HERE.md/html` source setup matrix.
+- Detect local files and `reader.env` values for mbox, BibTeX, RIS, web metadata, RSS/Atom, arXiv, and Gmail credential/token presence without attempting live reads.
+- Treat direct `WEB_SOURCE` URLs and custom `reader.env` paths as configured sources in onboarding/status output instead of assuming project-default files.
+- Keep live source connectivity delegated to `source-check --live` while making missing local setup visible in the onboarding guide.
+
 ## v0.2.71 - 2026-05-28
 
 - Add a source setup matrix to `START_HERE.md/html` covering Gmail API, Apple Mail, exported mbox, BibTeX, RIS, structured web metadata, RSS/Atom, and arXiv.

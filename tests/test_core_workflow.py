@@ -1788,9 +1788,17 @@ SCHEDULE_TIME=09:00
     def test_guide_command_writes_product_setup_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            resolved_root = root.resolve(strict=False)
             profile = root / "profiles" / "research_profile.json"
             profile.parent.mkdir(parents=True)
             profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            (root / "import.bib").write_text("@article{demo,title={Demo paper}}\n", encoding="utf-8")
+            (root / "feeds.txt").write_text("https://example.org/feed.atom\n", encoding="utf-8")
+            (root / "reader.env").write_text(
+                "export ARXIV_QUERY='cat:physics.geo-ph'\n"
+                "export WEB_SOURCE='https://example.org/article'\n",
+                encoding="utf-8",
+            )
             guide = root / "START_HERE.md"
             subprocess.run(
                 [
@@ -1819,6 +1827,11 @@ SCHEDULE_TIME=09:00
             self.assertIn("Structured web metadata", content)
             self.assertIn("RSS / Atom", content)
             self.assertIn("arXiv query", content)
+            self.assertIn("Current status", content)
+            self.assertIn(f"ready file found: `{resolved_root / 'import.bib'}`", content)
+            self.assertIn(f"ready file found: `{resolved_root / 'feeds.txt'}`", content)
+            self.assertIn("configured URL in `reader.env`: `https://example.org/article`", content)
+            self.assertIn("configured in `reader.env`: `cat:physics.geo-ph`", content)
             self.assertIn("./source_check.sh --source gmail --live", content)
             self.assertIn("SOURCE=mbox MODE=foundation ./run_reader.sh", content)
             guide_html = root / "START_HERE.html"

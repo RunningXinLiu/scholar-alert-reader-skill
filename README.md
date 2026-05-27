@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.71`
+Version: `0.2.72`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -137,7 +137,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card or answer index, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
-- Writes a browser-friendly `START_HERE.html` onboarding guide alongside `START_HERE.md` with a source setup matrix for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv.
+- Writes a browser-friendly `START_HERE.html` onboarding guide alongside `START_HERE.md` with a source setup matrix and current readiness hints for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv, including custom paths and direct web URLs from `reader.env`.
 - Includes `privacy-check` so users can scan local projects for files that should not be published before sharing issue attachments, screenshots, or zip archives.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
 - Adds a literature-copilot layer: selected-paper metadata briefs, one-command paper review workflows, human-readable paper workups, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
@@ -312,7 +312,7 @@ cd ~/scholar_alerts
 
 `quickstart` creates the project, runs private-data-free checks and demos, and writes `QUICKSTART_REPORT.md`. To do the steps manually instead:
 
-The generated `START_HERE.html` includes a source setup matrix. Pick one source, follow its prepare/check/run commands, and run a live source check before scheduling automation.
+The generated `START_HERE.html` includes a source setup matrix with local readiness hints. Pick one source, follow its prepare/check/run commands, and run a live source check before scheduling automation.
 
 ```bash
 python3 -m scholar_alert_reader init-project --project-dir ~/scholar_alerts
