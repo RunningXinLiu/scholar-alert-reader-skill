@@ -5826,6 +5826,8 @@ def review_pack_command(args: argparse.Namespace) -> None:
     stem = str(target.get("id", "paper") or "paper")
     full_text_path = args.full_text_path or (kb_dir / "full_text" / f"{stem}.txt")
     full_text, actual_full_text_path = read_context_text(full_text_path, args.max_full_text_chars)
+    full_text_brief_path = args.full_text_brief_path or (kb_dir / "analysis" / f"{stem}_full_text_brief.md")
+    full_text_brief, actual_full_text_brief_path = read_context_text(full_text_brief_path, args.max_full_text_brief_chars)
     output = args.output or (kb_dir / "analysis" / f"{stem}_review_pack.md")
     write_report(
         output,
@@ -5836,11 +5838,18 @@ def review_pack_command(args: argparse.Namespace) -> None:
             feedback=feedback,
             full_text=full_text,
             full_text_path=actual_full_text_path,
+            full_text_brief=full_text_brief,
+            full_text_brief_path=actual_full_text_brief_path,
             limit=args.limit,
             max_full_text_chars=args.max_full_text_chars,
+            max_full_text_brief_chars=args.max_full_text_brief_chars,
         ),
     )
     print(f"Review context pack: {output}")
+    if actual_full_text_brief_path:
+        print(f"Included full-text brief: {actual_full_text_brief_path}")
+    else:
+        print("Included full-text brief: none")
     if actual_full_text_path:
         print(f"Included full-text cache: {actual_full_text_path}")
     else:
@@ -5895,6 +5904,7 @@ def review_queue_command(args: argparse.Namespace) -> None:
                     failures.append(f"{stem}: {exc}")
 
         full_text, actual_full_text_path = read_context_text(text_output, args.max_full_text_chars)
+        full_text_brief, actual_full_text_brief_path = read_context_text(brief_output, args.max_full_text_brief_chars)
         if args.strict_full_text and not actual_full_text_path:
             failures.append(f"{stem}: no full-text cache available")
 
@@ -5907,8 +5917,11 @@ def review_queue_command(args: argparse.Namespace) -> None:
                 feedback=feedback,
                 full_text=full_text,
                 full_text_path=actual_full_text_path,
+                full_text_brief=full_text_brief,
+                full_text_brief_path=actual_full_text_brief_path,
                 limit=args.related_limit,
                 max_full_text_chars=args.max_full_text_chars,
+                max_full_text_brief_chars=args.max_full_text_brief_chars,
             ),
         )
         review_count += 1
@@ -5921,7 +5934,7 @@ def review_queue_command(args: argparse.Namespace) -> None:
                 "source": source_path,
                 "full_text": str(actual_full_text_path or ""),
                 "extract_status": extract_status,
-                "brief": str(brief_output) if brief_output.exists() else "",
+                "brief": str(actual_full_text_brief_path or ""),
                 "review_pack": str(review_output),
             }
         )
@@ -6737,7 +6750,9 @@ def build_parser() -> argparse.ArgumentParser:
     review_pack.add_argument("--paper-id", help="Paper ID from a digest or paper note")
     review_pack.add_argument("--title", help="Case-insensitive title substring")
     review_pack.add_argument("--full-text-path", type=Path, help="Optional local text cache to include. Defaults to kb-dir/full_text/<paper-id>.txt")
+    review_pack.add_argument("--full-text-brief-path", type=Path, help="Optional full-text brief to include. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md")
     review_pack.add_argument("--max-full-text-chars", type=int, default=40000, help="Maximum full-text characters to include")
+    review_pack.add_argument("--max-full-text-brief-chars", type=int, default=16000, help="Maximum full-text brief characters to include")
     review_pack.add_argument("--limit", type=int, default=12, help="Related/interested papers to include")
     review_pack.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_review_pack.md")
     review_pack.set_defaults(func=review_pack_command)
@@ -6757,6 +6772,7 @@ def build_parser() -> argparse.ArgumentParser:
     review_queue.add_argument("--max-chars", type=int, default=120000, help="Maximum extracted text characters to cache per paper")
     review_queue.add_argument("--timeout", type=int, default=30, help="PDF extraction timeout in seconds per paper")
     review_queue.add_argument("--max-full-text-chars", type=int, default=40000, help="Maximum cached text characters to include in each review pack")
+    review_queue.add_argument("--max-full-text-brief-chars", type=int, default=16000, help="Maximum full-text brief characters to include in each review pack")
     review_queue.add_argument("--related-limit", type=int, default=12, help="Related/interested papers to include in each review pack")
     review_queue.add_argument("--output", type=Path, help="Output queue index. Defaults to kb-dir/analysis/review_queue.md")
     review_queue.set_defaults(func=review_queue_command)

@@ -316,8 +316,11 @@ def render_review_context_pack(
     feedback: dict[str, Any] | None = None,
     full_text: str = "",
     full_text_path: Path | None = None,
+    full_text_brief: str = "",
+    full_text_brief_path: Path | None = None,
     limit: int = 12,
     max_full_text_chars: int = 40000,
+    max_full_text_brief_chars: int = 16000,
 ) -> str:
     related = related_records(target, library, limit)
     target_id = text(target.get("id"))
@@ -355,6 +358,7 @@ def render_review_context_pack(
 
     title = text(target.get("title", "Untitled"))
     full_text_excerpt = limited_text(full_text, max_full_text_chars) if full_text else ""
+    full_text_brief_excerpt = limited_text(full_text_brief, max_full_text_brief_chars) if full_text_brief else ""
     lines = [
         f"# Paper Review Context Pack: {title}",
         "",
@@ -365,7 +369,7 @@ def render_review_context_pack(
         "",
         "## Source Boundary",
         "",
-        "- This pack is assembled from local Scholar Alert Reader data: alert metadata, bibliography fields, feedback, retained foundation papers, and optional local full-text cache.",
+        "- This pack is assembled from local Scholar Alert Reader data: alert metadata, bibliography fields, feedback, retained foundation papers, optional local full-text brief, and optional local full-text cache.",
         "- Do not treat missing information as negative evidence. If the full text is absent or truncated, ask for the PDF/text before making final citation decisions.",
         "- The assistant using this pack should separate quoted/observed evidence from inference and should not invent methods, datasets, claims, or results.",
         "",
@@ -374,7 +378,7 @@ def render_review_context_pack(
         "Use the context below to produce a focused research review for the user:",
         "",
         "1. State the paper's likely contribution and why it may matter to the user's current research profile.",
-        "2. Extract the method, data, region, assumptions, and evidence only when supported by the provided text.",
+        "2. Start from the local full-text brief when present, then extract the method, data, region, assumptions, visual evidence, and citation checks only when supported by the provided text.",
         "3. Compare it against the closest foundation/interested papers and explain whether it is novel, redundant, complementary, or mainly background.",
         "4. Decide whether the user should mark it `must-cite`, `method-reference`, `background-only`, `reading`, or `not-relevant`.",
         "5. List concrete next checks before citing it in a manuscript or proposal.",
@@ -399,6 +403,26 @@ def render_review_context_pack(
         lines.extend(["## Ranking Reasons", ""])
         lines.extend(f"- {reason}" for reason in reasons[:8])
         lines.append("")
+
+    lines.extend(["## Local Full-Text Brief", ""])
+    if full_text_brief_excerpt:
+        source = str(full_text_brief_path) if full_text_brief_path else "provided full-text brief"
+        lines.extend(
+            [
+                f"- Source: `{source}`",
+                f"- Included characters: {len(full_text_brief_excerpt)} of {len(full_text_brief)}",
+                "",
+                markdown_block(full_text_brief_excerpt),
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "No local full-text brief was included. Run `full-text` first, or pass `--full-text-brief-path`, so the review pack can include section coverage, visual/data/code signals, and citation checks.",
+                "",
+            ]
+        )
 
     lines.extend(["## Local Full Text", ""])
     if full_text_excerpt:

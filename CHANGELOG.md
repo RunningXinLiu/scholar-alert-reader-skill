@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.30 - 2026-05-27
+
+- Include cached full-text briefs automatically in `review-pack` and `review-queue` outputs.
+- Add `--full-text-brief-path` and `--max-full-text-brief-chars` to `review-pack` for custom brief paths.
+- Update review-pack prompts and docs so downstream assistants can use section coverage, visual/data/code signals, and citation checks before raw full text.
+
 ## v0.2.29 - 2026-05-27
 
 - Add figure, table, supplement, data-availability, and code/software signal extraction to `full-text` reports.

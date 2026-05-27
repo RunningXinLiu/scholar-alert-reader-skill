@@ -1261,6 +1261,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     "p1",
                     "--full-text-path",
                     str(full_text_cache),
+                    "--full-text-brief-path",
+                    str(full_text_report),
                     "--output",
                     str(review_pack),
                 ],
@@ -1271,12 +1273,17 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             review_pack_content = review_pack.read_text(encoding="utf-8")
             self.assertIn("Paper Review Context Pack", review_pack_content)
             self.assertIn("Review Task For The Assistant", review_pack_content)
+            self.assertIn("Local Full-Text Brief", review_pack_content)
+            self.assertIn("Visual, Table, Data, And Code Signals", review_pack_content)
             self.assertIn("Local Full Text", review_pack_content)
             self.assertIn("ambient noise tomography", review_pack_content)
 
             default_full_text_dir = kb / "full_text"
             default_full_text_dir.mkdir(parents=True, exist_ok=True)
             (default_full_text_dir / "p1.txt").write_text(full_text_cache.read_text(encoding="utf-8"), encoding="utf-8")
+            default_analysis_dir = kb / "analysis"
+            default_analysis_dir.mkdir(parents=True, exist_ok=True)
+            (default_analysis_dir / "p1_full_text_brief.md").write_text(full_text_content, encoding="utf-8")
             review_queue = root / "review_queue.md"
             subprocess.run(
                 [
@@ -1301,7 +1308,10 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Review Queue", review_queue_content)
             self.assertIn("Review packs written: 1", review_queue_content)
             self.assertIn("p1_review_pack.md", review_queue_content)
-            self.assertIn("ambient noise tomography", (kb / "analysis" / "p1_review_pack.md").read_text(encoding="utf-8"))
+            queued_pack = (kb / "analysis" / "p1_review_pack.md").read_text(encoding="utf-8")
+            self.assertIn("ambient noise tomography", queued_pack)
+            self.assertIn("Local Full-Text Brief", queued_pack)
+            self.assertIn("Visual, Table, Data, And Code Signals", queued_pack)
 
             obsidian_dir = root / "obsidian"
             subprocess.run(
