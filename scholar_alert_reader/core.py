@@ -275,6 +275,71 @@ def available_profile_templates() -> list[str]:
     return sorted(path.stem for path in PROFILE_TEMPLATE_DIR.glob("*.json"))
 
 
+def profile_template_catalog() -> list[dict[str, Any]]:
+    catalog: list[dict[str, Any]] = []
+    for slug in available_profile_templates():
+        path = PROFILE_TEMPLATE_DIR / f"{slug}.json"
+        try:
+            profile = load_json(path)
+        except Exception:
+            profile = {}
+        meta = profile.get("profile_meta", {}) if isinstance(profile.get("profile_meta"), dict) else {}
+        catalog.append(
+            {
+                "slug": str(meta.get("slug") or slug),
+                "name": str(profile.get("name") or slug),
+                "summary": str(meta.get("summary") or ""),
+                "best_for": [str(item) for item in meta.get("best_for", []) if str(item).strip()],
+                "starter_sources": [str(item) for item in meta.get("starter_sources", []) if str(item).strip()],
+                "recommended_first_edits": [str(item) for item in meta.get("recommended_first_edits", []) if str(item).strip()],
+            }
+        )
+    return catalog
+
+
+def render_profile_template_catalog(catalog: list[dict[str, Any]], output_format: str = "text") -> str:
+    if output_format == "json":
+        return json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
+    if output_format == "markdown":
+        lines = ["# Profile Template Catalog", ""]
+        for item in catalog:
+            lines.extend(
+                [
+                    f"## `{item['slug']}`",
+                    "",
+                    f"- Name: {item['name']}",
+                    f"- Summary: {item['summary'] or 'No summary provided.'}",
+                ]
+            )
+            if item["best_for"]:
+                lines.append("- Best for:")
+                lines.extend(f"  - {value}" for value in item["best_for"])
+            if item["starter_sources"]:
+                lines.append("- Starter sources:")
+                lines.extend(f"  - {value}" for value in item["starter_sources"])
+            if item["recommended_first_edits"]:
+                lines.append("- Recommended first edits:")
+                lines.extend(f"  - {value}" for value in item["recommended_first_edits"])
+            lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
+    lines = []
+    for item in catalog:
+        lines.append(f"{item['slug']} - {item['name']}")
+        if item["summary"]:
+            lines.append(f"  {item['summary']}")
+        if item["best_for"]:
+            lines.append(f"  Best for: {item['best_for'][0]}")
+        if item["starter_sources"]:
+            lines.append(f"  Starter source: {item['starter_sources'][0]}")
+        if item["recommended_first_edits"]:
+            lines.append(f"  First edit: {item['recommended_first_edits'][0]}")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def list_profile_templates_command(args: argparse.Namespace) -> None:
+    print(render_profile_template_catalog(profile_template_catalog(), args.format), end="")
+
+
 def resolve_profile_template(template: str | Path | None) -> Path:
     if not template:
         template = DEFAULT_PROFILE_TEMPLATE
@@ -9330,7 +9395,8 @@ def build_parser() -> argparse.ArgumentParser:
     init.set_defaults(func=lambda args: init_profile(args.profile, args.force, args.template))
 
     list_templates = sub.add_parser("list-profile-templates", help="List bundled research profile templates")
-    list_templates.set_defaults(func=lambda args: print("\n".join(available_profile_templates())))
+    list_templates.add_argument("--format", choices=["text", "markdown", "json"], default="text", help="Output format")
+    list_templates.set_defaults(func=list_profile_templates_command)
 
     profile_wizard = sub.add_parser("profile-wizard", aliases=["profile-onboarding"], help="Build or refine a research profile from guided questions")
     profile_wizard.add_argument("--project-dir", type=Path, default=Path("."), help="Local Scholar Alert Reader project directory")

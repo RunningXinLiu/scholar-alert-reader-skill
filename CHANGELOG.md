@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.50 - 2026-05-28
+
+- Add product-facing `profile_meta` to bundled profile templates so each template describes its audience, starter sources, and recommended first edits.
+- Upgrade `list-profile-templates` with text, markdown, and JSON catalog formats instead of a bare slug list.
+- Document template metadata in the profile schema and onboarding docs.
+
 ## v0.2.49 - 2026-05-28
 
 - Add `embedding-check` / `check-embedding` plus generated `embedding_check.sh` to verify semantic rerank backend readiness before a real run.

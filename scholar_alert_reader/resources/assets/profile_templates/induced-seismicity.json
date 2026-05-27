@@ -1,6 +1,23 @@
 {
   "name": "Induced seismicity and monitoring triage",
   "language": "zh-CN",
+  "profile_meta": {
+    "slug": "induced-seismicity",
+    "summary": "Induced-seismicity triage for injection, hydraulic fracturing, fluid diffusion, fault reactivation, swarms, microseismic monitoring, and hazard.",
+    "best_for": [
+      "Users tracking induced earthquakes, injection operations, hydraulic fracturing, or reservoir-scale monitoring",
+      "Projects needing mechanism, monitoring, relocation, hazard, and case-comparison papers"
+    ],
+    "starter_sources": [
+      "Google Scholar Alerts: induced seismicity, hydraulic fracturing, fluid injection, fault reactivation, microseismic monitoring",
+      "RSS/arXiv: injection-induced earthquakes, earthquake swarms, seismic hazard, dense array monitoring"
+    ],
+    "recommended_first_edits": [
+      "Add the basin, field, reservoir, or operating region you care about",
+      "Separate mechanism terms from monitoring terms if the digest becomes too broad",
+      "Archive mining-blast or generic hazard papers quickly when they are outside scope"
+    ]
+  },
   "research_questions": [
     "哪些新论文和诱发地震、注采活动、流体扩散或断层再激活有关？",
     "哪些 dense array 或 microseismic monitoring 方法值得用于区域监测？",

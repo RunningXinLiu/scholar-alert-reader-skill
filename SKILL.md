@@ -135,6 +135,7 @@ List or copy bundled profile templates:
 
 ```bash
 python3 scripts/scholar_reader.py list-profile-templates
+python3 scripts/scholar_reader.py list-profile-templates --format markdown
 python3 scripts/scholar_reader.py init-profile \
   --profile ~/scholar_alerts/profiles/research_profile.json \
   --template seismic-imaging \

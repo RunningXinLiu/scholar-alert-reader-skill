@@ -1,6 +1,23 @@
 {
   "name": "Seismic imaging and inversion triage",
   "language": "zh-CN",
+  "profile_meta": {
+    "slug": "seismic-imaging",
+    "summary": "Seismic imaging triage for surface waves, ambient noise, full-waveform inversion, anisotropy, uncertainty, crust and upper-mantle structure.",
+    "best_for": [
+      "Users following imaging, inversion, structure, and uncertainty papers",
+      "Projects comparing surface-wave, ambient-noise, receiver-function, anisotropy, or full-waveform methods"
+    ],
+    "starter_sources": [
+      "Google Scholar Alerts: surface wave tomography, ambient noise tomography, full waveform inversion, azimuthal anisotropy",
+      "RSS/arXiv: seismic imaging, inversion uncertainty, passive seismic tomography"
+    ],
+    "recommended_first_edits": [
+      "Add your active region and target depth range",
+      "Add data-type terms such as surface waves, receiver functions, DAS, or ambient noise",
+      "Raise uncertainty terms if method robustness is more important than regional case studies"
+    ]
+  },
   "research_questions": [
     "哪些论文能改进面波、背景噪声或全波形反演？",
     "哪些论文和各向异性、不确定性、地壳-上地幔结构解释相关？",

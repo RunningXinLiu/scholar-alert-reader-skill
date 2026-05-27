@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.49`
+Version: `0.2.50`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -381,6 +381,7 @@ Choose a starting research profile:
 
 ```bash
 python3 -m scholar_alert_reader list-profile-templates
+python3 -m scholar_alert_reader list-profile-templates --format markdown
 ./copy_profile_template.sh --template ai-seismology --force
 ./profile_wizard.sh
 ./profile_doctor.sh

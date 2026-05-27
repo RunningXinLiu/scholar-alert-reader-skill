@@ -1,6 +1,23 @@
 {
   "name": "Dense-array monitoring triage",
   "language": "zh-CN",
+  "profile_meta": {
+    "slug": "dense-array-monitoring",
+    "summary": "Dense-array and DAS monitoring triage for continuous waveforms, urban seismology, noise imaging, detection, association, and array processing.",
+    "best_for": [
+      "Users running dense nodal arrays, DAS experiments, urban monitoring, or regional continuous-waveform projects",
+      "Projects that need both observational array papers and processing-method papers"
+    ],
+    "starter_sources": [
+      "Google Scholar Alerts: dense seismic array, distributed acoustic sensing, urban seismology, ambient noise monitoring",
+      "RSS/arXiv: DAS seismology, dense array earthquake detection, urban seismic noise"
+    ],
+    "recommended_first_edits": [
+      "Replace the default regions with your active array region or experiment name",
+      "Add instrument terms if your project depends on nodal arrays, DAS, or temporary deployments",
+      "Use more-like-this feedback on papers with real field deployments, not only algorithm demos"
+    ]
+  },
   "research_questions": [
     "哪些论文和超密集台阵、DAS、城市/区域地震监测有关？",
     "哪些算法能改进连续波形检测、定位、相位识别或噪声成像？",

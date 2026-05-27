@@ -74,6 +74,7 @@ For users who want citation/PDF management.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
 - A new user can run `profile-wizard` / `profile_wizard.sh` to turn current research questions, focus terms, methods, regions, authors, exclusions, semantic intents, limits, and schedule defaults into a usable profile without hand-editing JSON.
 - A new user can run `profile-doctor` / `profile_doctor.sh` to diagnose sparse or overbroad profiles, missing semantic/exclusion signals, overlapping thresholds, feedback history, and recent/library ranking behavior.
+- A new user can run `list-profile-templates --format markdown` to compare bundled templates by audience, starter sources, and first edits before choosing one.
 - A new user can run a bundled-data `self-test` before connecting private email, Zotero, Obsidian, or external feeds.
 - A new user can resolve common Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/arXiv, Obsidian, and Zotero setup failures from a public troubleshooting guide.
 - A new user can persist local defaults with `setup` / `setup_reader.sh` instead of repeatedly typing source, schedule, Obsidian, or Zotero path environment variables.

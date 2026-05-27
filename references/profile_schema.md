@@ -46,6 +46,19 @@ python3 scripts/scholar_reader.py profile-doctor \
 {
   "name": "Seismology literature triage",
   "language": "zh-CN",
+  "profile_meta": {
+    "slug": "seismic-imaging",
+    "summary": "Short product-facing description used by list-profile-templates.",
+    "best_for": [
+      "Who should start from this template"
+    ],
+    "starter_sources": [
+      "Suggested Scholar Alert, RSS, arXiv, or bibliography source ideas"
+    ],
+    "recommended_first_edits": [
+      "What the user should personalize before relying on daily runs"
+    ]
+  },
   "research_questions": [
     "Which papers improve seismic imaging resolution?"
   ],
@@ -98,6 +111,8 @@ python3 scripts/scholar_reader.py profile-doctor \
 ```
 
 `term` matching is case-insensitive substring matching over title, author/source, alert name, and snippet. A title hit counts more than a snippet hit. If a list item is a plain string, default weight is `1`.
+
+`profile_meta` is product/onboarding metadata. It does not affect scoring. The CLI uses it for `list-profile-templates --format text|markdown|json` and generated onboarding copy so users can choose a starting profile without opening every JSON file.
 
 `semantic_queries` use local token-overlap matching between short natural-language intent statements and the paper title/snippet/source fields. `adaptive_ranking` then uses retained/interested library papers and feedback records as seeds: similar papers receive `positive_weight`, while papers similar to archive / less-like-this seeds receive `negative_weight`. Set `"enabled": false` to disable this feedback-similarity layer.
 

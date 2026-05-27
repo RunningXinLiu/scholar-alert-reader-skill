@@ -1,6 +1,23 @@
 {
   "name": "General geophysics literature triage",
   "language": "zh-CN",
+  "profile_meta": {
+    "slug": "general-geophysics",
+    "summary": "Broad geophysics triage for seismic imaging, crust and mantle structure, tectonics, anisotropy, receiver functions, and general methods.",
+    "best_for": [
+      "Users starting from a broad literature inbox before narrowing to a specific project",
+      "Mixed Scholar Alerts spanning tomography, receiver functions, anisotropy, tectonics, and earthquake source topics"
+    ],
+    "starter_sources": [
+      "Google Scholar Alerts: seismic tomography, receiver function, seismic anisotropy, ambient noise, upper mantle",
+      "RSS/arXiv: physics.geo-ph tomography, seismology, tectonics, earthquake source processes"
+    ],
+    "recommended_first_edits": [
+      "Replace the default regions with your real project regions",
+      "Lower broad terms like earthquake if they create too much noise",
+      "Move to a more focused template once your feedback history shows a stable direction"
+    ]
+  },
   "research_questions": [
     "哪些新论文能改进地震成像、震源或地下结构解释？",
     "哪些论文和俯冲带、地壳-上地幔结构、各向异性或接收函数有关？",

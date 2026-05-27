@@ -87,6 +87,23 @@ class CoreWorkflowTests(unittest.TestCase):
         )
         self.assertIn("ai-seismology", result.stdout)
         self.assertIn("general-geophysics", result.stdout)
+        self.assertIn("Starter source:", result.stdout)
+        catalog_json = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "scholar_reader.py"),
+                "list-profile-templates",
+                "--format",
+                "json",
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        catalog = json.loads(catalog_json.stdout)
+        by_slug = {item["slug"]: item for item in catalog}
+        self.assertIn("starter_sources", by_slug["ai-seismology"])
+        self.assertIn("recommended_first_edits", by_slug["seismic-imaging"])
 
         with tempfile.TemporaryDirectory() as tmp:
             profile = Path(tmp) / "profile.json"
@@ -106,6 +123,7 @@ class CoreWorkflowTests(unittest.TestCase):
             )
             data = json.loads(profile.read_text(encoding="utf-8"))
             self.assertIn("AI seismology", data["name"])
+            self.assertEqual(data["profile_meta"]["slug"], "ai-seismology")
             self.assertTrue(any(item["term"] == "seismic foundation model" for item in data["focus_terms"]))
 
             report = Path(tmp) / "profile_onboarding.md"

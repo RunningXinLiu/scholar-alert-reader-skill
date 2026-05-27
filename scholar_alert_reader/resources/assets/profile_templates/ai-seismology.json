@@ -1,6 +1,23 @@
 {
   "name": "AI seismology and foundation-model triage",
   "language": "zh-CN",
+  "profile_meta": {
+    "slug": "ai-seismology",
+    "summary": "AI seismology triage for waveform foundation models, phase picking, event association, relocation, monitoring, datasets, and benchmarks.",
+    "best_for": [
+      "Users tracking machine learning papers for earthquake monitoring and waveform analysis",
+      "Projects comparing foundation models, pickers, association pipelines, relocation methods, or seismic benchmarks"
+    ],
+    "starter_sources": [
+      "Google Scholar Alerts: seismic foundation model, phase picking, earthquake association, seismic waveform learning",
+      "arXiv/RSS: machine learning for seismology, self-supervised waveform representation learning, earthquake monitoring"
+    ],
+    "recommended_first_edits": [
+      "Add your current target task, such as phase picking, association, relocation, or continuous monitoring",
+      "Add project regions or datasets if geographic relevance matters",
+      "Archive medical ultrasound and generic computer-vision papers early so feedback can suppress them"
+    ]
+  },
   "research_questions": [
     "哪些新论文和 AI 地震学、地震基础模型或连续波形建模直接相关？",
     "哪些 phase picking、association、relocation 或 monitoring 方法值得复现或引用？",
