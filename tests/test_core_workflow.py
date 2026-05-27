@@ -144,6 +144,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "doctor_reader.sh").exists())
             self.assertTrue((project / "support_bundle.sh").exists())
             self.assertTrue((project / "capabilities.sh").exists())
+            self.assertTrue((project / "dashboard_reader.sh").exists())
             self.assertTrue((project / "guide_reader.sh").exists())
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
@@ -163,6 +164,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Product Modes", start_here)
             self.assertIn("Capability boundary", start_here)
             self.assertIn("./capabilities.sh", start_here)
+            self.assertIn("DASHBOARD.html", start_here)
             self.assertIn("Bundled templates", start_here)
             subprocess.run(
                 [
@@ -239,6 +241,13 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Reading Plan", (project / "knowledge_base" / "reading_plan.html").read_text(encoding="utf-8"))
             self.assertIn("reading_plan.md", (project / "knowledge_base" / "index.md").read_text(encoding="utf-8"))
             self.assertIn("reading_plan.html", (project / "knowledge_base" / "index.md").read_text(encoding="utf-8"))
+            self.assertTrue((project / "DASHBOARD.md").exists())
+            self.assertTrue((project / "DASHBOARD.html").exists())
+            dashboard = (project / "DASHBOARD.md").read_text(encoding="utf-8")
+            self.assertIn("Scholar Alert Reader Dashboard", dashboard)
+            self.assertIn("Latest digest HTML", dashboard)
+            self.assertIn("Review Workflow", dashboard)
+            self.assertIn("sample_web_article.html", dashboard)
             source_check = subprocess.run(
                 [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
                 cwd=project,
@@ -1074,6 +1083,35 @@ SCHEDULE_TIME=09:00
             self.assertIn("already in reading", reading_plan_content)
             self.assertTrue(reading_plan_html.exists())
             self.assertIn("<!doctype html>", reading_plan_html.read_text(encoding="utf-8"))
+
+            dashboard = root / "DASHBOARD.md"
+            dashboard_html = root / "DASHBOARD.html"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "dashboard",
+                    "--project-dir",
+                    str(root),
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--out-dir",
+                    str(root),
+                    "--output",
+                    str(dashboard),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            dashboard_content = dashboard.read_text(encoding="utf-8")
+            self.assertIn("Scholar Alert Reader Dashboard", dashboard_content)
+            self.assertIn("Reading plan HTML", dashboard_content)
+            self.assertIn("Retained library: 1 records", dashboard_content)
+            self.assertTrue(dashboard_html.exists())
+            self.assertIn("<!doctype html>", dashboard_html.read_text(encoding="utf-8"))
 
             comparison = root / "compare.md"
             subprocess.run(

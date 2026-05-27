@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.33 - 2026-05-27
+
+- Add `dashboard` / generated `dashboard_reader.sh` as a project home page linking the latest digest, reading plan, review queue, knowledge-base files, setup reports, and next actions.
+- Refresh `DASHBOARD.md` / `DASHBOARD.html` automatically after successful generated `run_reader.sh` runs unless `REFRESH_DASHBOARD=0` is set.
+- Add regression coverage for dashboard generation and project-scaffold integration.
+
 ## v0.2.32 - 2026-05-27
 
 - Write `review_queue.html` alongside `review_queue.md` by default for browser-friendly batch paper review.

@@ -28,9 +28,10 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
-12. Use `reading-plan`, `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
-13. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-14. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
+12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, knowledge base, and diagnostics.
+13. Use `reading-plan`, `deep-read`, `full-text`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+14. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
+15. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -44,6 +45,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `papers.json` and `papers.csv`: structured run output.
 - `deep_read_queue.md`: top papers for actual reading.
 - `seen_papers.json`: dedupe state; can include every alert item.
+- `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, library files, setup reports, and next actions.
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
 - `knowledge_base/profile_tuning.md`: suggested profile updates from interested/archive feedback patterns.
 - `knowledge_base/library.json`: cumulative retained papers, usually Must read + Skim.
@@ -134,6 +136,17 @@ python3 scripts/scholar_reader.py guide \
   --project-dir ~/scholar_alerts \
   --output ~/scholar_alerts/START_HERE.md
 ```
+
+Render or open the local project dashboard:
+
+```bash
+python3 scripts/scholar_reader.py dashboard \
+  --project-dir ~/scholar_alerts \
+  --out-dir ~/scholar_alerts/reader_out/daily \
+  --open
+```
+
+Initialized projects provide `./dashboard_reader.sh --open`. Successful `./run_reader.sh` runs refresh `DASHBOARD.md` and `DASHBOARD.html` automatically unless `REFRESH_DASHBOARD=0` is set.
 
 Persist local source/integration/schedule defaults:
 

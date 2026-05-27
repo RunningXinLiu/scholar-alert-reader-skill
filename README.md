@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.32`
+Version: `0.2.33`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -47,6 +47,7 @@ Good next prompts:
 - "Import papers from this scholarly webpage or saved HTML list."
 - "Pull papers from this RSS feed or arXiv query and rank them against my profile."
 - "Open the feedback UI so I can mark interested papers."
+- "Open my Scholar Alert dashboard so I can see the digest, reading plan, review queue, and setup status."
 - "Make a reading plan from my retained and recent papers."
 - "Deep-read this paper against my foundation."
 - "Export my retained library to Obsidian and Zotero."
@@ -63,7 +64,7 @@ cd scholar-alert-reader-skill
 python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts
 cd ~/scholar_alerts
 ./setup_wizard.sh
-open QUICKSTART_REPORT.md
+./dashboard_reader.sh --open
 ```
 
 Agent compatibility:
@@ -118,6 +119,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
 - Scores papers against your research profile: keywords, methods, regions, authors, exclusions, lightweight semantic queries, adaptive feedback similarity, and temporary boost terms.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
+- Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, retained library, and setup diagnostics.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, so future rankings adapt to your taste through reusable terms and local paper-to-paper similarity.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent/Codex automations, or your own cron/system scheduler.
@@ -298,6 +300,7 @@ Open the generated onboarding guide:
 ```bash
 cat START_HERE.md
 ./guide_reader.sh
+./dashboard_reader.sh --open
 ```
 
 Try the built-in demo without Gmail, Obsidian, or Zotero:
@@ -533,6 +536,17 @@ python3 scripts/scholar_reader.py reading-plan \
 
 `reading-plan` writes `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `review-pack`, or `review-queue` next. Normal runs that update the knowledge base refresh both files automatically; use the command directly when you want to include a specific recent `papers.json`, change the limit, or write to another path.
 
+Open the project dashboard:
+
+```bash
+python3 scripts/scholar_reader.py dashboard \
+  --project-dir ~/scholar_alerts \
+  --out-dir ~/scholar_alerts/reader_out/daily \
+  --open
+```
+
+Initialized projects also provide `./dashboard_reader.sh --open`. The dashboard writes `DASHBOARD.md` and `DASHBOARD.html`, then links the current digest, `reading_plan.html`, `review_queue.html`, foundation/interested files, source check, doctor report, and next commands. Successful `./run_reader.sh` runs refresh it automatically unless `REFRESH_DASHBOARD=0` is set.
+
 Ask a question against the local literature base:
 
 ```bash
@@ -674,7 +688,8 @@ The richer knowledge base includes:
 - `profile_tuning.md`: suggested profile updates from feedback patterns
 - `full_text/<paper-id>.txt`: optional local text cache extracted from a PDF/text file
 - `analysis/<paper-id>_review_pack.md`: selected-paper review context for an assistant
-- `analysis/review_queue.md`: batch index for review packs and full-text extraction status
+- `analysis/review_queue.md` / `analysis/review_queue.html`: batch index for review packs and full-text extraction status
+- Project-root `DASHBOARD.md` / `DASHBOARD.html`: home page for current outputs, setup status, and next actions
 
 ## Export And Diagnostics
 

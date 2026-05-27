@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import webbrowser
 import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -3682,6 +3683,8 @@ def render_project_guide(
         "",
         "## First Run",
         "",
+        "Open `DASHBOARD.html` first after each run. It is the project home page for the latest digest, reading plan, review queue, retained library, and setup reports.",
+        "",
         "0. Verify the install with bundled sample data: `./self_test.sh`.",
         "1. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
         "   - To test every bundled non-private source path, run `./demo_sources.sh`.",
@@ -3707,6 +3710,7 @@ def render_project_guide(
         "## Daily Loop",
         "",
         "- `./run_reader.sh`: fetch and rank new alert papers.",
+        "- `./dashboard_reader.sh --open`: open the project dashboard with links to current outputs.",
         "- `./source_check.sh --source auto`: check Gmail, mbox, BibTeX/RIS, webpage metadata, RSS/arXiv, or optional Mail.app source readiness.",
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
@@ -3734,6 +3738,7 @@ def render_project_guide(
         f"- Web metadata source list: {status_marker(project_dir / 'web_sources.txt')}",
         f"- RSS/Atom feed list: {status_marker(project_dir / 'feeds.txt')}",
         f"- Daily digest HTML: {status_marker(daily_dir / 'digest.html')}",
+        f"- Project dashboard HTML: {status_marker(project_dir / 'DASHBOARD.html')}",
         f"- Daily papers JSON: {count_marker(daily_dir / 'papers.json')}",
         f"- Foundation digest HTML: {status_marker(foundation_dir / 'digest.html')}",
         f"- Recent review JSON: {status_marker(recent_dir / 'papers.json')}",
@@ -3765,6 +3770,166 @@ def write_project_guide(project_dir: Path, profile_path: Path, kb_dir: Path, out
             render_project_guide(project_dir, profile_path, kb_dir, out_dir),
             encoding="utf-8",
         )
+
+
+def dashboard_link(label: str, path: Path, base_dir: Path) -> str:
+    if path.exists():
+        try:
+            target = os.path.relpath(path, base_dir)
+        except ValueError:
+            target = str(path)
+        return f"[{label}]({target})"
+    return f"{label} - missing (`{path}`)"
+
+
+def dashboard_json_count(path: Path) -> str:
+    count, kind = count_json_items(path)
+    if kind == "missing":
+        return "missing"
+    if kind.startswith("invalid JSON"):
+        return kind
+    return f"{count} {kind}"
+
+
+def dashboard_latest_summary(summary_path: Path) -> dict[str, Any]:
+    if not summary_path.exists():
+        return {}
+    try:
+        data = load_json(summary_path)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path, out_dir: Path) -> str:
+    base_dir = project_dir
+    profile_name = "unknown"
+    if profile_path.exists():
+        try:
+            profile_name = str(load_json(profile_path).get("name", "unnamed"))
+        except Exception:
+            profile_name = "invalid profile JSON"
+
+    summary_path = out_dir / "summary.json"
+    summary = dashboard_latest_summary(summary_path)
+    tier_counts = summary.get("tier_counts", {}) if isinstance(summary.get("tier_counts", {}), dict) else {}
+    source_counts = summary.get("source_counts", {}) if isinstance(summary.get("source_counts", {}), dict) else {}
+    daily_dir = project_dir / "reader_out" / "daily"
+    recent_dir = project_dir / "reader_out" / "recent"
+    analysis_dir = kb_dir / "analysis"
+
+    lines = [
+        "# Scholar Alert Reader Dashboard",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Version: `{__version__}`",
+        f"- Profile: `{profile_name}`",
+        f"- Project: `{project_dir}`",
+        "",
+        "## Open First",
+        "",
+        f"- {dashboard_link('Latest digest HTML', out_dir / 'digest.html', base_dir)}",
+        f"- {dashboard_link('Reading plan HTML', kb_dir / 'reading_plan.html', base_dir)}",
+        f"- {dashboard_link('Review queue HTML', analysis_dir / 'review_queue.html', base_dir)}",
+        f"- {dashboard_link('Feedback UI source JSON', out_dir / 'papers.json', base_dir)}",
+        "",
+        "## Latest Run",
+        "",
+    ]
+    if summary:
+        lines.extend(
+            [
+                f"- Summary file: {dashboard_link('summary.json', summary_path, base_dir)}",
+                f"- Mode: `{summary.get('mode', 'unknown')}`",
+                f"- Source: `{summary.get('source', 'unknown')}`",
+                f"- Papers in digest: {summary.get('papers_in_digest', 'unknown')}",
+                f"- Library additions: {summary.get('library_additions', 'unknown')}",
+                f"- Knowledge base updated: {summary.get('knowledge_base_updated', 'unknown')}",
+                f"- Tier counts: `{json.dumps(tier_counts, ensure_ascii=False)}`",
+                f"- Source counts: `{json.dumps(source_counts, ensure_ascii=False)}`",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"- No run summary found at `{summary_path}`.",
+                "- Run `./demo_reader.sh` for a private-data-free preview, then `./setup_wizard.sh` and `./run_reader.sh` for real sources.",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Knowledge Base",
+            "",
+            f"- Retained library: {dashboard_json_count(kb_dir / 'library.json')}",
+            f"- Feedback records: {dashboard_json_count(kb_dir / 'feedback.json')}",
+            f"- Paper notes: {file_count(kb_dir / 'papers', '*.md')}",
+            f"- Direction notes: {file_count(kb_dir / 'directions', '*.md')}",
+            f"- Full-text caches: {file_count(kb_dir / 'full_text', '*.txt')}",
+            f"- Analysis reports: {file_count(analysis_dir, '*.md')}",
+            "",
+            "## Library Files",
+            "",
+            f"- {dashboard_link('Foundation library', kb_dir / 'foundation.md', base_dir)}",
+            f"- {dashboard_link('Interested queue', kb_dir / 'interested.md', base_dir)}",
+            f"- {dashboard_link('Daily additions', kb_dir / 'daily_additions.md', base_dir)}",
+            f"- {dashboard_link('Latest run note', kb_dir / 'latest_run.md', base_dir)}",
+            f"- {dashboard_link('Weekly review', kb_dir / 'weekly_review.md', base_dir)}",
+            f"- {dashboard_link('Research map', kb_dir / 'research_map.md', base_dir)}",
+            f"- {dashboard_link('Research advice', kb_dir / 'research_advice.md', base_dir)}",
+            f"- {dashboard_link('Reading status', kb_dir / 'reading_status.md', base_dir)}",
+            "",
+            "## Review Workflow",
+            "",
+            f"- {dashboard_link('Reading plan markdown', kb_dir / 'reading_plan.md', base_dir)}",
+            f"- {dashboard_link('Review queue markdown', analysis_dir / 'review_queue.md', base_dir)}",
+            f"- {dashboard_link('Recent review papers JSON', recent_dir / 'papers.json', base_dir)}",
+            f"- {dashboard_link('Daily papers JSON', daily_dir / 'papers.json', base_dir)}",
+            "",
+            "Recommended flow:",
+            "",
+            "1. Open the latest digest and mark obvious interested/archive papers in `./serve_reader.sh`.",
+            "2. Open the reading plan to choose the next few IDs.",
+            "3. Run `./review_queue.sh --paper-id ID1,ID2` for selected papers.",
+            "4. If Zotero has local PDFs, run `./zotero_sync.sh` first so review packs can include full-text briefs.",
+            "5. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "",
+            "## Setup And Diagnostics",
+            "",
+            f"- {dashboard_link('Start Here guide', project_dir / 'START_HERE.md', base_dir)}",
+            f"- {dashboard_link('Source check', project_dir / 'SOURCE_CHECK.md', base_dir)}",
+            f"- {dashboard_link('Doctor report', project_dir / 'DOCTOR.md', base_dir)}",
+            f"- {dashboard_link('Capabilities report', project_dir / 'CAPABILITIES.md', base_dir)}",
+            f"- {dashboard_link('Troubleshooting guide', project_dir / 'TROUBLESHOOTING.md', base_dir)}",
+            "",
+            "Refresh this page with `./dashboard_reader.sh`. Successful `./run_reader.sh` runs refresh it automatically unless `REFRESH_DASHBOARD=0` is set.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def open_local_path(path: Path) -> None:
+    webbrowser.open(path.expanduser().resolve().as_uri())
+
+
+def dashboard_command(args: argparse.Namespace) -> None:
+    project_dir = args.project_dir.expanduser().resolve()
+    profile_path = (args.profile or project_dir / "profiles" / "research_profile.json").expanduser()
+    kb_dir = (args.kb_dir or project_dir / "knowledge_base").expanduser()
+    out_dir = (args.out_dir or project_dir / "reader_out" / "daily").expanduser()
+    output = (args.output or project_dir / "DASHBOARD.md").expanduser()
+    html_output = args.html_output or output.with_suffix(".html")
+    report = render_project_dashboard(project_dir, profile_path, kb_dir, out_dir)
+    write_report(output, report)
+    if not args.no_html:
+        write_markdown_html(output, html_output, "Scholar Alert Reader Dashboard")
+    if args.open:
+        open_local_path(html_output if not args.no_html else output)
+    print(f"Dashboard: {output}")
+    if not args.no_html:
+        print(f"Dashboard HTML: {html_output}")
 
 
 def init_project(args: argparse.Namespace) -> None:
@@ -3917,7 +4082,12 @@ if [[ "$MODE" == "run" && "${ONLY_NEW:-0}" == "1" ]]; then cmd+=(--only-new); fi
 if [[ "$MODE" == "run" && "${UPDATE_STATE:-0}" == "1" ]]; then cmd+=(--update-state); fi
 if [[ "$MODE" == "run" && "${NO_KB_UPDATE:-0}" == "1" ]]; then cmd+=(--no-kb-update); fi
 
-exec "${cmd[@]}"
+"${cmd[@]}"
+run_status=$?
+if [[ "$run_status" -eq 0 && "${REFRESH_DASHBOARD:-1}" == "1" ]]; then
+  "${SKILL_CMD[@]}" dashboard --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$OUT_DIR" >/dev/null || true
+fi
+exit "$run_status"
 """
     write_executable(project_dir / "run_reader.sh", run_reader)
 
@@ -3959,6 +4129,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "ask_library.sh": 'exec "${SKILL_CMD[@]}" ask --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "reading_plan.sh": 'exec "${SKILL_CMD[@]}" reading-plan --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "advice_reader.sh": 'exec "${SKILL_CMD[@]}" advice --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "dashboard_reader.sh": 'exec "${SKILL_CMD[@]}" dashboard --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" "$@"\n',
         "guide_reader.sh": 'exec "${SKILL_CMD[@]}" guide --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$PROJECT_DIR/reader_out" "$@"\n',
         "status_reader.sh": 'exec "${SKILL_CMD[@]}" status --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "compare_papers.sh": 'exec "${SKILL_CMD[@]}" compare --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -4005,6 +4176,8 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     ".self_test/",
                     "seen_papers.json",
                     "knowledge_base/feedback.json",
+                    "DASHBOARD.md",
+                    "DASHBOARD.html",
                     "",
                     "# Generated outputs",
                     "reader_out/",
@@ -4022,9 +4195,10 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                 [
                     "# Scholar Alert Reader Project",
                     "",
-                    "Start with [START_HERE.md](START_HERE.md). Refresh that guide with:",
+                    "Start with [DASHBOARD.html](DASHBOARD.html), then [START_HERE.md](START_HERE.md). Refresh both with:",
                     "",
                     "```bash",
+                    "./dashboard_reader.sh",
                     "./guide_reader.sh --output START_HERE.md",
                     "```",
                     "",
@@ -4038,6 +4212,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./setup_reader.sh --source auto --profile-template ai-seismology",
                     "./source_check.sh --source auto",
                     "./run_reader.sh",
+                    "./dashboard_reader.sh --open",
                     "```",
                     "",
                     "`setup_wizard.sh` and `setup_reader.sh` write `reader.env`, which is read automatically by the generated shell scripts.",
@@ -4120,6 +4295,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "",
                     "```bash",
                     "./capabilities.sh",
+                    "./dashboard_reader.sh",
                     "./doctor_reader.sh",
                     "./support_bundle.sh",
                     "./guide_reader.sh",
@@ -6469,6 +6645,13 @@ def quickstart_command(args: argparse.Namespace) -> None:
             project_dir,
         )
     )
+    checks.append(
+        run_quickstart_step(
+            "dashboard",
+            [str(project_dir / "dashboard_reader.sh")],
+            project_dir,
+        )
+    )
     passed = all(ok for _, ok, _ in checks)
     report_path = (args.output.expanduser() if args.output else project_dir / "QUICKSTART_REPORT.md").resolve()
     lines = [
@@ -6490,6 +6673,7 @@ def quickstart_command(args: argparse.Namespace) -> None:
             "",
             "## Open These First",
             "",
+            f"- Dashboard: `{project_dir / 'DASHBOARD.html'}`",
             f"- Onboarding guide: `{project_dir / 'START_HERE.md'}`",
             f"- Source check: `{project_dir / 'SOURCE_CHECK.md'}`",
             f"- Doctor report: `{project_dir / 'DOCTOR.md'}`",
@@ -6634,6 +6818,17 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--zotero-dir", type=Path, help="Optional Zotero export directory. Defaults to kb-dir/zotero")
     guide.add_argument("--output", type=Path, help="Write guide markdown to this path instead of stdout")
     guide.set_defaults(func=guide_command)
+
+    dashboard = sub.add_parser("dashboard", help="Write a local project dashboard linking current outputs and next actions")
+    dashboard.add_argument("--project-dir", type=Path, required=True)
+    dashboard.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
+    dashboard.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
+    dashboard.add_argument("--out-dir", type=Path, help="Output directory for the latest run. Defaults to project-dir/reader_out/daily")
+    dashboard.add_argument("--output", type=Path, help="Output markdown path. Defaults to project-dir/DASHBOARD.md")
+    dashboard.add_argument("--html-output", type=Path, help="Output HTML path. Defaults to markdown output with .html suffix")
+    dashboard.add_argument("--no-html", action="store_true", help="Do not write a browser-friendly HTML dashboard")
+    dashboard.add_argument("--open", action="store_true", help="Open the dashboard in the default browser")
+    dashboard.set_defaults(func=dashboard_command)
 
     source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, BibTeX, RIS, web metadata, RSS/Atom, arXiv, or auto source readiness")
     source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "rss", "arxiv"], default="auto")
