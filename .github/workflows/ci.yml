@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,3 +22,30 @@ jobs:
         run: python -m py_compile scripts/scholar_reader.py scholar_alert_reader/*.py
       - name: Unit tests
         run: python -m unittest discover -s tests
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Installed CLI smoke test
+        run: |
+          python -m venv /tmp/scholar-alert-reader-venv
+          /tmp/scholar-alert-reader-venv/bin/python -m pip install dist/*.whl
+          /tmp/scholar-alert-reader-venv/bin/scholar-alert-reader --version
+          /tmp/scholar-alert-reader-venv/bin/scholar-alert-reader setup-wizard \
+            --project-dir /tmp/scholar-alert-reader-project \
+            --defaults \
+            --source rss \
+            --rss-source /tmp/scholar-alert-reader-project/examples/sample_feed.atom \
+            --profile-template ai-seismology \
+            --live-check \
+            --check-strict
+          test -f /tmp/scholar-alert-reader-project/SOURCE_CHECK.md
+          grep -q "RSS/Atom live read" /tmp/scholar-alert-reader-project/SOURCE_CHECK.md

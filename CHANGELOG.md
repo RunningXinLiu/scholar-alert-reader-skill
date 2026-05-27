@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.16 - 2026-05-27
+
+- Add a GitHub Actions package job that builds the wheel, installs it into a clean virtual environment, and runs the installed `scholar-alert-reader` CLI.
+- Smoke-test installed-package resources by running `setup-wizard --live-check` against bundled RSS sample data in CI.
+- Restrict GitHub Actions permissions to read-only repository contents.
+- Modernize package metadata and resource package discovery so wheel builds stay warning-clean on current setuptools.
+
 ## v0.2.15 - 2026-05-27
 
 - Make `setup-wizard` write `SOURCE_CHECK.md` after configuration so first-time users immediately see source readiness.

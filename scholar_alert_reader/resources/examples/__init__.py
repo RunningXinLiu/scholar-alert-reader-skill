@@ -1,0 +1,1 @@
+"""Bundled sample input data."""

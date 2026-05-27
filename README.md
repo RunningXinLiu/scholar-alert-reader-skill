@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.15`
+Version: `0.2.16`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -650,9 +650,11 @@ If a source returns no papers, Gmail OAuth is blocked, or generated outputs are 
 python -m py_compile scripts/scholar_reader.py scholar_alert_reader/*.py
 python -m scholar_alert_reader --version
 python -m unittest discover -s tests
+python -m pip install build
+python -m build
 ```
 
-GitHub Actions runs the same checks on Python 3.10, 3.11, and 3.12.
+GitHub Actions runs compile and unit tests on Python 3.10, 3.11, and 3.12. It also builds the wheel, installs it into a clean virtual environment, and smoke-tests the installed `scholar-alert-reader` CLI against bundled sample data.
 
 ## Privacy
 

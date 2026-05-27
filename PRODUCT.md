@@ -65,6 +65,7 @@ For users who want citation/PDF management.
 - A new user can run one `quickstart` command that creates the local project, runs private-data-free checks/demos, and writes a next-step report.
 - A terminal-only user can install the project with `pip`, run `scholar-alert-reader`, and use generated helper scripts without depending on Codex.
 - A new user can run a guided `setup-wizard` / `setup_wizard.sh` to choose source, profile template, schedule, and optional Obsidian/Zotero paths without memorizing setup flags, then get a `SOURCE_CHECK.md` readiness report.
+- CI must verify both source-checkout execution and installed-wheel execution, including packaged resources used by `quickstart` and `setup-wizard`.
 - A new user can run `demo_reader.sh` before connecting Gmail, Obsidian, or Zotero.
 - A new user can pick a bundled starting profile: `general-geophysics`, `ai-seismology`, `induced-seismicity`, `seismic-imaging`, or `dense-array-monitoring`.
 - A new user can run a bundled-data `self-test` before connecting private email, Zotero, Obsidian, or external feeds.
