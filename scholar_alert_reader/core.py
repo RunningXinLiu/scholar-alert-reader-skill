@@ -1742,6 +1742,16 @@ def jsonld_to_web_fields(item: dict[str, Any]) -> dict[str, list[str]]:
     source = jsonld_source(item)
     if source:
         fields.setdefault("citation_journal_title", []).append(source)
+    for key in ["encoding", "associatedMedia"]:
+        value = item.get(key)
+        values = value if isinstance(value, list) else [value] if value else []
+        for entry in values:
+            if not isinstance(entry, dict):
+                continue
+            content_url = clean_html(str(entry.get("contentUrl") or entry.get("url") or ""))
+            encoding_format = str(entry.get("encodingFormat") or entry.get("fileFormat") or "").lower()
+            if content_url and ("pdf" in encoding_format or content_url.lower().split("?")[0].endswith(".pdf")):
+                fields.setdefault("citation_pdf_url", []).append(content_url)
     return fields
 
 
@@ -1755,6 +1765,7 @@ def paper_from_web_fields(fields: dict[str, list[str]], source_name: str) -> Pap
     date = feed_date(date_value)
     doi = normalize_doi(first_web_value(fields, ["citation_doi", "dc.identifier", "doi"]))
     url = first_web_value(fields, ["citation_public_url", "citation_fulltext_html_url", "og:url", "twitter:url"]) or doi_url(doi) or source_name
+    pdf_url = first_web_value(fields, ["citation_pdf_url", "citation_fulltext_pdf_url", "dc.format.pdf"])
     snippet = first_web_value(fields, ["citation_abstract", "dc.description", "dcterms.description", "description", "og:description", "twitter:description"])
     keywords = web_values(fields, ["citation_keywords", "keywords", "dc.subject", "article:tag"])
     if not snippet and keywords:
@@ -1766,6 +1777,7 @@ def paper_from_web_fields(fields: dict[str, list[str]], source_name: str) -> Pap
             "published": date_value,
             "authors": authors,
             "keywords": keywords,
+            "pdf_url": pdf_url,
         }
     }
     return Paper(
@@ -2939,6 +2951,7 @@ def slugify(value: str) -> str:
 def metadata_lines(paper: Paper) -> list[str]:
     lines: list[str] = []
     zotero = paper.metadata.get("zotero") if paper.metadata else None
+    full_text = paper.metadata.get("full_text") if paper.metadata else None
     openalex = paper.metadata.get("openalex") if paper.metadata else None
     crossref = paper.metadata.get("crossref") if paper.metadata else None
     if isinstance(zotero, dict):
@@ -2952,6 +2965,18 @@ def metadata_lines(paper: Paper) -> list[str]:
             ]
         )
         for path in coerce_list(zotero.get("pdf_paths")):
+            lines.append(f"- Local PDF: {path}")
+        lines.append("")
+    if isinstance(full_text, dict):
+        lines.extend(
+            [
+                "## Full Text",
+                "",
+                f"- Source: {full_text.get('source', '')}",
+                f"- PDF URL: {full_text.get('pdf_url', '')}",
+            ]
+        )
+        for path in coerce_list(full_text.get("pdf_paths")):
             lines.append(f"- Local PDF: {path}")
         lines.append("")
     if isinstance(openalex, dict):
@@ -3753,6 +3778,7 @@ PRIVACY_HIGH_RISK_RULES = [
             "knowledge_base/reading_status.md",
             "knowledge_base/papers/**",
             "knowledge_base/directions/**",
+            "knowledge_base/pdfs/**",
             "knowledge_base/full_text/**",
             "knowledge_base/analysis/**",
             "knowledge_base/answers/**",
@@ -3765,7 +3791,7 @@ PRIVACY_HIGH_RISK_RULES = [
     PrivacyRule(
         "HIGH",
         "Local full text or PDF",
-        ("*.pdf", "**/*.pdf", "full_text/**", "**/full_text/**"),
+        ("*.pdf", "**/*.pdf", "pdfs/**", "**/pdfs/**", "full_text/**", "**/full_text/**"),
         "PDFs and extracted text can be copyrighted, licensed, or personally annotated.",
     ),
 ]
@@ -4171,6 +4197,7 @@ def render_project_guide(
         "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
         "- `./explain_ranking.sh --paper-id <ID>`: explain why one paper was ranked where it was.",
         "- `./ranking_eval.sh`: evaluate ranking quality against interested/archive feedback labels.",
+        "- `./fetch_pdf.sh --paper-id <ID> --extract`: fetch an explicit/open PDF URL, then build a local full-text brief.",
         "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
         "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
         "- `./review_workflow.sh --paper-id <ID>`: run local full-text extraction when possible, then write a workup and review pack.",
@@ -4400,9 +4427,10 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "3. If Zotero has local PDFs, run `./zotero_sync.sh` so review packs can include full-text briefs.",
             "4. Run `./explain_ranking.sh --paper-id ID` if a paper's tier or score needs explanation.",
             "5. Run `./ranking_eval.sh` after several labels to measure whether ranking matches your feedback.",
-            "6. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
-            "7. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
-            "8. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "6. Run `./fetch_pdf.sh --paper-id ID --extract` when a paper has an explicit/open PDF URL but no local file.",
+            "7. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
+            "8. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
+            "9. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
             "",
@@ -4642,6 +4670,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "deep_read_paper.sh": 'exec "${SKILL_CMD[@]}" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "workup_paper.sh": 'exec "${SKILL_CMD[@]}" workup --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "full_text_paper.sh": 'exec "${SKILL_CMD[@]}" full-text --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "fetch_pdf.sh": 'exec "${SKILL_CMD[@]}" fetch-pdf --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_paper.sh": 'exec "${SKILL_CMD[@]}" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_workflow.sh": 'exec "${SKILL_CMD[@]}" review-workflow --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -4816,6 +4845,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./deep_read_paper.sh --paper-id <ID>",
                     "./workup_paper.sh --paper-id <ID>",
                     "./full_text_paper.sh --paper-id <ID>",
+                    "./fetch_pdf.sh --paper-id <ID> --extract",
                     "./review_paper.sh --paper-id <ID>",
                     "./review_workflow.sh --paper-id <ID>",
                     "./review_queue.sh --tiers \"Must read\" --limit 5",
@@ -7355,6 +7385,190 @@ def full_text_command(args: argparse.Namespace) -> None:
     print(f"Full-text brief: {report_output}")
 
 
+def normalize_pdf_candidate_url(value: Any) -> str:
+    url = str(value or "").strip()
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    return url
+
+
+def arxiv_pdf_url(value: Any) -> str:
+    url = str(value or "").strip()
+    parsed = urlparse(url)
+    if parsed.netloc.lower() not in {"arxiv.org", "www.arxiv.org"}:
+        return ""
+    match = re.match(r"^/(abs|pdf)/([^?#]+)", parsed.path)
+    if not match:
+        return ""
+    arxiv_id = match.group(2).replace(".pdf", "")
+    return f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+
+
+def paper_pdf_candidate_urls(record: dict[str, Any], explicit_url: str | None = None) -> list[str]:
+    urls: list[str] = []
+
+    def add(value: Any) -> None:
+        url = normalize_pdf_candidate_url(value)
+        if url and url not in urls:
+            urls.append(url)
+
+    add(explicit_url)
+    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    for provider in ["openalex", "web", "bibtex", "ris", "crossref"]:
+        item = metadata.get(provider)
+        if isinstance(item, dict):
+            for key in ["pdf_url", "pdf", "full_text_pdf_url", "citation_pdf_url", "url", "landing_page_url"]:
+                value = item.get(key)
+                if isinstance(value, list):
+                    for entry in value:
+                        add(entry)
+                elif value:
+                    add(value)
+    for key in ["url", "scholar_url"]:
+        add(arxiv_pdf_url(record.get(key)))
+        add(record.get(key))
+    return urls
+
+
+def download_pdf(url: str, output: Path, max_bytes: int = 80_000_000, timeout: int = 30) -> tuple[Path, int, str]:
+    candidate = normalize_pdf_candidate_url(url)
+    if not candidate:
+        raise ValueError("Only http/https PDF URLs are supported.")
+    output = output.expanduser()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    request = Request(
+        candidate,
+        headers={
+            "User-Agent": f"scholar-alert-reader/{__version__}",
+            "Accept": "application/pdf,*/*;q=0.5",
+        },
+    )
+    with urlopen(request, timeout=timeout) as response:
+        content_type = str(response.headers.get("Content-Type", "")).lower()
+        length_header = response.headers.get("Content-Length")
+        if length_header:
+            try:
+                if int(length_header) > max_bytes:
+                    raise RuntimeError(f"PDF is larger than max bytes ({max_bytes}).")
+            except ValueError:
+                pass
+        total = 0
+        head = b""
+        with output.open("wb") as handle:
+            while True:
+                chunk = response.read(1024 * 128)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    handle.close()
+                    output.unlink(missing_ok=True)
+                    raise RuntimeError(f"PDF download exceeded max bytes ({max_bytes}).")
+                if not head:
+                    head = chunk[:16]
+                handle.write(chunk)
+    if total == 0:
+        output.unlink(missing_ok=True)
+        raise RuntimeError("Downloaded file is empty.")
+    if b"%PDF" not in head[:8] and "pdf" not in content_type and not candidate.lower().split("?")[0].endswith(".pdf"):
+        output.unlink(missing_ok=True)
+        raise RuntimeError(f"Downloaded content does not look like a PDF (Content-Type: {content_type or 'unknown'}).")
+    return output, total, content_type or "unknown"
+
+
+def merge_fetched_pdf_metadata(kb_dir: Path, record_id: str, pdf_path: Path, pdf_url: str, profile: dict[str, Any]) -> bool:
+    library = load_paper_library(kb_dir)
+    changed = False
+    for paper in library:
+        if paper.id != record_id:
+            continue
+        metadata = paper.metadata if isinstance(paper.metadata, dict) else {}
+        full_text = metadata.get("full_text") if isinstance(metadata.get("full_text"), dict) else {}
+        pdf_paths = [str(path) for path in coerce_list(full_text.get("pdf_paths")) if str(path).strip()]
+        if str(pdf_path) not in pdf_paths:
+            pdf_paths.append(str(pdf_path))
+        full_text.update(
+            {
+                "pdf_url": pdf_url,
+                "pdf_paths": pdf_paths,
+                "fetched_at": datetime.now().isoformat(timespec="seconds"),
+                "source": "fetch-pdf",
+            }
+        )
+        metadata["full_text"] = full_text
+        paper.metadata = metadata
+        changed = True
+        break
+    if changed:
+        save_paper_library(kb_dir, library)
+        write_kb_paper_pages(kb_dir, library)
+        write_kb_direction_pages(kb_dir, library, profile)
+        write_weekly_review(kb_dir, library, profile)
+    return changed
+
+
+def fetch_pdf_for_record(
+    record: dict[str, Any],
+    kb_dir: Path,
+    pdf_url: str | None = None,
+    output: Path | None = None,
+    max_bytes: int = 80_000_000,
+    timeout: int = 30,
+) -> tuple[Path, str, int, str]:
+    urls = paper_pdf_candidate_urls(record, pdf_url)
+    if not urls:
+        raise FileNotFoundError("No explicit or open PDF URL found. Pass --pdf-url, run enrich, import webpage metadata with citation_pdf_url, or sync a local Zotero PDF.")
+    stem = str(record.get("id", "paper") or "paper")
+    output_path = output or (kb_dir / "pdfs" / f"{stem}.pdf")
+    failures: list[str] = []
+    for url in urls:
+        try:
+            path, byte_count, content_type = download_pdf(url, output_path, max_bytes=max_bytes, timeout=timeout)
+            return path, url, byte_count, content_type
+        except Exception as exc:
+            failures.append(f"{url}: {exc}")
+    raise RuntimeError("Could not fetch any candidate PDF URL:\n- " + "\n- ".join(failures))
+
+
+def fetch_pdf_command(args: argparse.Namespace) -> None:
+    profile = load_profile(args.profile)
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    records = merged_paper_records(kb_dir, args.papers_json)
+    target = select_paper_record(records, args.paper_id, args.title)
+    pdf_path, pdf_url, byte_count, content_type = fetch_pdf_for_record(
+        target,
+        kb_dir,
+        pdf_url=args.pdf_url,
+        output=args.output,
+        max_bytes=args.max_bytes,
+        timeout=args.timeout,
+    )
+    updated = False
+    if args.update_library:
+        updated = merge_fetched_pdf_metadata(kb_dir, str(target.get("id", "")), pdf_path, pdf_url, profile)
+    print(f"PDF URL: {pdf_url}")
+    print(f"PDF saved: {pdf_path}")
+    print(f"Bytes: {byte_count}")
+    print(f"Content-Type: {content_type}")
+    print(f"Library metadata updated: {updated}")
+    if args.extract:
+        text_output, report_output, _, extraction_method = write_full_text_brief_report(
+            profile_path=args.profile,
+            kb_dir=kb_dir,
+            paper_id=str(target.get("id", "")),
+            papers_json=args.papers_json,
+            pdf_path=pdf_path,
+            max_chars=args.max_chars,
+            timeout=args.extract_timeout,
+        )
+        print(f"Extraction method: {extraction_method}")
+        print(f"Text cache: {text_output}")
+        print(f"Full-text brief: {report_output}")
+
+
 def read_context_text(path: Path | None, max_chars: int) -> tuple[str, Path | None]:
     if not path or not path.exists():
         return "", None
@@ -7376,7 +7590,7 @@ def review_brief_summary(full_text_brief: str) -> dict[str, str]:
 
 def review_queue_next_action(row: dict[str, str]) -> str:
     if not row.get("full_text"):
-        return "Attach or sync a local PDF/text path, then rerun `review-queue` or `full-text`."
+        return "Attach/sync a local PDF, or run `fetch-pdf` for an explicit/open PDF URL, then rerun `review-queue` or `full-text`."
     if not row.get("brief"):
         return "Run `full-text` to build a section-aware brief, then rebuild the review pack."
     if row.get("signals") and row["signals"] != "none detected":
@@ -7544,6 +7758,25 @@ def review_workflow_command(args: argparse.Namespace) -> None:
         else:
             try:
                 source_arg = args.pdf_path
+                if args.fetch_pdf and not source_arg:
+                    fetched_pdf, fetched_url, fetched_bytes, _ = fetch_pdf_for_record(
+                        target,
+                        kb_dir,
+                        pdf_url=args.pdf_url,
+                        output=kb_dir / "pdfs" / f"{stem}.pdf",
+                        max_bytes=args.max_pdf_bytes,
+                        timeout=args.fetch_timeout,
+                    )
+                    source_arg = fetched_pdf
+                    extraction_source = f"{fetched_pdf} (fetched from {fetched_url}, {fetched_bytes} bytes)"
+                    if args.update_library:
+                        merge_fetched_pdf_metadata(
+                            kb_dir,
+                            stem,
+                            fetched_pdf,
+                            fetched_url,
+                            load_profile(args.profile),
+                        )
                 if text_output.exists() and not brief_output.exists() and not source_arg:
                     source_arg = text_output
                 text_output, brief_output, source_path, method = write_full_text_brief_report(
@@ -7558,7 +7791,8 @@ def review_workflow_command(args: argparse.Namespace) -> None:
                     max_chars=args.max_chars,
                     timeout=args.timeout,
                 )
-                extraction_source = str(source_path)
+                if not extraction_source:
+                    extraction_source = str(source_path)
                 extraction_status = f"extracted with {method}"
             except Exception as exc:
                 extraction_status = f"unavailable: {exc}"
@@ -8456,6 +8690,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Turning retained/recent papers into a next-reading plan with concrete follow-up commands.",
         "- Explaining why selected papers received their current score and tier, including matched terms, feedback status, thresholds, and tuning moves.",
         "- Evaluating saved ranking quality against interested/archive labels with precision, recall, average precision, false positives, and missed positives.",
+        "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
@@ -8466,6 +8701,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` start from alert metadata, bibliography fields, snippets, local profile terms, retained-library context, and feedback signals.",
         "- `semantic_queries` and adaptive ranking are lightweight local matching features, not a hosted embedding service or a neural reranker.",
         "- `full-text` works when a local PDF/text path is provided directly or synced from Zotero; it does not automatically bypass publisher access or download paywalled PDFs.",
+        "- `fetch-pdf` only uses explicit/open PDF URLs from user input, arXiv, webpage metadata, or OpenAlex metadata. It does not crawl publisher pages or bypass access controls.",
         "- `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant. It does not upload data or claim autonomous expert peer review.",
         "- Web import reads structured scholarly metadata from configured URLs, saved HTML, or URL/path lists. It is not a general-purpose crawler.",
         "",
@@ -8483,12 +8719,12 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "3. Run `source-check --live` before expecting non-empty daily results.",
         "4. Build an initial `foundation`, then use `daily` for new papers only.",
         "5. Mark interested/archive papers and rerun `ranking-eval` plus `profile-tune` after several feedback rounds.",
-        "6. Sync Zotero local PDF paths when available, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
+        "6. Sync Zotero local PDF paths when available, or run `fetch-pdf` for explicit/open PDF URLs, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
         "",
         "## Practical Upgrade Path",
         "",
         "- For better ranking: run `ranking-eval` after several labels, run `explain-ranking` on confusing papers, tune profile terms, add `semantic_queries`, and use more-like-this / less-like-this feedback.",
-        "- For closer reading: use Zotero or explicit local PDF paths with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
+        "- For closer reading: use Zotero, explicit local PDF paths, or `fetch-pdf` for open PDF URLs with `review-workflow`; use the lower-level `full-text`, `workup`, and `review-pack` commands when you want manual control.",
         "- For knowledge management: export generated notes to Obsidian, but keep human-written notes outside generated folders.",
         "- For public support: run `privacy-check` first, then `support-bundle`, and review the redacted output before posting a GitHub issue.",
         "",
@@ -9020,6 +9256,22 @@ def build_parser() -> argparse.ArgumentParser:
     full_text.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md")
     full_text.set_defaults(func=full_text_command)
 
+    fetch_pdf = sub.add_parser("fetch-pdf", aliases=["pdf-fetch"], help="Fetch an explicit/open PDF URL for one selected paper")
+    fetch_pdf.add_argument("--profile", type=Path, required=True)
+    fetch_pdf.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    fetch_pdf.add_argument("--papers-json", type=Path, help="Optional digest papers.json to select a paper that is not yet retained")
+    fetch_pdf.add_argument("--paper-id", help="Paper ID from a digest or paper note")
+    fetch_pdf.add_argument("--title", help="Case-insensitive title substring")
+    fetch_pdf.add_argument("--pdf-url", help="Explicit open PDF URL. Defaults to metadata.openalex/web/arXiv PDF candidates")
+    fetch_pdf.add_argument("--output", type=Path, help="Output PDF path. Defaults to kb-dir/pdfs/<paper-id>.pdf")
+    fetch_pdf.add_argument("--max-bytes", type=int, default=80_000_000, help="Maximum PDF download size in bytes")
+    fetch_pdf.add_argument("--timeout", type=int, default=30, help="PDF fetch timeout in seconds")
+    fetch_pdf.add_argument("--update-library", action="store_true", help="Record the downloaded local PDF path in library metadata when the paper is retained")
+    fetch_pdf.add_argument("--extract", action="store_true", help="After downloading, run full-text extraction and write a full-text brief")
+    fetch_pdf.add_argument("--max-chars", type=int, default=120000, help="Maximum extracted text characters to cache when --extract is used")
+    fetch_pdf.add_argument("--extract-timeout", type=int, default=30, help="PDF extraction timeout in seconds when --extract is used")
+    fetch_pdf.set_defaults(func=fetch_pdf_command)
+
     workup = sub.add_parser("workup", aliases=["paper-workup"], help="Build a human-readable selected-paper workup against the local foundation")
     workup.add_argument("--profile", type=Path, required=True)
     workup.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
@@ -9061,6 +9313,11 @@ def build_parser() -> argparse.ArgumentParser:
     review_workflow.add_argument("--paper-id", help="Paper ID from a digest or paper note")
     review_workflow.add_argument("--title", help="Case-insensitive title substring")
     review_workflow.add_argument("--pdf-path", type=Path, help="Explicit local PDF/text path. Defaults to metadata.zotero.pdf_paths")
+    review_workflow.add_argument("--fetch-pdf", action="store_true", help="Fetch an explicit/open PDF URL before extraction when no local PDF path is provided")
+    review_workflow.add_argument("--pdf-url", help="Explicit open PDF URL for --fetch-pdf. Defaults to metadata.openalex/web/arXiv PDF candidates")
+    review_workflow.add_argument("--max-pdf-bytes", type=int, default=80_000_000, help="Maximum PDF download size in bytes for --fetch-pdf")
+    review_workflow.add_argument("--fetch-timeout", type=int, default=30, help="PDF fetch timeout in seconds for --fetch-pdf")
+    review_workflow.add_argument("--update-library", action="store_true", help="Record fetched PDF path in library metadata when using --fetch-pdf")
     review_workflow.add_argument("--no-extract", action="store_true", help="Do not attempt local full-text extraction; use existing caches only")
     review_workflow.add_argument("--force-extract", action="store_true", help="Regenerate full-text cache and brief even when they already exist")
     review_workflow.add_argument("--strict-full-text", action="store_true", help="Exit non-zero if no local full-text cache is available")

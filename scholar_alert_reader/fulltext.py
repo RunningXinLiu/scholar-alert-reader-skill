@@ -178,17 +178,28 @@ def zotero_pdf_paths(record: dict[str, Any]) -> list[str]:
     return []
 
 
+def full_text_pdf_paths(record: dict[str, Any]) -> list[str]:
+    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    full_text = metadata.get("full_text") if isinstance(metadata.get("full_text"), dict) else {}
+    values = full_text.get("pdf_paths", []) if isinstance(full_text, dict) else []
+    if isinstance(values, list):
+        return [str(value) for value in values if str(value).strip()]
+    if values:
+        return [str(values)]
+    return []
+
+
 def first_full_text_path(record: dict[str, Any], explicit_path: Path | None = None) -> Path:
     if explicit_path:
         return explicit_path.expanduser()
-    for value in zotero_pdf_paths(record):
+    for value in full_text_pdf_paths(record) + zotero_pdf_paths(record):
         path = Path(value).expanduser()
         if path.exists():
             return path
-    paths = zotero_pdf_paths(record)
+    paths = full_text_pdf_paths(record) + zotero_pdf_paths(record)
     if paths:
         return Path(paths[0]).expanduser()
-    raise FileNotFoundError("No local PDF/text path found. Run zotero-sync first or pass --pdf-path.")
+    raise FileNotFoundError("No local PDF/text path found. Run zotero-sync or fetch-pdf first, or pass --pdf-path.")
 
 
 def sentence_candidates(full_text: str) -> list[str]:

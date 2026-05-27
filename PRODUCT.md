@@ -20,7 +20,7 @@ Turn scattered paper alerts, bibliography exports, structured scholarly webpages
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, ranking explanation, ranking evaluation, alert-level deep-read briefs, selected-paper workups, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and section-aware brief with figure, table, data, and code signals when the user provides a local file path. `review-workflow` gives users a simpler one-paper path from optional local full-text extraction to `workup` and `review-pack`. `workup` turns one selected paper into a human-readable reading/citation/manuscript decision brief, and `review-pack` turns the selected paper, user profile, foundation, interested papers, optional full-text brief, and optional full-text cache into an LLM-ready markdown context pack. Public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
+Current releases are strongest as a triage and research-memory layer. Ranking, ranking explanation, ranking evaluation, alert-level deep-read briefs, selected-paper workups, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, and retained-library context. Local PDF/text extraction can create a full-text cache and section-aware brief with figure, table, data, and code signals when the user provides a local file path, Zotero supplies a local path, or `fetch-pdf` saves an explicit/open PDF URL locally. `review-workflow` gives users a simpler one-paper path from optional local full-text extraction to `workup` and `review-pack`. `workup` turns one selected paper into a human-readable reading/citation/manuscript decision brief, and `review-pack` turns the selected paper, user profile, foundation, interested papers, optional full-text brief, and optional full-text cache into an LLM-ready markdown context pack. Public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
 
 ## User Tiers
 
@@ -30,7 +30,7 @@ For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
 - Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `profiles/profile_doctor.md`, `knowledge_base/`.
-- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, full-text, review-workflow, review-pack, review-queue, ask-library, advice, compare, map.
+- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -55,7 +55,7 @@ For users who want citation/PDF management.
 
 - Export: BibTeX and RIS from retained papers.
 - Read-back: Better BibTeX/BibTeX exports can add citation keys, Zotero item keys, and local PDF paths back into retained papers.
-- Full-text scaffold: local PDF/text paths can be extracted into text caches, section-aware brief reports with visual/data/code signals, and review packs/batch review queues that carry both the brief and text cache forward with per-paper next actions.
+- Full-text scaffold: local PDF/text paths and explicit/open fetched PDF URLs can be extracted into text caches, section-aware brief reports with visual/data/code signals, and review packs/batch review queues that carry both the brief and text cache forward with per-paper next actions.
 - Obsidian paper notes include citation-oriented frontmatter such as `citation_key`, `doi`, `year`, and `journal`.
 - Future direction: add stronger figure-caption/table-body extraction and optional LLM review over extracted local text.
 
@@ -83,6 +83,7 @@ For users who want citation/PDF management.
 - A user can generate a browser-friendly next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability; normal knowledge-base-updating runs refresh it automatically.
 - A user can generate a ranking explanation report for one paper or a tier-filtered batch, including thresholds, matched terms, feedback status, stored reasons, and tuning moves.
 - A user can evaluate ranking quality after several feedback labels, with precision/recall at K, average precision, tier calibration, high-ranked archive false positives, and low-ranked interested missed positives.
+- A user can fetch explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata into `knowledge_base/pdfs/` without crawling paywalled publisher pages.
 - A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
 - A user can run one selected-paper review workflow that attempts local full-text extraction when possible, writes a workup, writes a review pack, and records next actions in one report.

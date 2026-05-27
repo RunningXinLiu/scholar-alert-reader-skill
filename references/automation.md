@@ -101,13 +101,21 @@ The sync matches retained papers by DOI first and normalized title second. Keep 
 
 ## Local Full-text Briefs
 
-After Zotero read-back has added local PDF paths, generate a local full-text cache and brief for one retained paper:
+After Zotero read-back has added local PDF paths, or after `fetch-pdf` has saved an explicit/open PDF URL locally, generate a local full-text cache and brief for one retained paper:
 
 ```bash
 ./full_text_paper.sh --paper-id <ID>
 ```
 
 The command uses local files only. It tries `pdftotext`, then optional Python PDF libraries, and can also accept a text export through `--pdf-path`. Treat the generated text cache as private research material.
+
+When a retained/recent paper has an explicit/open PDF URL from arXiv, `citation_pdf_url`, OpenAlex enrichment, or a user-supplied URL, fetch it first:
+
+```bash
+./fetch_pdf.sh --paper-id <ID> --extract
+```
+
+Use `--pdf-url` for a known open PDF URL and `--update-library` to store the local path for future full-text/review commands. This command does not crawl publisher pages or bypass access controls.
 
 ## Selected-paper Review Pack
 
@@ -125,7 +133,7 @@ For a batch of top papers, build a review queue:
 ./review_queue.sh --tiers "Must read" --limit 5
 ```
 
-The queue attempts local full-text extraction for each selected paper when Zotero PDF/text paths are present, then writes `knowledge_base/analysis/review_queue.md` and one review pack per paper. Use `--no-extract` when caches already exist, or `--strict-full-text` when missing local text should fail the run.
+The queue attempts local full-text extraction for each selected paper when Zotero PDF/text paths or `fetch-pdf --update-library` paths are present, then writes `knowledge_base/analysis/review_queue.md` and one review pack per paper. Use `--no-extract` when caches already exist, or `--strict-full-text` when missing local text should fail the run.
 
 ## Profile Tuning
 

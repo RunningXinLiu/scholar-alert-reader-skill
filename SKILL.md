@@ -31,7 +31,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 11. For interactive triage, use `serve` to open a local feedback UI. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, profile health, knowledge base, and diagnostics.
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
-14. Use `reading-plan`, `explain-ranking`, `ranking-eval`, `deep-read`, `workup`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+14. Use `reading-plan`, `explain-ranking`, `ranking-eval`, `deep-read`, `workup`, `fetch-pdf`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `privacy-check`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems or preparing public reports.
 
@@ -39,7 +39,7 @@ Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
-Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, and retained-library context. `workup` is a human-readable selected-paper decision brief; `full-text` can extract local PDF/text files when the user provides them or when Zotero sync supplies a local path. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files or claim autonomous expert review.
+Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, and retained-library context. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
 
 ## Outputs
 
@@ -57,6 +57,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/foundation.md`: cumulative retained library grouped by direction.
 - `knowledge_base/interested.md`: cumulative high-priority reading queue, usually Must read.
 - `knowledge_base/daily_additions.md`: retained additions from the latest daily run.
+- `knowledge_base/pdfs/<paper-id>.pdf`: local PDF downloaded from an explicit/open PDF URL.
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
@@ -366,6 +367,19 @@ python3 scripts/scholar_reader.py full-text \
   --paper-id <ID>
 ```
 
+Fetch an explicit/open PDF URL and optionally build the full-text brief:
+
+```bash
+python3 scripts/scholar_reader.py fetch-pdf \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json reader_out/daily/papers.json \
+  --paper-id <ID> \
+  --extract
+```
+
+Use `--pdf-url` for an explicit open PDF URL. Without it, `fetch-pdf` tries arXiv URLs, structured webpage metadata such as `citation_pdf_url`, and OpenAlex `pdf_url` metadata from `enrich`. It writes `knowledge_base/pdfs/<paper-id>.pdf` by default and can record the local path with `--update-library`.
+
 Build a selected-paper workup for reading/citation decisions:
 
 ```bash
@@ -384,7 +398,7 @@ python3 scripts/scholar_reader.py review-workflow \
   --paper-id <ID>
 ```
 
-Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--no-extract` for existing caches only, and `--strict-full-text` when missing local text should fail the command.
+Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` for existing caches only, and `--strict-full-text` when missing local text should fail the command.
 
 Build a selected-paper review context pack for Codex, Claude, ChatGPT, or another assistant:
 
@@ -573,4 +587,4 @@ Down-rank:
 
 ## Privacy
 
-Treat mailbox exports, personal bibliography imports, feed lists, local PDFs/full-text caches, and Gmail tokens as private data. Run `privacy-check` / `./privacy_check.sh --strict` before public issue reports, screenshots, zip files, or folder sharing. Do not upload raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, or generated knowledge-base outputs unless the user explicitly asks for that.
+Treat mailbox exports, personal bibliography imports, feed lists, fetched/local PDFs, full-text caches, and Gmail tokens as private data. Run `privacy-check` / `./privacy_check.sh --strict` before public issue reports, screenshots, zip files, or folder sharing. Do not upload raw mailbox contents, OAuth credentials, Gmail tokens, `seen_papers.json`, PDFs, or generated knowledge-base outputs unless the user explicitly asks for that.

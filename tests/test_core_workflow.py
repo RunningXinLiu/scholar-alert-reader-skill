@@ -10,7 +10,7 @@ import threading
 import urllib.parse
 import urllib.request
 import unittest
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
@@ -223,6 +223,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "zotero_sync.sh").exists())
             self.assertTrue((project / "workup_paper.sh").exists())
             self.assertTrue((project / "full_text_paper.sh").exists())
+            self.assertTrue((project / "fetch_pdf.sh").exists())
             self.assertTrue((project / "review_paper.sh").exists())
             self.assertTrue((project / "review_workflow.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
@@ -252,6 +253,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("./profile_wizard.sh", start_here)
             self.assertIn("./profile_doctor.sh", start_here)
             self.assertIn("./ranking_eval.sh", start_here)
+            self.assertIn("./fetch_pdf.sh", start_here)
             subprocess.run(
                 [
                     str(project / "setup_reader.sh"),
@@ -1175,7 +1177,100 @@ ER  -
             self.assertEqual(len(papers), 1)
             self.assertEqual(papers[0]["title"], "Uncertainty-aware dense array monitoring of induced seismicity")
             self.assertEqual(papers[0]["metadata"]["web"]["doi"], "10.0000/web-demo")
+            self.assertEqual(papers[0]["metadata"]["web"]["pdf_url"], "https://example.org/web-demo.pdf")
             self.assertTrue((root / "out" / "digest.html").exists())
+
+    def test_fetch_pdf_from_open_metadata_updates_library(self) -> None:
+        class PdfHandler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                if self.path != "/paper.pdf":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                content = b"%PDF-1.4\n% sanitized test pdf\n"
+                self.send_response(200)
+                self.send_header("Content-Type", "application/pdf")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), PdfHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                profile = root / "profile.json"
+                profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+                kb = root / "kb"
+                kb.mkdir()
+                record = sample_paper()
+                pdf_url = f"http://127.0.0.1:{server.server_port}/paper.pdf"
+                record["metadata"]["openalex"]["pdf_url"] = pdf_url
+                (kb / "library.json").write_text(json.dumps([record]), encoding="utf-8")
+                output_pdf = root / "downloaded.pdf"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / "scripts" / "scholar_reader.py"),
+                        "fetch-pdf",
+                        "--profile",
+                        str(profile),
+                        "--kb-dir",
+                        str(kb),
+                        "--paper-id",
+                        "p1",
+                        "--output",
+                        str(output_pdf),
+                        "--update-library",
+                    ],
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+                self.assertIn("PDF saved:", result.stdout)
+                self.assertIn("Library metadata updated: True", result.stdout)
+                self.assertTrue(output_pdf.read_bytes().startswith(b"%PDF"))
+                library = json.loads((kb / "library.json").read_text(encoding="utf-8"))
+                full_text = library[0]["metadata"]["full_text"]
+                self.assertEqual(full_text["pdf_url"], pdf_url)
+                self.assertIn(str(output_pdf), full_text["pdf_paths"])
+                note = (kb / "papers" / "p1.md").read_text(encoding="utf-8")
+                self.assertIn("## Full Text", note)
+                self.assertIn(str(output_pdf), note)
+                workflow = root / "workflow.md"
+                subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / "scripts" / "scholar_reader.py"),
+                        "review-workflow",
+                        "--profile",
+                        str(profile),
+                        "--kb-dir",
+                        str(kb),
+                        "--paper-id",
+                        "p1",
+                        "--fetch-pdf",
+                        "--pdf-url",
+                        pdf_url,
+                        "--output",
+                        str(workflow),
+                    ],
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+                workflow_content = workflow.read_text(encoding="utf-8")
+                self.assertIn("Selected Paper Review Workflow", workflow_content)
+                self.assertIn("fetched from", workflow_content)
+                self.assertIn("Full-text extraction: unavailable", workflow_content)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
     def test_arxiv_url_builder(self) -> None:
         url = core.arxiv_api_url('cat:physics.geo-ph AND all:"receiver function"', 25)

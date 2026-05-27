@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.46 - 2026-05-28
+
+- Add `fetch-pdf` / `pdf-fetch` plus generated `fetch_pdf.sh` to download explicit/open PDF URLs from user input, arXiv URLs, structured webpage metadata, or OpenAlex metadata.
+- Allow `review-workflow --fetch-pdf` to fetch an open PDF before local full-text extraction, workup generation, and review-pack creation.
+- Store fetched PDF metadata under `metadata.full_text`, surface it in paper notes, include `knowledge_base/pdfs/**` in privacy checks, and document that the tool does not crawl paywalled publisher pages or bypass access controls.
+
 ## v0.2.45 - 2026-05-28
 
 - Add `ranking-eval` / `eval-ranking` plus generated `ranking_eval.sh` to evaluate saved ranking quality against explicit interested/archive feedback labels.
