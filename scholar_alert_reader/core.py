@@ -2631,9 +2631,19 @@ RSS_SOURCE="${RSS_SOURCE:-$PROJECT_DIR/feeds.txt}"
 ARXIV_QUERY="${ARXIV_QUERY:-}"
 GMAIL_CREDENTIALS="${GMAIL_CREDENTIALS:-$HOME/.codex/scholar-alert-reader/gmail_credentials.json}"
 GMAIL_TOKEN="${GMAIL_TOKEN:-$HOME/.codex/scholar-alert-reader/gmail_token.json}"
+GMAIL_DEPS_READY="$("$PYTHON_BIN" - <<'PY'
+import importlib.util
+mods = ["googleapiclient", "google.oauth2.credentials", "google_auth_oauthlib.flow"]
+try:
+    ok = all(importlib.util.find_spec(mod) is not None for mod in mods)
+except ModuleNotFoundError:
+    ok = False
+print("1" if ok else "0")
+PY
+)"
 
 if [[ "$SOURCE" == "auto" ]]; then
-  if [[ -f "$GMAIL_TOKEN" ]]; then
+  if [[ -f "$GMAIL_TOKEN" && "$GMAIL_DEPS_READY" == "1" ]]; then
     SOURCE="gmail"
   elif [[ -f "$MBOX_PATH" || -d "$MBOX_PATH" ]]; then
     SOURCE="mbox"
@@ -2647,6 +2657,11 @@ if [[ "$SOURCE" == "auto" ]]; then
     SOURCE="arxiv"
   elif [[ "${AUTO_ALLOW_MAIL_APP:-0}" == "1" && "$(uname -s)" == "Darwin" && -x "/usr/bin/osascript" ]]; then
     SOURCE="mail-app"
+  elif [[ -f "$GMAIL_TOKEN" && "$GMAIL_DEPS_READY" != "1" ]]; then
+    echo "Gmail token exists, but this Python is missing Gmail API dependencies." >&2
+    echo "Install with: $PYTHON_BIN -m pip install -r requirements-gmail.txt" >&2
+    echo "Or set SOURCE=mbox, bibtex, ris, rss, arxiv, or mail-app explicitly." >&2
+    exit 2
   else
     echo "No Scholar Alert source is ready." >&2
     echo "Set up Gmail OAuth, place INBOX.mbox/import.bib/import.ris/feeds.txt in this project, set ARXIV_QUERY, or run SOURCE=mail-app AUTO_ALLOW_MAIL_APP=1 after granting macOS Automation permission." >&2

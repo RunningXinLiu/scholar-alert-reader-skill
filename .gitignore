@@ -1,6 +1,7 @@
 .DS_Store
 __pycache__/
 *.pyc
+.pytest_cache/
 .venv/
 venv/
 .codegraph/
@@ -15,6 +16,9 @@ token.json
 *.mbox/
 *.mbox
 *.eml
+import.bib
+import.ris
+feeds.txt
 out/
 knowledge_base/
 profiles/

@@ -6,7 +6,7 @@
 
 A Codex skill for turning Google Scholar Alert emails into personalized literature digests and a cumulative reading knowledge base.
 
-Version: `0.1.0`
+Version: `0.2.0`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 

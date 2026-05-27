@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.2.0 - 2026-05-27
+
 - Add a product-oriented `guide` command and generated `START_HERE.md` for local projects.
 - Add a sanitized demo mailbox and `demo_reader.sh` so users can test without Gmail, Obsidian, or Zotero.
 - Add BibTeX/RIS as first-class input sources for Zotero, publisher, database, and Google Scholar library exports.
