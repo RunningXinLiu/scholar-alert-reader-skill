@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.76`
+Version: `0.2.77`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -309,7 +309,7 @@ python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts --open
 cd ~/scholar_alerts
 ```
 
-`quickstart` creates the project, runs private-data-free checks and demos, and writes `QUICKSTART_REPORT.md` plus `QUICKSTART_REPORT.html`. To do the steps manually instead:
+`quickstart` creates the project, runs private-data-free checks and demos, and writes `QUICKSTART_REPORT.md` plus `QUICKSTART_REPORT.html` with local source recommendations and copy-paste next commands. To do the steps manually instead:
 
 The generated `START_HERE.html` includes recommended next actions and a source setup matrix with local readiness hints. Pick one source, follow its prepare/check/run commands, and run a live source check before scheduling automation. Add `--open` to `guide` when you want to write and open the browser guide in one command.
 

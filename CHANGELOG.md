@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.77 - 2026-05-28
+
+- Add local source recommendations to `QUICKSTART_REPORT.md/html` so the first-run report points to the next source check or setup path.
+- Add a copy-paste command block to the quickstart report for setup, live source check, first run, dashboard, and feedback UI.
+- Cover the new quickstart report sections in workflow tests.
+
 ## v0.2.76 - 2026-05-28
 
 - Write `QUICKSTART_REPORT.html` alongside `QUICKSTART_REPORT.md` by default for browser-first onboarding.

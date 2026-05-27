@@ -677,6 +677,12 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Result: PASS", report)
             self.assertIn("multi-source demo", report)
             self.assertIn("START_HERE.html", report)
+            self.assertIn("Recommended Next Actions", report)
+            self.assertIn("Copy-Paste Commands", report)
+            self.assertIn("./source_check.sh --source auto --live", report)
+            self.assertIn("./serve_reader.sh", report)
+            report_html = (project / "QUICKSTART_REPORT.html").read_text(encoding="utf-8")
+            self.assertIn("Copy-Paste Commands", report_html)
             for source_name in ["mbox", "bibtex", "ris", "web", "rss"]:
                 self.assertTrue((project / "reader_out" / "demo_sources" / source_name / "digest.html").exists())
 
