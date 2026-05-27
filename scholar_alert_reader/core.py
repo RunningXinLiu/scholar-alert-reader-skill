@@ -2743,6 +2743,7 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
         "- `foundation.md` is rendered from cumulative `library.json`, grouped by direction.",
         f"- `interested.md` is rendered from cumulative `library.json` for tiers: {', '.join(settings['interested_tiers'])}.",
         "- `daily_additions.md` keeps the latest new-paper-only additions.",
+        "- `reading_plan.md` prioritizes retained and recent papers for the next reading session.",
         "- `runs/` keeps timestamped reports from individual runs.",
         "",
         "## Files",
@@ -2754,6 +2755,7 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
         "- [papers/](papers/)",
         "- [directions/](directions/)",
         "- [weekly_review.md](weekly_review.md)",
+        "- [reading_plan.md](reading_plan.md)",
         "- [daily_additions.md](daily_additions.md)",
         "- [latest_run.md](latest_run.md)",
     ]
@@ -3044,6 +3046,25 @@ def write_knowledge_base(kb_dir: Path, papers: list[Paper], profile: dict[str, A
     write_run_snapshot(kb_dir, papers, summary)
 
 
+def write_auto_reading_plan(kb_dir: Path, out_dir: Path, profile: dict[str, Any], limit: int = 10) -> Path:
+    from .copilot import render_reading_plan
+
+    records = merged_paper_records(kb_dir, out_dir / "papers.json")
+    feedback = load_feedback(default_feedback_file(kb_dir))
+    output = kb_dir / "reading_plan.md"
+    write_report(
+        output,
+        render_reading_plan(
+            records,
+            profile,
+            feedback=feedback,
+            limit=limit,
+            full_text_ids=available_full_text_ids(kb_dir),
+        ),
+    )
+    return output
+
+
 def write_outputs(
     out_dir: Path,
     kb_dir: Path,
@@ -3061,10 +3082,12 @@ def write_outputs(
     if update_knowledge_base:
         summary["knowledge_base_updated"] = True
         write_knowledge_base(kb_dir, papers, profile, summary)
+        summary["reading_plan"] = str(write_auto_reading_plan(kb_dir, out_dir, profile))
     else:
         summary["knowledge_base_updated"] = False
         summary["library_papers"] = len(load_paper_library(kb_dir))
         summary["library_additions"] = 0
+        summary["reading_plan"] = ""
     save_json(out_dir / "summary.json", summary)
 
 
@@ -5101,6 +5124,8 @@ def run(args: argparse.Namespace) -> None:
     print(f"Digest: {args.out_dir / 'digest.md'}")
     print(f"HTML: {args.out_dir / 'digest.html'}")
     print(f"Deep-read queue: {args.out_dir / 'deep_read_queue.md'}")
+    if summary.get("reading_plan"):
+        print(f"Reading plan: {summary['reading_plan']}")
     print(f"JSON: {args.out_dir / 'papers.json'}")
     print(f"CSV: {args.out_dir / 'papers.csv'}")
     print(f"Knowledge base: {kb_dir}")

@@ -75,7 +75,7 @@ For users who want citation/PDF management.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - A user without Gmail or Zotero can import structured scholarly webpage metadata through `web_sources.txt`, monitor feeds through `feeds.txt`, or run targeted arXiv queries.
 - A user can tune ranking with focus terms, methods, regions, authors, exclusions, semantic queries, adaptive feedback similarity, temporary boosts, explicit paper feedback, and generated profile-tuning reports.
-- A user can generate a next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability.
+- A user can generate a next-reading plan that uses tier, score, interested/archive feedback, reading status, labels, latest-run flags, and full-text cache availability; normal knowledge-base-updating runs refresh it automatically.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.

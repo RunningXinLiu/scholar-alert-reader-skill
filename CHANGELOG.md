@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.25 - 2026-05-27
+
+- Generate `knowledge_base/reading_plan.md` automatically after runs that update the knowledge base.
+- Add the reading-plan path to run summaries, terminal output, and the knowledge-base index.
+- Keep demo/no-knowledge-base runs from writing personal reading-plan state.
+- Add tests for automatic reading-plan generation from a normal source import.
+
 ## v0.2.24 - 2026-05-27
 
 - Add `reading-plan` / generated `reading_plan.sh` to prioritize what to read next from retained and recent papers.

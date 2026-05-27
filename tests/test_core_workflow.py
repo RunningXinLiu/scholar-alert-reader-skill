@@ -218,7 +218,7 @@ class CoreWorkflowTests(unittest.TestCase):
                     (project / "reader_out" / "demo_sources" / source_name / "summary.json").read_text(encoding="utf-8")
                 )
                 self.assertFalse(source_summary["knowledge_base_updated"])
-            subprocess.run(
+            web_run = subprocess.run(
                 [
                     str(project / "web_import.sh"),
                 ],
@@ -229,6 +229,11 @@ class CoreWorkflowTests(unittest.TestCase):
                 env={**os.environ, "WEB_SOURCE": str(project / "examples" / "sample_web_article.html")},
             )
             self.assertTrue((project / "reader_out" / "web" / "digest.html").exists())
+            self.assertIn("Reading plan:", web_run.stdout)
+            self.assertTrue((project / "knowledge_base" / "reading_plan.md").exists())
+            web_summary = json.loads((project / "reader_out" / "web" / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(Path(web_summary["reading_plan"]).resolve(), (project / "knowledge_base" / "reading_plan.md").resolve())
+            self.assertIn("reading_plan.md", (project / "knowledge_base" / "index.md").read_text(encoding="utf-8"))
             source_check = subprocess.run(
                 [str(project / "source_check.sh"), "--source", "mbox", "--mbox-path", str(project / "examples" / "sample_scholar_alerts.mbox"), "--live"],
                 cwd=project,

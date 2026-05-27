@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.24`
+Version: `0.2.25`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -531,7 +531,7 @@ python3 scripts/scholar_reader.py reading-plan \
   --limit 10
 ```
 
-`reading-plan` writes `knowledge_base/reading_plan.md`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `review-pack`, or `review-queue` next.
+`reading-plan` writes `knowledge_base/reading_plan.md`. It combines tier, score, interested/archive feedback, reading status, labels, latest-run flags, and local full-text cache availability so you can choose which IDs should go into `full-text`, `review-pack`, or `review-queue` next. Normal runs that update the knowledge base refresh this file automatically; use the command directly when you want to include a specific recent `papers.json` or change the limit.
 
 Ask a question against the local literature base:
 

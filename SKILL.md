@@ -53,7 +53,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/papers/<paper-id>.md`: per-paper note pages.
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library.
-- `knowledge_base/reading_plan.md`: prioritized next-reading queue from retained/recent papers and feedback.
+- `knowledge_base/reading_plan.md`: prioritized next-reading queue from retained/recent papers and feedback, refreshed automatically by runs that update the knowledge base.
 - `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation.
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
 - `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief for a selected paper.
@@ -341,6 +341,8 @@ python3 scripts/scholar_reader.py reading-plan \
   --papers-json out/recent/papers.json \
   --limit 10
 ```
+
+Normal runs that update the knowledge base refresh `knowledge_base/reading_plan.md` automatically; run `reading-plan` directly when the user wants to include a specific recent `papers.json` or change the limit.
 
 Ask the retained literature base a question:
 
