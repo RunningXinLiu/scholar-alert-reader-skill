@@ -3164,6 +3164,243 @@ def read_project_env(path: Path) -> dict[str, str]:
     return values
 
 
+SAFE_ENV_VALUE_KEYS = {
+    "ARXIV_QUERY",
+    "MODE",
+    "SCHEDULE_DAYS",
+    "SCHEDULE_TIME",
+    "SCHEDULE_TIMEZONE",
+    "SOURCE",
+}
+
+PRIVATE_ENV_VALUE_KEYS = {
+    "BIBTEX_PATH",
+    "GMAIL_CREDENTIALS",
+    "GMAIL_TOKEN",
+    "MBOX_PATH",
+    "OBSIDIAN_EXPORT_DIR",
+    "RIS_PATH",
+    "RSS_SOURCE",
+    "WEB_SOURCE",
+    "ZOTERO_BIBTEX_PATH",
+    "ZOTERO_OUTPUT_DIR",
+}
+
+
+def safe_display_path(value: str | Path, project_dir: Path | None = None) -> str:
+    text_value = str(value).strip()
+    if not text_value:
+        return ""
+    if is_url(text_value):
+        return "<url configured>"
+    path = Path(text_value).expanduser()
+    try:
+        resolved = path.resolve(strict=False)
+    except Exception:
+        resolved = path
+    if project_dir:
+        try:
+            project_resolved = project_dir.expanduser().resolve(strict=False)
+            relative = resolved.relative_to(project_resolved)
+            return "<project>" if str(relative) == "." else f"<project>/{relative}"
+        except Exception:
+            pass
+    try:
+        home = Path.home().resolve(strict=False)
+        relative_home = resolved.relative_to(home)
+        if len(relative_home.parts) <= 2:
+            return f"~/{relative_home}"
+        return f"~/.../{relative_home.name}"
+    except Exception:
+        pass
+    if resolved.name:
+        return f"<external>/{resolved.name}"
+    return "<external path>"
+
+
+def path_status(value: str, project_dir: Path | None = None) -> str:
+    if not value:
+        return "not configured"
+    if is_url(value):
+        return "url configured"
+    path = Path(value).expanduser()
+    marker = "exists" if path.exists() else "missing"
+    return f"{safe_display_path(path, project_dir)} ({marker})"
+
+
+def sanitize_report_line(line: str, project_dir: Path | None = None) -> str:
+    value = line
+    if project_dir:
+        value = value.replace(str(project_dir.expanduser()), "<project>")
+        try:
+            value = value.replace(str(project_dir.expanduser().resolve(strict=False)), "<project>")
+        except Exception:
+            pass
+    home = str(Path.home())
+    value = value.replace(home, "~")
+    value = re.sub(r"file://\S+", "<file-url>", value)
+    value = re.sub(r"https?://\S+", "<url>", value)
+    value = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", "<email>", value)
+    value = re.sub(r"(?<![\w<])/(?:[^`\s:;,)]+/?)+", "<path>", value)
+    value = re.sub(r"~/(?:[^`\s:;,)]+/?)+", "~/.../<path>", value)
+    return value
+
+
+def support_env_value(key: str, value: str, project_dir: Path) -> str:
+    if key in SAFE_ENV_VALUE_KEYS:
+        return value or "not configured"
+    if key in PRIVATE_ENV_VALUE_KEYS or any(token in key for token in ["TOKEN", "CREDENTIAL", "SECRET", "PASSWORD"]):
+        return path_status(value, project_dir)
+    return "<configured>" if value else "not configured"
+
+
+def file_count(path: Path, pattern: str = "*") -> int:
+    if not path.exists() or not path.is_dir():
+        return 0
+    return sum(1 for item in path.glob(pattern) if item.exists())
+
+
+def json_summary(path: Path) -> str:
+    if not path.exists():
+        return "missing"
+    try:
+        data = load_json(path)
+    except Exception as exc:
+        return f"invalid JSON: {exc}"
+    if isinstance(data, list):
+        return f"{len(data)} list items"
+    if isinstance(data, dict):
+        if "seen_ids" in data and isinstance(data.get("seen_ids"), list):
+            return f"{len(data['seen_ids'])} seen ids"
+        if "papers" in data and isinstance(data.get("papers"), dict):
+            return f"{len(data['papers'])} paper feedback records"
+        return f"{len(data)} object keys"
+    return type(data).__name__
+
+
+def sanitized_file_excerpt(path: Path, project_dir: Path, max_lines: int = 60) -> list[str]:
+    if not path.exists():
+        return [f"- Missing: `{safe_display_path(path, project_dir)}`"]
+    lines = [f"- Source: `{safe_display_path(path, project_dir)}`", ""]
+    try:
+        raw_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception as exc:
+        return lines + [f"- Could not read report: {exc}"]
+    for raw_line in raw_lines[:max_lines]:
+        lines.append(sanitize_report_line(raw_line, project_dir))
+    if len(raw_lines) > max_lines:
+        lines.append(f"... truncated after {max_lines} lines ...")
+    return lines
+
+
+def render_support_bundle(args: argparse.Namespace) -> str:
+    project_dir = args.project_dir.expanduser().resolve(strict=False)
+    profile = (args.profile or project_dir / "profiles" / "research_profile.json").expanduser()
+    kb_dir = (args.kb_dir or project_dir / "knowledge_base").expanduser()
+    out_dir = (args.out_dir or project_dir / "reader_out" / "daily").expanduser()
+    env_file = (args.env_file or project_dir / PROJECT_ENV_NAME).expanduser()
+    source_check = (args.source_check or project_dir / "SOURCE_CHECK.md").expanduser()
+    doctor_report = (args.doctor_report or project_dir / "DOCTOR.md").expanduser()
+    summary_json = out_dir / "summary.json"
+
+    lines = [
+        "# Scholar Alert Reader Support Bundle",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Version: {__version__}",
+        f"- Python: {sys.version.split()[0]}",
+        f"- Platform: {sys.platform}",
+        f"- Project: `{safe_display_path(project_dir, project_dir)}`",
+        "",
+        "## Privacy Boundary",
+        "",
+        "This report is intended for public GitHub issues after review. It does not include raw emails, OAuth JSON contents, Gmail token contents, raw bibliography exports, feedback contents, or generated knowledge-base text.",
+        "Paths and URLs are redacted to project-relative or generic placeholders. Review this file before posting it publicly.",
+        "",
+        "## Key Files",
+        "",
+        f"- Profile: {path_status(str(profile), project_dir)}",
+        f"- Persistent config: {path_status(str(env_file), project_dir)}",
+        f"- Knowledge base: {path_status(str(kb_dir), project_dir)}",
+        f"- Daily output: {path_status(str(out_dir), project_dir)}",
+        f"- SOURCE_CHECK.md: {path_status(str(source_check), project_dir)}",
+        f"- DOCTOR.md: {path_status(str(doctor_report), project_dir)}",
+        "",
+        "## Optional Tools",
+        "",
+        f"- pdftotext: {'installed' if shutil.which('pdftotext') else 'not found'}",
+        f"- osascript: {'installed' if shutil.which('osascript') else 'not found'}",
+        "",
+        "## Config Summary",
+        "",
+    ]
+
+    env_values = read_project_env(env_file)
+    if env_values:
+        for key in sorted(env_values):
+            lines.append(f"- {key}: {support_env_value(key, env_values[key], project_dir)}")
+    else:
+        lines.append("- No reader.env values found.")
+
+    lines.extend(["", "## Data Counts", ""])
+    lines.extend(
+        [
+            f"- library.json: {json_summary(kb_dir / 'library.json')}",
+            f"- feedback.json: {json_summary(kb_dir / 'feedback.json')}",
+            f"- seen_papers.json: {json_summary(profile.parent / 'seen_papers.json')}",
+            f"- paper notes: {file_count(kb_dir / 'papers', '*.md')}",
+            f"- direction notes: {file_count(kb_dir / 'directions', '*.md')}",
+            f"- full-text caches: {file_count(kb_dir / 'full_text', '*.txt')}",
+            f"- analysis reports: {file_count(kb_dir / 'analysis', '*.md')}",
+        ]
+    )
+
+    if summary_json.exists():
+        try:
+            summary = load_json(summary_json)
+        except Exception as exc:
+            lines.extend(["", "## Latest Run Summary", "", f"- Could not parse summary.json: {exc}"])
+        else:
+            safe_source = sanitize_report_line(str(summary.get("source", "")), project_dir)
+            safe_counts = {
+                key: value
+                for key, value in (summary.get("source_counts", {}) or {}).items()
+                if not any(private in key.lower() for private in ["query", "token", "credential", "raw"])
+            }
+            lines.extend(
+                [
+                    "",
+                    "## Latest Run Summary",
+                    "",
+                    f"- Source: {safe_source or 'not recorded'}",
+                    f"- Mode: {summary.get('mode', '')}",
+                    f"- Papers in digest: {summary.get('papers_in_digest', '')}",
+                    f"- Tier counts: `{json.dumps(summary.get('tier_counts', {}), ensure_ascii=False)}`",
+                    f"- Source counts: `{json.dumps(safe_counts, ensure_ascii=False)}`",
+                    f"- Feedback terms: {summary.get('feedback_terms', '')}",
+                    f"- Feedback papers: {summary.get('feedback_papers', '')}",
+                ]
+            )
+
+    if not args.no_report_excerpts:
+        lines.extend(["", "## SOURCE_CHECK.md Excerpt", ""])
+        lines.extend(sanitized_file_excerpt(source_check, project_dir))
+        lines.extend(["", "## DOCTOR.md Excerpt", ""])
+        lines.extend(sanitized_file_excerpt(doctor_report, project_dir))
+
+    lines.extend(
+        [
+            "",
+            "## Before Posting Publicly",
+            "",
+            "- Confirm no private paths, emails, feed URLs, raw paper titles from private libraries, token names, or institution-specific secrets remain.",
+            "- Do not attach `reader.env`, raw `.mbox`, OAuth JSON, Gmail token JSON, `feedback.json`, `seen_papers.json`, Zotero exports, full-text caches, or generated knowledge-base folders.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def write_project_env(path: Path, values: dict[str, str | Path | int | bool]) -> None:
     ordered_keys = [
         "SOURCE",
@@ -3589,6 +3826,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "weekly_reader.sh": 'exec "${SKILL_CMD[@]}" weekly --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --days "${DAYS:-7}" "$@"\n',
         "export_reader.sh": 'exec "${SKILL_CMD[@]}" export --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --format "${FORMAT:-bibtex}" --tiers "${TIERS:-Must read,Skim}" "$@"\n',
         "doctor_reader.sh": 'exec "${SKILL_CMD[@]}" doctor --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" --gmail-deps "$@"\n',
+        "support_bundle.sh": 'exec "${SKILL_CMD[@]}" support-bundle --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "${OUT_DIR:-$PROJECT_DIR/reader_out/daily}" "$@"\n',
     }
     for filename, body in helper_specs.items():
         write_executable(project_dir / filename, generated_script_header() + common + body)
@@ -3735,6 +3973,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "",
                     "```bash",
                     "./doctor_reader.sh",
+                    "./support_bundle.sh",
                     "./guide_reader.sh",
                     "./weekly_reader.sh",
                     "FORMAT=bibtex ./export_reader.sh",
@@ -5658,6 +5897,15 @@ def doctor_command(args: argparse.Namespace) -> None:
         print(report.rstrip())
 
 
+def support_bundle_command(args: argparse.Namespace) -> None:
+    output = args.output.expanduser() if args.output else args.project_dir.expanduser() / "SUPPORT_BUNDLE.md"
+    report = render_support_bundle(args)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(report, encoding="utf-8")
+    print(f"Support bundle: {output}")
+    print("Review before posting publicly. Do not attach reader.env, tokens, raw mailboxes, feedback.json, or generated knowledge bases.")
+
+
 def guide_command(args: argparse.Namespace) -> None:
     project_dir = args.project_dir.expanduser().resolve()
     profile_path = (args.profile or (project_dir / "profiles" / "research_profile.json")).expanduser()
@@ -6173,6 +6421,18 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--zotero-dir", type=Path, help="Optional Zotero export directory to check")
     doctor.add_argument("--output", type=Path, help="Write markdown report to this path")
     doctor.set_defaults(func=doctor_command)
+
+    support = sub.add_parser("support-bundle", help="Write a sanitized support bundle for GitHub issues")
+    support.add_argument("--project-dir", type=Path, required=True)
+    support.add_argument("--profile", type=Path, help="Profile path. Defaults to project-dir/profiles/research_profile.json")
+    support.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to project-dir/knowledge_base")
+    support.add_argument("--out-dir", type=Path, help="Daily output directory. Defaults to project-dir/reader_out/daily")
+    support.add_argument("--env-file", type=Path, help="reader.env path. Defaults to project-dir/reader.env")
+    support.add_argument("--source-check", type=Path, help="SOURCE_CHECK.md path. Defaults to project-dir/SOURCE_CHECK.md")
+    support.add_argument("--doctor-report", type=Path, help="DOCTOR.md path. Defaults to project-dir/DOCTOR.md")
+    support.add_argument("--no-report-excerpts", action="store_true", help="Do not include sanitized SOURCE_CHECK/DOCTOR excerpts")
+    support.add_argument("--output", type=Path, help="Output markdown path. Defaults to project-dir/SUPPORT_BUNDLE.md")
+    support.set_defaults(func=support_bundle_command)
 
     return parser
 

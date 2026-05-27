@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.21`
+Version: `0.2.22`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -80,6 +80,16 @@ What is agent-specific:
 ## Support And Safe Reporting
 
 Use GitHub issues for bugs, source setup help, and feature requests. The issue forms are privacy-first: do not paste raw emails, OAuth credentials, Gmail tokens, private bibliography/feed lists, `seen_papers.json`, `feedback.json`, or generated knowledge-base content.
+
+For public troubleshooting, generate a sanitized support bundle and review it before posting:
+
+```bash
+./support_bundle.sh
+# or
+python3 -m scholar_alert_reader support-bundle --project-dir ~/scholar_alerts
+```
+
+The bundle summarizes versions, platform, config keys, file presence, counts, and sanitized `SOURCE_CHECK.md` / `DOCTOR.md` excerpts without including token contents, raw mailbox data, feedback contents, or generated knowledge-base text.
 
 For credential leaks, raw mailbox exposure, or other security-sensitive problems, use [SECURITY.md](SECURITY.md) instead of a public issue.
 
@@ -651,6 +661,8 @@ python3 -m scholar_alert_reader doctor \
   --kb-dir knowledge_base \
   --out-dir out/daily \
   --gmail-deps
+python3 -m scholar_alert_reader support-bundle \
+  --project-dir ~/scholar_alerts
 ```
 
 Render a product-oriented setup/status guide:

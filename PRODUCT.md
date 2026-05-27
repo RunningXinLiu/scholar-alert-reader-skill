@@ -74,6 +74,7 @@ For users who want citation/PDF management.
 - A user without Gmail can import `import.bib` or `import.ris` from Zotero, Google Scholar library, publishers, or databases and use the same triage/foundation pipeline.
 - A user without Gmail or Zotero can import structured scholarly webpage metadata through `web_sources.txt`, monitor feeds through `feeds.txt`, or run targeted arXiv queries.
 - A user can tune ranking with focus terms, methods, regions, authors, exclusions, semantic queries, adaptive feedback similarity, temporary boosts, explicit paper feedback, and generated profile-tuning reports.
+- A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - Obsidian and Zotero must remain optional.
 - Raw mailbox contents, OAuth secrets, Gmail tokens, personal bibliography/feed lists, feedback, and generated personal knowledge bases must not be committed.
@@ -85,5 +86,5 @@ For users who want citation/PDF management.
 
 - Inline explanations in the setup wizard for OAuth, source file placement, and live-check failures.
 - Better section-aware parsing for extracted local PDF text.
-- More demo scenarios with sanitized sample alerts, feedback, and retained-library files.
+- More demo scenarios with sanitized sample alerts, feedback, retained-library files, and support-bundle outputs.
 - Optional PyPI release packaging after the GitHub install path is stable.

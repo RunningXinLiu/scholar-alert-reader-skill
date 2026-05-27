@@ -31,6 +31,7 @@ Inside an initialized project:
 ./source_check.sh --source rss --rss-source examples/sample_feed.atom --live
 ./source_check.sh --source arxiv --arxiv-query 'cat:physics.geo-ph AND all:tomography' --live
 ./doctor_reader.sh
+./support_bundle.sh
 ```
 
 From the repository root:
@@ -38,7 +39,10 @@ From the repository root:
 ```bash
 python3 -m scholar_alert_reader source-check --project-dir ~/scholar_alerts --source auto
 python3 -m scholar_alert_reader doctor --profile ~/scholar_alerts/profiles/research_profile.json --kb-dir ~/scholar_alerts/knowledge_base --out-dir ~/scholar_alerts/reader_out/daily --gmail-deps
+python3 -m scholar_alert_reader support-bundle --project-dir ~/scholar_alerts
 ```
+
+Use `support-bundle` when opening a public GitHub issue. It writes `SUPPORT_BUNDLE.md` with redacted paths, URLs, config values, and report excerpts; still review it before posting.
 
 ## Generated Scripts Cannot Find `scholar_alert_reader`
 

@@ -142,6 +142,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "rss_import.sh").exists())
             self.assertTrue((project / "arxiv_search.sh").exists())
             self.assertTrue((project / "doctor_reader.sh").exists())
+            self.assertTrue((project / "support_bundle.sh").exists())
             self.assertTrue((project / "guide_reader.sh").exists())
             self.assertTrue((project / "compare_papers.sh").exists())
             self.assertTrue((project / "obsidian_export.sh").exists())
@@ -781,6 +782,69 @@ ER  -
                 check=True,
             )
             self.assertIn("Scholar Alert Reader Doctor", report.read_text(encoding="utf-8"))
+
+    def test_support_bundle_sanitizes_private_paths_and_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "reader"
+            project.mkdir()
+            profile_dir = project / "profiles"
+            profile_dir.mkdir()
+            profile = profile_dir / "research_profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = project / "knowledge_base"
+            kb.mkdir()
+            (kb / "library.json").write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            private_token = root / "private" / "gmail_token.json"
+            private_token.parent.mkdir()
+            private_token.write_text('{"token":"secret-token-value"}', encoding="utf-8")
+            private_feed = root / "private" / "feeds.txt"
+            private_feed.write_text("https://private.example.invalid/feed?token=secret", encoding="utf-8")
+            env_file = project / "reader.env"
+            env_file.write_text(
+                f"""
+SOURCE=rss
+RSS_SOURCE={private_feed}
+GMAIL_TOKEN={private_token}
+SCHEDULE_TIME=09:00
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            (project / "SOURCE_CHECK.md").write_text(
+                f"- [WARN] RSS/Atom source: {private_feed}\n- URL: https://private.example.invalid/feed?token=secret\n",
+                encoding="utf-8",
+            )
+            bundle = project / "SUPPORT_BUNDLE.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "support-bundle",
+                    "--project-dir",
+                    str(project),
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--env-file",
+                    str(env_file),
+                    "--output",
+                    str(bundle),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            content = bundle.read_text(encoding="utf-8")
+            self.assertIn("Scholar Alert Reader Support Bundle", content)
+            self.assertIn("RSS_SOURCE", content)
+            self.assertIn("GMAIL_TOKEN", content)
+            self.assertIn("<external>/feeds.txt", content)
+            self.assertIn("<external>/gmail_token.json", content)
+            self.assertNotIn(str(root), content)
+            self.assertNotIn("secret-token-value", content)
+            self.assertNotIn("private.example.invalid", content)
 
     def test_self_test_command_runs_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -66,7 +66,7 @@ body:
     id: diagnostics
     attributes:
       label: Sanitized diagnostics
-      description: Paste relevant sanitized output from `SOURCE_CHECK.md`, `DOCTOR.md`, or `QUICKSTART_REPORT.md`.
+      description: Prefer `SUPPORT_BUNDLE.md` from `support-bundle`; otherwise paste relevant sanitized output from `SOURCE_CHECK.md`, `DOCTOR.md`, or `QUICKSTART_REPORT.md`.
       render: markdown
   - type: checkboxes
     id: privacy

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.22 - 2026-05-27
+
+- Add `support-bundle` / generated `support_bundle.sh` for sanitized GitHub issue diagnostics.
+- Summarize version, platform, config keys, file presence, counts, latest run metrics, and redacted `SOURCE_CHECK.md` / `DOCTOR.md` excerpts.
+- Document privacy-safe support reporting in README, SKILL guidance, issue templates, and product requirements.
+- Add tests to ensure support bundles redact private paths, URLs, and token contents.
+
 ## v0.2.21 - 2026-05-27
 
 - Add `review-queue` / generated `review_queue.sh` to batch-build review packs for selected papers.

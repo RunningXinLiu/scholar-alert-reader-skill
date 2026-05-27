@@ -51,6 +51,8 @@ body:
       options:
         - label: I tried `setup-wizard` or `source-check`.
           required: true
+        - label: I generated or reviewed `SUPPORT_BUNDLE.md` when sharing diagnostics publicly.
+          required: true
         - label: I reviewed `TROUBLESHOOTING.md`.
           required: true
         - label: I removed raw mail, tokens, credentials, private source lists, and generated knowledge-base content.
