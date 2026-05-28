@@ -410,7 +410,7 @@ python3 scripts/scholar_reader.py review-workflow \
   --paper-id <ID>
 ```
 
-Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` for existing caches only, and `--strict-full-text` when missing local text should fail the command. By default, `review-workflow` links browser-friendly HTML companions for the generated full-text brief, workup, and review pack; use `--no-html` when the user wants markdown-only artifacts.
+Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` for existing caches only, and `--strict-full-text` when missing local text should fail the command. The workflow report includes `PDF / Full-Text Access` with existing/missing local paths, PDF/landing URL candidates, cache/brief status, and the next upgrade command. By default, `review-workflow` links browser-friendly HTML companions for the generated full-text brief, workup, and review pack; use `--no-html` when the user wants markdown-only artifacts.
 
 Index generated analysis reports:
 

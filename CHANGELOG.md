@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.85 - 2026-05-28
+
+- Add a `PDF / Full-Text Access` section to selected-paper `review-workflow` reports.
+- Show text-cache and full-text-brief availability, local PDF/text path candidates, PDF/landing URL candidates, and a concrete next command for upgrading evidence.
+- Cover the access section for both open-PDF fetch workflows and local full-text workflows.
+
 ## v0.2.84 - 2026-05-28
 
 - Add a Source Readiness Gate to `schedule` / `SCHEDULE.md`, summarizing the latest `SOURCE_CHECK.md` result, live-check state, and next action.

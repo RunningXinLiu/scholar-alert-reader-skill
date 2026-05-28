@@ -8421,6 +8421,80 @@ def paper_pdf_candidate_urls(record: dict[str, Any], explicit_url: str | None = 
     return urls
 
 
+def paper_local_pdf_path_candidates(record: dict[str, Any], explicit_path: Path | None = None) -> list[Path]:
+    paths: list[Path] = []
+
+    def add(value: Any) -> None:
+        text = str(value or "").strip()
+        if not text:
+            return
+        path = Path(text).expanduser()
+        if path not in paths:
+            paths.append(path)
+
+    if explicit_path:
+        add(explicit_path)
+    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    for provider in ["full_text", "zotero"]:
+        item = metadata.get(provider)
+        if isinstance(item, dict):
+            values = item.get("pdf_paths") or item.get("pdf_path") or item.get("local_path")
+            if isinstance(values, list):
+                for value in values:
+                    add(value)
+            else:
+                add(values)
+    return paths
+
+
+def review_workflow_access_lines(
+    target: dict[str, Any],
+    stem: str,
+    kb_dir: Path,
+    pdf_path: Path | None,
+    pdf_url: str | None,
+    text_output: Path,
+    brief_output: Path,
+) -> list[str]:
+    local_paths = paper_local_pdf_path_candidates(target, pdf_path)
+    existing_local_paths = [path for path in local_paths if path.exists()]
+    url_candidates = paper_pdf_candidate_urls(target, pdf_url)
+    lines = [
+        "## PDF / Full-Text Access",
+        "",
+        f"- Text cache: {'available' if text_output.exists() else 'missing'} (`{text_output}`)",
+        f"- Full-text brief: {'available' if brief_output.exists() else 'missing'} (`{brief_output}`)",
+        f"- Local PDF/text candidates: {len(local_paths)} ({len(existing_local_paths)} existing)",
+    ]
+    for path in local_paths[:5]:
+        lines.append(f"  - {'exists' if path.exists() else 'missing'}: `{path}`")
+    if len(local_paths) > 5:
+        lines.append(f"  - ... {len(local_paths) - 5} more local path candidate(s)")
+    lines.append(f"- PDF/landing URL candidates: {len(url_candidates)}")
+    for url in url_candidates[:5]:
+        lines.append(f"  - {url}")
+    if len(url_candidates) > 5:
+        lines.append(f"  - ... {len(url_candidates) - 5} more URL candidate(s)")
+    if text_output.exists() and brief_output.exists():
+        action = f"`./review_paper.sh --paper-id {stem}` or open the generated review pack."
+    elif existing_local_paths:
+        action = f"`./review_workflow.sh --paper-id {stem} --pdf-path {shlex.quote(str(existing_local_paths[0]))} --force-extract`"
+    elif url_candidates:
+        action = f"`./review_workflow.sh --paper-id {stem} --fetch-pdf --update-library` (downloads only explicit/open PDF URLs; landing pages may fail safely)"
+    elif text_output.exists():
+        action = f"`./full_text_paper.sh --paper-id {stem} --force-extract`"
+    else:
+        action = "Sync Zotero local PDF paths, pass `--pdf-path /path/to/paper.pdf`, or run `fetch-pdf` after adding an explicit/open PDF URL."
+    lines.extend(
+        [
+            f"- Suggested upgrade: {action}",
+            f"- Default PDF download folder: `{kb_dir / 'pdfs'}`",
+            "",
+        ]
+    )
+    return lines
+
+
 def download_pdf(url: str, output: Path, max_bytes: int = 80_000_000, timeout: int = 30) -> tuple[Path, int, str]:
     candidate = normalize_pdf_candidate_url(url)
     if not candidate:
@@ -8871,6 +8945,7 @@ def write_review_workflow_report(
         f"- {dashboard_report_link('Workup', workup_path, workflow_output.parent)}",
         f"- {dashboard_report_link('Review pack', review_pack_path, workflow_output.parent)}",
         "",
+        *review_workflow_access_lines(target, stem, kb_dir, pdf_path, pdf_url, text_output, brief_output),
         "## Next Action",
         "",
         f"- {next_action}",
