@@ -2,27 +2,13 @@
 
 Sanitized demo screenshots for README, GitHub sharing, and social posts.
 They do not contain personal mailbox data, OAuth tokens, or a real knowledge base.
+Images are linked instead of embedded so GitHub pages stay readable on networks that block raw image delivery.
 
-## Daily digest dashboard
-
-![Daily digest dashboard](01-daily-digest.png)
-
-## Feedback UI for selecting interested papers
-
-![Feedback UI for selecting interested papers](02-feedback-triage.png)
-
-## Foundation and interested knowledge base
-
-![Foundation and interested knowledge base](03-foundation-interested.png)
-
-## Selected-paper deep read against the foundation
-
-![Selected-paper deep read against the foundation](04-deep-read-copilot.png)
-
-## Research map and advice
-
-![Research map and advice](05-research-map-advice.png)
-
-## Obsidian and Zotero handoff
-
-![Obsidian and Zotero handoff](06-obsidian-zotero.png)
+| Screenshot | File |
+|---|---|
+| Daily digest dashboard | [01-daily-digest.png](01-daily-digest.png) |
+| Feedback UI for selecting interested papers | [02-feedback-triage.png](02-feedback-triage.png) |
+| Foundation and interested knowledge base | [03-foundation-interested.png](03-foundation-interested.png) |
+| Evidence-aware selected-paper review workflow | [04-deep-read-copilot.png](04-deep-read-copilot.png) |
+| Research map and advice | [05-research-map-advice.png](05-research-map-advice.png) |
+| Obsidian and Zotero handoff | [06-obsidian-zotero.png](06-obsidian-zotero.png) |

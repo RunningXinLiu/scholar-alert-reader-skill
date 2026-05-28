@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.88 - 2026-05-28
+
+- Refresh GitHub README positioning for the current multi-source, evidence-aware, local research-memory workflow.
+- Replace README-embedded PNG/GIF previews with GitHub-native Mermaid diagrams and asset links so the page does not show broken image icons when `raw.githubusercontent.com` is blocked.
+- Regenerate English/Chinese marketing cards, workflow GIFs, architecture diagrams, and sanitized screenshots to include evidence levels, source breadth, full-text workflow, and Obsidian/Zotero handoff.
+
 ## v0.2.87 - 2026-05-28
 
 - Add `evidence` / generated `evidence_reader.sh` to explain the evidence ladder and inspect one paper's current evidence status.

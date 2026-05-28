@@ -17,14 +17,14 @@
 <path d="M146 333c42-20 75-16 102 10 27-26 60-30 102-10" fill="none" stroke="#93c5fd" stroke-width="16" stroke-linecap="round"/>
 </g>
 <text x="230" y="180" fill="#111827" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
-<text x="136" y="235" fill="#475569" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="27">从邮件、网页来源、arXiv 和 Zotero 导出中，</text>
-<text x="136" y="272" fill="#475569" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="27">筛出真正值得读的论文。</text>
+<text x="136" y="235" fill="#475569" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="25">把邮件提醒、网页/RSS、BibTeX/RIS 和 arXiv，</text>
+<text x="136" y="272" fill="#475569" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="25">变成可反馈的阅读队列与个人知识库。</text>
 <g font-family="PingFang SC, Inter, Arial, sans-serif" font-weight="800" font-size="24">
   <rect x="138" y="318" width="174" height="68" rx="18" fill="#dbeafe"/><text x="178" y="361" fill="#1d4ed8">多来源</text>
-  <rect x="340" y="318" width="168" height="68" rx="18" fill="#dcfce7"/><text x="398" y="361" fill="#047857">排序</text>
-  <rect x="536" y="318" width="196" height="68" rx="18" fill="#ede9fe"/><text x="598" y="361" fill="#6d28d9">反馈</text>
-  <rect x="760" y="318" width="252" height="68" rx="18" fill="#fef3c7"/><text x="832" y="361" fill="#92400e">笔记引用</text>
+  <rect x="340" y="318" width="186" height="68" rx="18" fill="#dcfce7"/><text x="382" y="361" fill="#047857">个性化排序</text>
+  <rect x="556" y="318" width="176" height="68" rx="18" fill="#ede9fe"/><text x="604" y="361" fill="#6d28d9">证据等级</text>
+  <rect x="760" y="318" width="270" height="68" rx="18" fill="#fef3c7"/><text x="810" y="361" fill="#92400e">Zotero/Obsidian</text>
 </g>
-<text x="138" y="456" fill="#111827" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="30" font-weight="750">每日或手动推送 · 本地优先 · 可接 Obsidian / Zotero</text>
+<text x="138" y="456" fill="#111827" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="27" font-weight="750">定时/手动推送 · 证据边界清楚 · 本地优先</text>
 <text x="138" y="506" fill="#64748b" font-family="PingFang SC, Inter, Arial, sans-serif" font-size="22" font-weight="650">作者：Xin Liu · RunningXinLiu</text>
 </svg>

@@ -201,19 +201,19 @@ p {{ margin: 0 0 10px; }}
 def digest() -> str:
     return page(
         "Daily Literature Digest",
-        "Sanitized demo run from Google Scholar Alert emails",
+        "Sanitized demo run across alerts, feeds, bibliography exports, and web sources",
         """
 <main class="main">
   <div class="metrics">
     <div class="metric">Papers: 18</div><div class="metric">Must read: 4</div><div class="metric">Skim: 7</div>
-    <div class="metric">Archived: 7</div><div class="metric">Scholar emails: 28</div>
+    <div class="metric">Archived: 7</div><div class="metric">Sources: Gmail + RSS + arXiv</div>
   </div>
   <div class="grid" style="margin-top:22px">
     <section>
       <h2>Must read</h2>
       <article class="paper featured">
         <h3>Receiver function imaging beneath the eastern Tibetan Plateau</h3>
-        <div class="badges"><span class="badge must">Must read</span><span class="badge">score 42</span><span class="badge">Tibet</span><span class="badge">receiver function</span></div>
+        <div class="badges"><span class="badge must">Must read</span><span class="badge">score 42</span><span class="badge deep">metadata-enriched</span><span class="badge">receiver function</span></div>
         <p class="muted">A. Researcher, B. Collaborator - Earth and Planetary Science Letters, 2026</p>
         <p>Constrains crustal anisotropy and Moho complexity using dense temporary arrays.</p>
       </article>
@@ -267,7 +267,7 @@ def feedback_ui() -> str:
     </article>
     <article class="paper">
       <h3>Regional stress inversion from a global earthquake catalog</h3>
-      <div class="badges"><span class="badge skim">Skim</span><span class="badge">score 24</span></div>
+        <div class="badges"><span class="badge skim">Skim</span><span class="badge">score 24</span><span class="badge">PDF-link-ready</span></div>
       <p class="muted">Solid candidate for background reading.</p>
       <div class="button-row">
         <span class="button">More like this</span><span class="button">Less like this</span><span class="button">Reading</span><span class="button">Read</span>
@@ -275,7 +275,7 @@ def feedback_ui() -> str:
     </article>
   </div>
   <div class="callout" style="margin-top:12px">
-    Saved feedback updates <b>feedback.json</b>, refreshes the retained library, and changes the next daily ranking.
+    Saved feedback updates <b>feedback.json</b>, refreshes the retained library, and changes the next daily ranking. Evidence badges prevent metadata-only triage from being mistaken for full-text review.
   </div>
 </main>
 """,
@@ -323,8 +323,8 @@ def foundation_interested() -> str:
 
 def deep_read() -> str:
     return page(
-        "Deep Read Copilot",
-        "Analyze a selected paper against your foundation and interested papers",
+        "Evidence and Review Workflow",
+        "Inspect what a selected-paper report can support before citing it",
         """
 <main class="main">
   <div class="grid">
@@ -332,22 +332,24 @@ def deep_read() -> str:
       <h2>Selected paper</h2>
       <h3>Joint receiver-function and surface-wave constraints on plateau crust</h3>
       <p class="muted">Why it matters: connects two active directions in the retained library.</p>
-      <div class="badges"><span class="badge must">high priority</span><span class="badge">method bridge</span><span class="badge">Tibet</span></div>
+      <div class="badges"><span class="badge must">Must read</span><span class="badge deep">full-text-backed</span><span class="badge">method bridge</span></div>
     </section>
     <section class="panel">
-      <h2>Against your foundation</h2>
-      <p>Extends 6 retained receiver-function papers and challenges 2 older Moho-depth interpretations.</p>
-      <p>Useful for: literature review framing, method comparison, and identifying candidate figures to reproduce.</p>
+      <h2>Evidence status</h2>
+      <p><b>Can support:</b> closer workup, section coverage, figure/table caption inspection, and assistant-ready review pack.</p>
+      <p><b>Boundary:</b> final citation claims still require checking the original PDF.</p>
     </section>
   </div>
   <div class="three" style="margin-top:18px">
-    <section class="panel"><div class="kpi">3</div><p class="muted">claims to verify</p></section>
+    <section class="panel"><div class="kpi">1</div><p class="muted">local text cache</p></section>
+    <section class="panel"><div class="kpi">8</div><p class="muted">figure/table captions</p></section>
     <section class="panel"><div class="kpi">5</div><p class="muted">foundation links</p></section>
-    <section class="panel"><div class="kpi">2</div><p class="muted">follow-up papers</p></section>
   </div>
   <section class="panel" style="margin-top:18px">
-    <h2>Reading plan</h2>
-    <p>1. Check data geometry and station spacing. 2. Compare inversion assumptions with retained method papers. 3. Extract citations for plateau anisotropy and crustal thickness.</p>
+    <h2>Next commands</h2>
+    <div class="code">./evidence_reader.sh --paper-id p7a42
+./review_workflow.sh --paper-id p7a42 --open
+./review_paper.sh --paper-id p7a42</div>
   </section>
 </main>
 """,
@@ -420,7 +422,7 @@ SCREENSHOTS = [
     ("01-daily-digest", "Daily digest dashboard", digest),
     ("02-feedback-triage", "Feedback UI for selecting interested papers", feedback_ui),
     ("03-foundation-interested", "Foundation and interested knowledge base", foundation_interested),
-    ("04-deep-read-copilot", "Selected-paper deep read against the foundation", deep_read),
+    ("04-deep-read-copilot", "Evidence-aware selected-paper review workflow", deep_read),
     ("05-research-map-advice", "Research map and advice", research_map),
     ("06-obsidian-zotero", "Obsidian and Zotero handoff", integrations),
 ]
@@ -432,10 +434,13 @@ def write_index() -> None:
         "",
         "Sanitized demo screenshots for README, GitHub sharing, and social posts.",
         "They do not contain personal mailbox data, OAuth tokens, or a real knowledge base.",
+        "Images are linked instead of embedded so GitHub pages stay readable on networks that block raw image delivery.",
         "",
+        "| Screenshot | File |",
+        "|---|---|",
     ]
     for slug, caption, _ in SCREENSHOTS:
-        lines.extend([f"## {caption}", "", f"![{caption}]({slug}.png)", ""])
+        lines.append(f"| {caption} | [{slug}.png]({slug}.png) |")
     (SCREENSHOT_DIR / "README.md").write_text("\n".join(lines), encoding="utf-8")
 
 

@@ -118,46 +118,46 @@ def logo_svg() -> str:
 def architecture_svg(locale: str) -> str:
     if locale == "zh":
         copy = {
-            "desc": "Scholar Alert Reader 中文宣传架构图：从邮件、文献文件和结构化网页来源到个性化 digest、阅读队列、个人知识库和 Obsidian/Zotero 导出。",
-            "subtitle": "多来源接入，按你的研究方向自动筛论文",
+            "desc": "Scholar Alert Reader 中文宣传架构图：从邮件、文献文件、网页来源、RSS 和 arXiv 到个性化 digest、证据等级、阅读队列、个人知识库和 Obsidian/Zotero 导出。",
+            "subtitle": "多来源论文分诊，证据边界清楚",
             "right1": "本地运行 · 隐私可控 · 多工具可用",
             "right2": "Codex / Claude / 终端均可使用",
             "source_title": "1. 汇聚来源",
             "source_subtitle": "邮件、网页来源、文献文件",
             "triage_title": "2. 自动分诊",
-            "triage_subtitle": "抽取、去重、打分、反馈",
+            "triage_subtitle": "抽取、去重、打分、证据检查",
             "profile": "关键词 + 研究方向 + 反馈",
             "profile_subtitle": "越用越贴近当前问题",
             "kb_title": "3. 形成知识库",
-            "kb_subtitle": "把值得读的论文留下来",
-            "footer": "定时或手动推送 · 本地优先 · 可接 Zotero / Obsidian",
+            "kb_subtitle": "把值得读、值得查证的论文留下来",
+            "footer": "定时或手动推送 · 证据等级清楚 · 可接 Zotero / Obsidian",
             "author": "作者：Xin Liu",
         }
         source_items = ["Gmail API", "Apple Mail", "mbox / 邮件归档", "BibTeX / RIS", "网页 / RSS / arXiv"]
-        triage_items = ["抽取", "去重", "排序", "反馈"]
-        kb_items = ["每日简报", "阅读队列", "文献底座", "深读问答", "笔记与引用"]
+        triage_items = ["抽取", "去重", "排序", "证据"]
+        kb_items = ["每日简报", "阅读队列", "证据报告", "全文工作流", "笔记与引用"]
         font = "PingFang SC, Inter, Arial, sans-serif"
         small_font = 16
     else:
         copy = {
-            "desc": "Scholar Alert Reader architecture: connect paper alerts, bibliography exports, scholarly webpages, feeds, and arXiv to personalized digests, reading queues, research memory, and Obsidian/Zotero exports.",
-            "subtitle": "Connect sources, rank papers by your research profile",
+            "desc": "Scholar Alert Reader architecture: connect paper alerts, bibliography exports, scholarly webpages, feeds, and arXiv to personalized digests, evidence levels, reading queues, research memory, and Obsidian/Zotero exports.",
+            "subtitle": "Evidence-aware literature triage for local research memory",
             "right1": "Local-first · Private · Agent-friendly",
             "right2": "Codex / Claude / terminal ready",
             "source_title": "1. Collect sources",
             "source_subtitle": "Email, web, bibliography, feeds",
             "triage_title": "2. Triage automatically",
-            "triage_subtitle": "Extract, dedupe, rank, feedback",
+            "triage_subtitle": "Extract, dedupe, rank, evidence",
             "profile": "Keywords + Profile + Feedback",
             "profile_subtitle": "Adapts to your current questions",
             "kb_title": "3. Build knowledge",
-            "kb_subtitle": "Keep papers worth reading",
-            "footer": "Scheduled or manual digests · Local-first · Zotero / Obsidian ready",
+            "kb_subtitle": "Keep papers worth reading and verifying",
+            "footer": "Scheduled or manual digests · Evidence-aware · Zotero / Obsidian ready",
             "author": "By Xin Liu",
         }
         source_items = ["Gmail API", "Apple Mail", "mbox archives", "BibTeX / RIS", "Web / RSS / arXiv"]
-        triage_items = ["Extract", "Dedupe", "Rank", "Feedback"]
-        kb_items = ["Digest", "Queue", "Foundation", "Deep read", "Notes"]
+        triage_items = ["Extract", "Dedupe", "Rank", "Evidence"]
+        kb_items = ["Digest", "Queue", "Evidence", "Full-text", "Notes"]
         font = "Inter, Arial, sans-serif"
         small_font = 15
 
@@ -284,25 +284,25 @@ def social_card_svg(locale: str) -> str:
     if locale == "zh":
         desc = "Scholar Alert Reader 中文社交分享图。"
         subtitle_lines = [
-            "从邮件、网页来源、arXiv 和 Zotero 导出中，",
-            "筛出真正值得读的论文。",
+            "把邮件提醒、网页/RSS、BibTeX/RIS 和 arXiv，",
+            "变成可反馈的阅读队列与个人知识库。",
         ]
-        badges = [("多来源", 138, 174, "#dbeafe", "#1d4ed8", 178), ("排序", 340, 168, "#dcfce7", "#047857", 398), ("反馈", 536, 196, "#ede9fe", "#6d28d9", 598), ("笔记引用", 760, 252, "#fef3c7", "#92400e", 832)]
-        footer = "每日或手动推送 · 本地优先 · 可接 Obsidian / Zotero"
+        badges = [("多来源", 138, 174, "#dbeafe", "#1d4ed8", 178), ("个性化排序", 340, 186, "#dcfce7", "#047857", 382), ("证据等级", 556, 176, "#ede9fe", "#6d28d9", 604), ("Zotero/Obsidian", 760, 270, "#fef3c7", "#92400e", 810)]
+        footer = "定时/手动推送 · 证据边界清楚 · 本地优先"
         author = "作者：Xin Liu · RunningXinLiu"
         font = "PingFang SC, Inter, Arial, sans-serif"
     else:
         desc = "A social sharing card for Scholar Alert Reader."
         subtitle_lines = [
-            "Rank papers from email, web pages, feeds, arXiv,",
-            "and your own research profile.",
+            "Turn alerts, web feeds, BibTeX/RIS, and arXiv",
+            "into a ranked reading queue and research memory.",
         ]
-        badges = [("Sources", 138, 174, "#dbeafe", "#1d4ed8", 174), ("Rank", 340, 168, "#dcfce7", "#047857", 382), ("Feedback", 536, 196, "#ede9fe", "#6d28d9", 574), ("Zotero + Notes", 760, 252, "#fef3c7", "#92400e", 792)]
-        footer = "Daily or manual digests · Local-first · Obsidian/Zotero ready"
+        badges = [("Sources", 138, 174, "#dbeafe", "#1d4ed8", 174), ("Profile rank", 340, 190, "#dcfce7", "#047857", 372), ("Evidence", 560, 168, "#ede9fe", "#6d28d9", 598), ("Zotero + Obsidian", 760, 288, "#fef3c7", "#92400e", 790)]
+        footer = "Daily/manual digests · Evidence-aware · Local-first"
         author = "Created by Xin Liu · RunningXinLiu"
         font = "Inter, Arial, sans-serif"
     subtitle_svg = "\n".join(
-        f'<text x="136" y="{235 + index * 37}" fill="#475569" font-family="{font}" font-size="27">{line}</text>'
+        f'<text x="136" y="{235 + index * 37}" fill="#475569" font-family="{font}" font-size="{26 if locale == "en" else 25}">{line}</text>'
         for index, line in enumerate(subtitle_lines)
     )
     badge_svg = "\n  ".join(
@@ -321,7 +321,7 @@ def social_card_svg(locale: str) -> str:
 <g font-family="{font}" font-weight="800" font-size="24">
   {badge_svg}
 </g>
-<text x="138" y="456" fill="#111827" font-family="{font}" font-size="30" font-weight="750">{footer}</text>
+<text x="138" y="456" fill="#111827" font-family="{font}" font-size="{28 if locale == "en" else 27}" font-weight="750">{footer}</text>
 <text x="138" y="506" fill="#64748b" font-family="{font}" font-size="22" font-weight="650">{author}</text>
 </svg>
 """
@@ -835,23 +835,25 @@ def workflow_gif_from_svg(path: Path, steps: list[tuple[str, str, list[str], str
 def gif_assets() -> None:
     english_steps = [
         ("Connect paper sources", "Gmail, Apple Mail, mbox, BibTeX/RIS, web pages, RSS, arXiv", ["Email alerts", "Bibliography", "Web / arXiv"], "New papers"),
-        ("Rank by your profile", "Keywords, methods, regions, authors, exclusions, temporary boosts", ["Extract", "Dedupe", "Score"], "Ranked queue"),
+        ("Rank by your profile", "Keywords, methods, regions, authors, exclusions, feedback", ["Extract", "Dedupe", "Score"], "Ranked queue"),
         ("Learn from feedback", "Interested, archive, more-like-this, less-like-this", ["Interested", "Archive", "Feedback"], "Smarter ranking"),
-        ("Build research memory", "Foundation, deep reads, Q&A, comparisons, maps, advice", ["Digest", "Foundation", "Deep reads"], "Research memory"),
+        ("Check evidence level", "Metadata-only, PDF-ready, local-PDF-ready, full-text-backed", ["Evidence", "PDF status", "Next command"], "Citation boundary"),
+        ("Build research memory", "Foundation, full-text briefs, review packs, Q&A, maps, advice", ["Digest", "Foundation", "Review pack"], "Research memory"),
         ("Export to your tools", "HTML digest, Markdown, CSV/JSON, Obsidian notes, Zotero files", ["HTML", "Obsidian", "Zotero"], "Notes + citations"),
     ]
     chinese_steps = [
         ("接入你的论文来源", "Gmail、Apple Mail、mbox、BibTeX/RIS、学术网页、RSS 和 arXiv", ["邮件提醒", "文献导出", "网页 / arXiv"], "新论文"),
-        ("按研究方向排序", "关键词、方法、地区、作者、排除词和临时关注点", ["抽取", "去重", "打分"], "排序队列"),
+        ("按研究方向排序", "关键词、方法、地区、作者、排除词和反馈", ["抽取", "去重", "打分"], "排序队列"),
         ("用反馈调整推荐", "感兴趣、忽略、更多类似、减少类似", ["感兴趣", "忽略", "反馈"], "推荐更准"),
-        ("沉淀个人知识库", "文献底座、深读、问答、对比、图谱和建议", ["每日简报", "文献底座", "深读报告"], "研究记忆"),
+        ("检查证据等级", "metadata、PDF、local PDF、full text 分层", ["证据", "PDF 状态", "下一步"], "引用边界"),
+        ("沉淀个人知识库", "文献底座、全文摘要、review pack、问答、图谱和建议", ["每日简报", "文献底座", "Review pack"], "研究记忆"),
         ("接到你的工作流", "HTML digest、Markdown、CSV/JSON、Obsidian 笔记、Zotero 文件", ["HTML", "Obsidian", "Zotero"], "笔记引用"),
     ]
     english_path = ASSET_DIR / "workflow.en.gif"
     if not workflow_gif_from_svg(
         english_path,
         english_steps,
-        "Daily or manual digests · local-first · Obsidian/Zotero ready",
+        "Daily or manual digests · evidence-aware · Obsidian/Zotero ready",
         "en",
     ):
         pixel_workflow_gif(english_path)
@@ -859,7 +861,7 @@ def gif_assets() -> None:
     workflow_gif_from_svg(
         ASSET_DIR / "workflow.zh.gif",
         chinese_steps,
-        "每日或手动推送 · 本地优先 · 可接 Obsidian / Zotero",
+        "每日或手动推送 · 证据边界清楚 · 可接 Obsidian / Zotero",
         "zh",
     )
 

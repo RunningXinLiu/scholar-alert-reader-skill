@@ -1,22 +1,22 @@
-<p align="center">
-  <img src="docs/assets/logo.png" alt="Scholar Alert Reader logo" width="104">
-</p>
-
 # Scholar Alert Reader Skill
 
-Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
+Turn Scholar Alert emails, Gmail, Apple Mail, `.mbox`, BibTeX/RIS, scholarly webpages, RSS/Atom feeds, and arXiv queries into a personalized reading queue, daily digest, evidence-aware selected-paper workflow, and cumulative research knowledge base.
 
-Version: `0.2.86`
+Version: `0.2.88`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
-<p align="center">
-  <img src="docs/assets/social-card.en.png" alt="Scholar Alert Reader social card" width="900">
-</p>
+```mermaid
+flowchart LR
+  A["Paper sources<br/>Gmail · Mail.app · mbox<br/>BibTeX/RIS · web · RSS · arXiv"]
+  B["Local triage engine<br/>extract · dedupe · score<br/>profile · feedback · evidence level"]
+  C["Reading outputs<br/>HTML digest · reading plan<br/>foundation · interested · review queue"]
+  D["Research memory<br/>full-text briefs · workups<br/>review packs · Q&A · maps"]
+  E["Optional handoff<br/>Obsidian notes<br/>Zotero BibTeX/RIS/PDF paths"]
+  A --> B --> C --> D --> E
+```
 
-<p align="center">
-  <img src="docs/assets/workflow.en.gif" alt="Animated Scholar Alert Reader workflow" width="760">
-</p>
+> GitHub sometimes renders repository images through `raw.githubusercontent.com`, which can be blocked or slow on some networks. The README therefore uses native Mermaid/text for the main overview. Downloadable PNG/GIF assets are still included under [docs/assets](docs/assets) and [docs/screenshots](docs/screenshots).
 
 ## Start Here
 
@@ -106,19 +106,25 @@ For credential leaks, raw mailbox exposure, or other security-sensitive problems
 
 ## Screenshots
 
-Sanitized demo screenshots are included for product previews and sharing.
+Sanitized demo screenshots are included for product previews and sharing. They are linked instead of embedded here so the GitHub README does not show broken image icons on networks that block `raw.githubusercontent.com`.
 
-| Daily digest | Feedback triage |
+| Area | Asset |
 |---|---|
-| <img src="docs/screenshots/01-daily-digest.png" alt="Daily digest screenshot" width="420"> | <img src="docs/screenshots/02-feedback-triage.png" alt="Feedback triage screenshot" width="420"> |
+| Daily digest with evidence badges | [01-daily-digest.png](docs/screenshots/01-daily-digest.png) |
+| Feedback triage UI | [02-feedback-triage.png](docs/screenshots/02-feedback-triage.png) |
+| Foundation and interested library | [03-foundation-interested.png](docs/screenshots/03-foundation-interested.png) |
+| Evidence-aware selected-paper workflow | [04-deep-read-copilot.png](docs/screenshots/04-deep-read-copilot.png) |
+| Research map and advice | [05-research-map-advice.png](docs/screenshots/05-research-map-advice.png) |
+| Obsidian and Zotero handoff | [06-obsidian-zotero.png](docs/screenshots/06-obsidian-zotero.png) |
 
-| Foundation and interested library | Deep read copilot |
-|---|---|
-| <img src="docs/screenshots/03-foundation-interested.png" alt="Foundation and interested library screenshot" width="420"> | <img src="docs/screenshots/04-deep-read-copilot.png" alt="Deep read copilot screenshot" width="420"> |
+## Visual Assets
 
-| Research map and advice | Obsidian and Zotero handoff |
+| Purpose | English | Chinese |
 |---|---|
-| <img src="docs/screenshots/05-research-map-advice.png" alt="Research map and advice screenshot" width="420"> | <img src="docs/screenshots/06-obsidian-zotero.png" alt="Obsidian and Zotero handoff screenshot" width="420"> |
+| Social card | [social-card.en.png](docs/assets/social-card.en.png) | [social-card.zh.png](docs/assets/social-card.zh.png) |
+| Workflow GIF | [workflow.en.gif](docs/assets/workflow.en.gif) | [workflow.zh.gif](docs/assets/workflow.zh.gif) |
+| Architecture diagram | [architecture-showcase.en.png](docs/assets/architecture-showcase.en.png) | [architecture-showcase.zh.png](docs/assets/architecture-showcase.zh.png) |
+| Logo | [logo.png](docs/assets/logo.png) | [logo.png](docs/assets/logo.png) |
 
 ## What It Does
 
@@ -172,9 +178,36 @@ Obsidian and Zotero are optional integrations. The core workflow remains local f
 
 ## Architecture
 
-![Scholar Alert Reader architecture](docs/assets/architecture-showcase.en.png)
+```mermaid
+flowchart TD
+  S["Sources"]
+  S1["Gmail API / Apple Mail / mbox"]
+  S2["BibTeX / RIS"]
+  S3["Web metadata / RSS / arXiv"]
+  T["Triage engine"]
+  P["Research profile<br/>questions · terms · methods · regions · authors · exclusions"]
+  F["Feedback loop<br/>interested · archive · more-like-this · less-like-this"]
+  E["Evidence ladder<br/>metadata-only · PDF-ready · local-PDF-ready · full-text-backed"]
+  O["Outputs"]
+  O1["Daily digest / dashboard / reading plan"]
+  O2["Foundation / interested library / weekly review"]
+  O3["Full-text brief / workup / review pack / review queue"]
+  O4["Obsidian Markdown / Zotero BibTeX-RIS"]
 
-Chinese sharing assets are also included under `docs/assets/*.zh.*` and paired with Chinese copy in [docs/share-copy.zh.md](docs/share-copy.zh.md).
+  S --> S1 --> T
+  S --> S2 --> T
+  S --> S3 --> T
+  P --> T
+  F --> T
+  T --> E
+  E --> O
+  O --> O1
+  O --> O2
+  O --> O3
+  O --> O4
+```
+
+Chinese sharing assets are included under `docs/assets/*.zh.*` and paired with Chinese copy in [docs/share-copy.zh.md](docs/share-copy.zh.md).
 
 ## Platform Support
 
