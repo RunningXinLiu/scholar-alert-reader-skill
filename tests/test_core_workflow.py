@@ -418,6 +418,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Latest digest HTML", dashboard)
             self.assertIn("Review Workflow", dashboard)
             self.assertIn("Analysis index HTML", dashboard)
+            self.assertIn("Source Readiness", dashboard)
             self.assertIn("Profile Health", dashboard)
             self.assertIn("Privacy check", dashboard)
             self.assertIn("Ranking evaluation", dashboard)
@@ -2189,6 +2190,28 @@ SCHEDULE_TIME=09:00
 
             dashboard = root / "DASHBOARD.md"
             dashboard_html = root / "DASHBOARD.html"
+            (root / "SOURCE_CHECK.md").write_text(
+                "\n".join(
+                    [
+                        "# Scholar Alert Reader Source Check",
+                        "",
+                        "- Requested source: `mbox`",
+                        "- Effective source: `mbox`",
+                        "- Platform: `darwin`",
+                        "- Live check: `True`",
+                        "",
+                        "## Checks",
+                        "",
+                        "- [OK] mbox path: /tmp/reader/INBOX.mbox",
+                        "- [OK] mbox parse: 2 papers from 1 Scholar messages",
+                        "",
+                        "## Setup Guidance",
+                        "",
+                        "- After a successful live check, run `./run_reader.sh`; open `reader_out/daily/digest.html` and `knowledge_base/reading_plan.html`.",
+                    ]
+                ),
+                encoding="utf-8",
+            )
             subprocess.run(
                 [
                     sys.executable,
@@ -2213,6 +2236,10 @@ SCHEDULE_TIME=09:00
             self.assertIn("Scholar Alert Reader Dashboard", dashboard_content)
             self.assertIn("Reading plan HTML", dashboard_content)
             self.assertIn("Analysis index HTML", dashboard_content)
+            self.assertIn("Source Readiness", dashboard_content)
+            self.assertIn("Result: `OK`", dashboard_content)
+            self.assertIn("Effective source: `mbox`", dashboard_content)
+            self.assertIn("mbox parse: 2 papers from 1 Scholar messages", dashboard_content)
             self.assertIn("Retained library: 1 records", dashboard_content)
             self.assertIn("Profile Health", dashboard_content)
             self.assertIn("Start Here HTML", dashboard_content)

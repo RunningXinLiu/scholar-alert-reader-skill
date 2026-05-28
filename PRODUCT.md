@@ -69,7 +69,7 @@ For users who want citation/PDF management.
 - A new user gets both `QUICKSTART_REPORT.md` and browser-friendly `QUICKSTART_REPORT.html` after quickstart.
 - A new user can click from `QUICKSTART_REPORT.html` into the dashboard, start guide, source check, diagnostics, and bundled demo digests.
 - A new user can use quickstart's source recommendations and copy-paste command block to move from setup checks to first live run without searching docs.
-- A new user can open `DASHBOARD.html` as the project home page for the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
+- A new user can open `DASHBOARD.html` as the project home page for the current digest, reading plan, review queue, latest source-check result, profile health, retained library, and setup diagnostics.
 - A user who gets zero papers can tell whether the run found no source items, parsed source items but no paper records, or filtered all papers as already seen.
 - A terminal-only user can install the project with `pip`, run `scholar-alert-reader`, and use generated helper scripts without depending on Codex.
 - A new user can run `capabilities` / `capabilities.sh` to understand the product boundary before connecting private data or expecting full-paper review.
@@ -118,6 +118,7 @@ For users who want citation/PDF management.
 - A user can open `review_queue.md` or `review_queue.html` as a batch-reading panel showing which papers have briefs, text caches, visual/data/code signals, section coverage, and immediate next actions.
 - Successful generated `run_reader.sh` runs should refresh `profiles/profile_doctor.md` and `DASHBOARD.md` / `DASHBOARD.html` automatically, with escape hatches for scripted users who set `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0`.
 - Zero-paper explanations should appear in terminal output, `summary.json`, `digest.md/html`, and the Dashboard, not only in logs.
+- The Dashboard should summarize the latest `SOURCE_CHECK.md` result and next action so users can distinguish source setup problems from normal all-seen daily runs.
 - A user can run `privacy-check` / `privacy_check.sh` before sharing a project folder, screenshots, support bundle, issue attachment, or zip archive; it should list risky paths and `.gitignore` gaps without exposing file contents.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.

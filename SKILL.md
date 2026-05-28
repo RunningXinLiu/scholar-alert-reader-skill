@@ -50,7 +50,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `seen_papers.json`: dedupe state; can include every alert item.
 - `QUICKSTART_REPORT.md` and `QUICKSTART_REPORT.html`: first-run setup/check report written by `quickstart`, including clickable links to generated local artifacts, source recommendations, and copy-paste next commands.
 - `START_HERE.md` and `START_HERE.html`: local onboarding guide with first-run workflow, recommended next actions, source setup matrix, current source readiness hints from local files and `reader.env`, optional integrations, and setup status.
-- `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, analysis report index, profile health, library files, setup reports, and next actions.
+- `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, analysis report index, source readiness summary, profile health, library files, setup reports, and next actions.
 - `PRIVACY_CHECK.md`: local report of files that should not be published, review-before-sharing files, and recommended `.gitignore` coverage.
 - `SCHEDULE.md` and `LaunchAgents/*.plist`: local schedule report and macOS LaunchAgent plist generated from `reader.env`.
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
@@ -185,7 +185,7 @@ python3 scripts/scholar_reader.py dashboard \
   --open
 ```
 
-Initialized projects provide `./dashboard_reader.sh --open`. Successful `./run_reader.sh` runs refresh `profiles/profile_doctor.md`, `DASHBOARD.md`, and `DASHBOARD.html` automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
+Initialized projects provide `./dashboard_reader.sh --open`. The dashboard summarizes the latest `SOURCE_CHECK.md` result, effective source, live-check state, most important check row, and next action without rerunning private sources. Successful `./run_reader.sh` runs refresh `profiles/profile_doctor.md`, `DASHBOARD.md`, and `DASHBOARD.html` automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
 
 Render or install the local schedule:
 

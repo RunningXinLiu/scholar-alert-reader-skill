@@ -4950,6 +4950,63 @@ def dashboard_profile_doctor_summary(report_path: Path) -> tuple[str, str]:
     return result, f"{records} records considered"
 
 
+def dashboard_source_check_summary(report_path: Path) -> dict[str, str]:
+    if not report_path.exists():
+        return {
+            "result": "missing",
+            "requested": "unknown",
+            "effective": "unknown",
+            "live": "unknown",
+            "detail": "No SOURCE_CHECK.md found yet.",
+            "next_action": "Run `./source_check.sh --source auto --live` before expecting non-empty daily digests or installing automation.",
+        }
+    try:
+        content = report_path.read_text(encoding="utf-8", errors="replace")
+    except Exception as exc:
+        return {
+            "result": "unreadable",
+            "requested": "unknown",
+            "effective": "unknown",
+            "live": "unknown",
+            "detail": f"Could not read source-check report: {exc}",
+            "next_action": "Rerun `./source_check.sh --source auto --live`.",
+        }
+    requested_match = re.search(r"^- Requested source:\s*`?([^`\n]+)`?\s*$", content, flags=re.MULTILINE)
+    effective_match = re.search(r"^- Effective source:\s*`?([^`\n]+)`?\s*$", content, flags=re.MULTILINE)
+    live_match = re.search(r"^- Live check:\s*`?([^`\n]+)`?\s*$", content, flags=re.MULTILINE)
+    warn_lines = re.findall(r"^- \[WARN\]\s*([^:]+):\s*(.*)$", content, flags=re.MULTILINE)
+    ok_lines = re.findall(r"^- \[OK\]\s*([^:]+):\s*(.*)$", content, flags=re.MULTILINE)
+    guidance_lines = re.findall(r"^- (.+)$", content.split("## Setup Guidance", 1)[-1] if "## Setup Guidance" in content else "")
+    action = next(
+        (
+            line
+            for line in guidance_lines
+            if line.startswith("After a successful")
+            or line.startswith("Run `./source_check")
+            or line.startswith("Install Gmail")
+            or line.startswith("Export Scholar")
+        ),
+        "Rerun `./source_check.sh --source auto --live` after changing source settings.",
+    )
+    if warn_lines:
+        name, detail = warn_lines[0]
+        result = "WARN"
+    elif ok_lines:
+        name, detail = ok_lines[-1]
+        result = "OK"
+    else:
+        name, detail = "checks", "No [OK] or [WARN] check rows found."
+        result = "unknown"
+    return {
+        "result": result,
+        "requested": requested_match.group(1).strip() if requested_match else "unknown",
+        "effective": effective_match.group(1).strip() if effective_match else "unknown",
+        "live": live_match.group(1).strip() if live_match else "unknown",
+        "detail": f"{name.strip()}: {detail.strip()}",
+        "next_action": action.strip(),
+    }
+
+
 ANALYSIS_REPORT_TYPES: list[tuple[str, str]] = [
     ("Review workflows", "_review_workflow.md"),
     ("Paper workups", "_workup.md"),
@@ -5061,6 +5118,8 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
     analysis_dir = kb_dir / "analysis"
     profile_doctor_path = profile_path.parent / "profile_doctor.md"
     profile_doctor_result, profile_doctor_note = dashboard_profile_doctor_summary(profile_doctor_path)
+    source_check_path = project_dir / "SOURCE_CHECK.md"
+    source_check = dashboard_source_check_summary(source_check_path)
 
     lines = [
         "# Scholar Alert Reader Dashboard",
@@ -5132,6 +5191,17 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             f"- Direction notes: {file_count(kb_dir / 'directions', '*.md')}",
             f"- Full-text caches: {file_count(kb_dir / 'full_text', '*.txt')}",
             f"- Analysis reports: {file_count(analysis_dir, '*.md')}",
+            "",
+            "## Source Readiness",
+            "",
+            f"- Source check: {dashboard_link('SOURCE_CHECK.md', source_check_path, base_dir)}",
+            f"- Result: `{source_check['result']}`",
+            f"- Requested source: `{source_check['requested']}`",
+            f"- Effective source: `{source_check['effective']}`",
+            f"- Live check: `{source_check['live']}`",
+            f"- Detail: {source_check['detail']}",
+            f"- Next action: {source_check['next_action']}",
+            "- Refresh: `./source_check.sh --source auto --live`",
             "",
             "## Profile Health",
             "",

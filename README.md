@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.82`
+Version: `0.2.83`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -132,7 +132,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Checks optional embedding readiness before a real embedding rerank, without loading models unless you pass `--load-model`.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Labels each paper with its current evidence level, such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed, so users can tell when a report is based on snippets versus cached full text.
-- Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, analysis report index, profile health, retained library, and setup diagnostics.
+- Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, analysis report index, source readiness summary, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card or answer index, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
@@ -726,7 +726,7 @@ python3 scripts/scholar_reader.py dashboard \
   --open
 ```
 
-Initialized projects also provide `./dashboard_reader.sh --open` and `./analysis_index.sh --open`. The dashboard writes `DASHBOARD.md` and `DASHBOARD.html`, refreshes `knowledge_base/analysis/analysis_index.md/html`, then links the current digest, `reading_plan.html`, `review_queue.html`, analysis index, profile doctor report, foundation/interested files, source check, doctor report, and next commands. Successful `./run_reader.sh` runs refresh both `profiles/profile_doctor.md` and the dashboard automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
+Initialized projects also provide `./dashboard_reader.sh --open` and `./analysis_index.sh --open`. The dashboard writes `DASHBOARD.md` and `DASHBOARD.html`, refreshes `knowledge_base/analysis/analysis_index.md/html`, then links the current digest, `reading_plan.html`, `review_queue.html`, analysis index, profile doctor report, foundation/interested files, source check, doctor report, and next commands. It also summarizes the latest `SOURCE_CHECK.md` result, effective source, live-check status, first warning or last successful check, and next action directly in the dashboard. Successful `./run_reader.sh` runs refresh both `profiles/profile_doctor.md` and the dashboard automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
 
 When a run produces zero papers, check the `No-paper diagnosis` section in the digest or Dashboard. The same structured reason appears in `summary.json` as `empty_run_diagnosis`, with one of the common reasons: `all_seen`, `source_no_items`, `parsed_no_papers`, or `empty_unknown`.
 

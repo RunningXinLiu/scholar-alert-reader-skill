@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.83 - 2026-05-28
+
+- Summarize the latest `SOURCE_CHECK.md` result directly in `DASHBOARD.md/html`, including effective source, live-check state, key check row, and next action.
+- Show missing or unreadable source-check reports as actionable dashboard guidance instead of a bare link.
+- Cover source readiness dashboard output in workflow tests and documentation.
+
 ## v0.2.82 - 2026-05-28
 
 - Add `analysis-index` / generated `analysis_index.sh` to group accumulated selected-paper and ranking reports into Markdown and browser-friendly HTML.
