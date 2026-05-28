@@ -58,7 +58,7 @@ For users who want citation/PDF management.
 - Read-back: Better BibTeX/BibTeX exports can add citation keys, Zotero item keys, and local PDF paths back into retained papers.
 - Full-text scaffold: local PDF/text paths and explicit/open fetched PDF URLs can be extracted into text caches, section-aware brief reports with visual/data/code signals, and review packs/batch review queues that carry both the brief and text cache forward with per-paper next actions.
 - Obsidian paper notes include citation-oriented frontmatter such as `citation_key`, `doi`, `year`, and `journal`.
-- Future direction: add stronger figure-caption/table-body extraction and optional LLM review over extracted local text.
+- Future direction: add stronger table-body extraction and optional LLM review over extracted local text.
 
 ## Product Requirements
 
@@ -93,7 +93,7 @@ For users who want citation/PDF management.
 - A user can run local semantic reranking to inspect weak-keyword rescues and archive-like downranks, with a markdown report and reranked JSON. The default sparse backend requires no extra dependencies; an optional local `sentence-transformers` backend supports embedding reranking when the user installs it explicitly.
 - A user can run `embedding-check` before optional embedding rerank to verify dependency readiness, and only load the model when they explicitly pass `--load-model`.
 - A user can fetch explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata into `knowledge_base/pdfs/` without crawling paywalled publisher pages.
-- A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
+- A user can generate a section-aware full-text brief from a local PDF/text file, including section coverage, evidence excerpts, figure/table caption candidates when present, figure/table/data/code signals, missing-section notes, and citation-readiness checks.
 - A user can run `deep-read` on a selected paper and automatically see cached full-text section coverage, missing sections, profile overlap, and visual/data/code signals when a full-text brief exists.
 - A user can open any `deep-read` report and immediately see the evidence level, what claims the report can support, what remains unverified, and the next command for upgrading the paper into a full-text review workflow.
 - A CLI user can run selected-paper report commands with `--open` and inspect browser-friendly `.html` reports for `deep-read`, `full-text`, `workup`, `review-pack`, and `review-workflow` without manually finding markdown files.

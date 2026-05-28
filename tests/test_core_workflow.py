@@ -2468,6 +2468,8 @@ We measure seismic surface wave dispersion from continuous waveform data and inv
 
 4 Results
 The resulting velocity model resolves a robust low velocity zone beneath the target region, as shown in Figure 2 and Table 1.
+Figure 2. Low velocity zone recovered by ambient noise tomography across the Taiwan crust.
+Table 1. Inversion settings and uncertainty ranges for the preferred crustal model.
 
 5 Limitations
 The analysis does not resolve short-period scattering or all uncertainty sources in the inversion.
@@ -2514,6 +2516,9 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("Evidence By Section", full_text_content)
             self.assertIn("Methods Excerpt", full_text_content)
             self.assertIn("Data / Study Area Excerpt", full_text_content)
+            self.assertIn("Figure And Table Captions", full_text_content)
+            self.assertIn("Low velocity zone recovered by ambient noise tomography", full_text_content)
+            self.assertIn("Inversion settings and uncertainty ranges", full_text_content)
             self.assertIn("Visual, Table, Data, And Code Signals", full_text_content)
             self.assertIn("Figure 2", full_text_content)
             self.assertIn("Table 1", full_text_content)

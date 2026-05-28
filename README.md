@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.85`
+Version: `0.2.86`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -590,7 +590,7 @@ python3 scripts/scholar_reader.py full-text \
   --paper-id <ID>
 ```
 
-`full-text` uses local files only. It tries `pdftotext` first, then optional Python PDF libraries (`pypdf` / `PyPDF2`), and also accepts `.txt` / `.md` text exports through `--pdf-path`. It writes `knowledge_base/full_text/<paper-id>.txt`, `knowledge_base/analysis/<paper-id>_full_text_brief.md`, and a browser-friendly sibling `.html` report. The brief detects common paper sections, reports section coverage, extracts evidence by section, flags figure/table/supplement/data/code signals, lists missing or weak sections, and adds a citation-readiness checklist before you build a `review-pack`.
+`full-text` uses local files only. It tries `pdftotext` first, then optional Python PDF libraries (`pypdf` / `PyPDF2`), and also accepts `.txt` / `.md` text exports through `--pdf-path`. It writes `knowledge_base/full_text/<paper-id>.txt`, `knowledge_base/analysis/<paper-id>_full_text_brief.md`, and a browser-friendly sibling `.html` report. The brief detects common paper sections, reports section coverage, extracts evidence by section, extracts figure/table caption candidates when the text contains caption-like lines, flags figure/table/supplement/data/code signals, lists missing or weak sections, and adds a citation-readiness checklist before you build a `review-pack`.
 
 Build a human-readable paper workup for one selected paper:
 

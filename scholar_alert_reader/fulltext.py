@@ -36,6 +36,13 @@ class EvidenceSignal:
     sentence: str
 
 
+@dataclass
+class VisualCaption:
+    category: str
+    reference: str
+    caption: str
+
+
 SECTION_ORDER = [
     "abstract",
     "introduction",
@@ -104,6 +111,7 @@ TABLE_RE = re.compile(r"\b(?:table|tab\.)\s*(?:\(?[sS]?\d+[A-Za-z]?(?:\s*(?:,|an
 SUPPLEMENT_RE = re.compile(r"\b(?:supplementary|supporting information|appendix|supplemental)\b", re.IGNORECASE)
 DATA_RE = re.compile(r"\b(?:data availability|data are available|data is available|dataset|repository|zenodo|figshare|dryad|earthscope|iris|nodc|doi:|https?://)\b", re.IGNORECASE)
 CODE_RE = re.compile(r"\b(?:code availability|source code|github|gitlab|software|repository|scripts are available|code is available|code are available)\b", re.IGNORECASE)
+CAPTION_START_RE = re.compile(r"^\s*((?:fig(?:ure)?|table|tab\.)\s*[sS]?\d+[A-Za-z]?)\.?\s*[:\-]?\s*(.*)$", re.IGNORECASE)
 
 
 def clean_full_text(value: str, max_chars: int = 120_000) -> str:
@@ -369,6 +377,44 @@ def extract_visual_data_signals(full_text: str, limit: int = 18) -> list[Evidenc
     return signals
 
 
+def extract_visual_captions(full_text: str, limit: int = 12, max_chars: int = 520) -> list[VisualCaption]:
+    captions: list[VisualCaption] = []
+    seen: set[tuple[str, str]] = set()
+    lines = full_text.splitlines()
+    index = 0
+    while index < len(lines):
+        raw_line = lines[index].strip()
+        match = CAPTION_START_RE.match(raw_line)
+        if not match:
+            index += 1
+            continue
+        reference = re.sub(r"\s+", " ", match.group(1).strip())
+        category = "Tables" if reference.lower().startswith(("table", "tab")) else "Figures"
+        fragments = [match.group(2).strip()]
+        lookahead = index + 1
+        while lookahead < len(lines) and len(" ".join(fragments)) < max_chars:
+            next_line = lines[lookahead].strip()
+            if not next_line:
+                break
+            if CAPTION_START_RE.match(next_line) or detect_section_key(next_line):
+                break
+            if len(next_line.split()) <= 2 and not next_line.endswith((".", ":", ";")):
+                break
+            fragments.append(next_line)
+            lookahead += 1
+        caption = clean_full_text(" ".join(fragment for fragment in fragments if fragment), max_chars=max_chars)
+        if not caption:
+            caption = raw_line
+        key = (reference.lower(), caption.lower())
+        if key not in seen:
+            seen.add(key)
+            captions.append(VisualCaption(category=category, reference=reference, caption=caption))
+            if len(captions) >= limit:
+                return captions
+        index = max(index + 1, lookahead)
+    return captions
+
+
 def find_section_excerpt(full_text: str, names: list[str], max_chars: int = 900) -> str:
     pattern = r"(?im)^\s*(?:" + "|".join(re.escape(name) for name in names) + r")\s*$"
     match = re.search(pattern, full_text)
@@ -393,6 +439,7 @@ def render_full_text_brief(
     sentences = representative_sentences(analysis_text, profile, 8)
     sections = extract_section_excerpts(full_text)
     visual_data_signals = extract_visual_data_signals(analysis_text)
+    visual_captions = extract_visual_captions(full_text)
     abstract = sections.get("abstract").excerpt if sections.get("abstract") else find_section_excerpt(full_text, ["Abstract", "Summary"], max_chars=900)
     methods = sections.get("methods").excerpt if sections.get("methods") else find_section_excerpt(full_text, ["Methods", "Method", "Data and Methods", "Methodology"], max_chars=900)
     conclusions = sections.get("conclusions").excerpt if sections.get("conclusions") else find_section_excerpt(full_text, ["Conclusions", "Conclusion", "Discussion and Conclusions"], max_chars=900)
@@ -447,6 +494,12 @@ def render_full_text_brief(
         lines.extend(f"- {sentence}" for sentence in sentences)
     else:
         lines.append("- No profile-weighted sentences found. Inspect the text cache manually.")
+    lines.extend(["", "## Figure And Table Captions", ""])
+    if visual_captions:
+        for caption in visual_captions:
+            lines.append(f"- **{caption.category}** `{caption.reference}`: {caption.caption}")
+    else:
+        lines.append("- No figure or table caption-like lines were detected in the extracted text.")
     lines.extend(["", "## Visual, Table, Data, And Code Signals", ""])
     if visual_data_signals:
         for signal in visual_data_signals:

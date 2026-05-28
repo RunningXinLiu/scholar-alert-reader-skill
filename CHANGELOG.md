@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.86 - 2026-05-28
+
+- Add figure/table caption candidate extraction to local full-text briefs.
+- Render a `Figure And Table Captions` section before visual/data/code signals so users can inspect figure/table evidence more quickly.
+- Cover caption extraction in the selected-paper full-text workflow tests.
+
 ## v0.2.85 - 2026-05-28
 
 - Add a `PDF / Full-Text Access` section to selected-paper `review-workflow` reports.
