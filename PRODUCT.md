@@ -97,6 +97,7 @@ For users who want citation/PDF management.
 - A user can run `deep-read` on a selected paper and automatically see cached full-text section coverage, missing sections, profile overlap, and visual/data/code signals when a full-text brief exists.
 - A user can open any `deep-read` report and immediately see the evidence level, what claims the report can support, what remains unverified, and the next command for upgrading the paper into a full-text review workflow.
 - A CLI user can run selected-paper report commands with `--open` and inspect browser-friendly `.html` reports for `deep-read`, `full-text`, `workup`, `review-pack`, and `review-workflow` without manually finding markdown files.
+- A review-workflow user can open one workflow report and navigate to HTML-first child reports for the full-text brief, workup, and review pack, while `--no-html` keeps the whole workflow markdown-only.
 - A user can see each paper's current evidence level in Markdown/HTML digests, feedback UI cards, foundation/interested indexes, direction pages, and paper notes, so metadata-only triage is not confused with full-text-backed analysis.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
 - A user can run one selected-paper review workflow that attempts local full-text extraction when possible, writes a workup, writes a review pack, and records next actions in one report.

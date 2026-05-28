@@ -3569,6 +3569,12 @@ def write_markdown_html(markdown_path: Path, html_path: Path, title: str) -> Pat
     return html_path
 
 
+def write_report_html_if_present(markdown_path: Path, title: str) -> Path | None:
+    if not markdown_path.exists():
+        return None
+    return write_markdown_html(markdown_path, markdown_path.with_suffix(".html"), title)
+
+
 def write_browser_report_from_args(markdown_path: Path, title: str, args: argparse.Namespace, label: str) -> Path | None:
     if getattr(args, "no_html", False):
         if getattr(args, "open", False):
@@ -4902,6 +4908,13 @@ def dashboard_link(label: str, path: Path, base_dir: Path) -> str:
             target = str(path)
         return f"[{label}]({target})"
     return f"{label} - missing (`{path}`)"
+
+
+def dashboard_report_link(label: str, markdown_path: Path, base_dir: Path) -> str:
+    html_path = markdown_path.with_suffix(".html")
+    if html_path.exists():
+        return f"{label}: {dashboard_link('HTML', html_path, base_dir)} / {dashboard_link('Markdown', markdown_path, base_dir)}"
+    return f"{label}: {dashboard_link('Markdown', markdown_path, base_dir)}"
 
 
 def dashboard_json_count(path: Path) -> str:
@@ -8479,6 +8492,7 @@ def write_review_workflow_report(
     max_full_text_brief_chars: int = 16000,
     max_workup_brief_chars: int = 7000,
     related_limit: int = 12,
+    write_html: bool = True,
 ) -> tuple[Path, str, Path, Path]:
     records = merged_paper_records(kb_dir, papers_json)
     target = select_paper_record(records, paper_id, title)
@@ -8565,6 +8579,10 @@ def write_review_workflow_report(
         max_full_text_chars=max_full_text_chars,
         max_full_text_brief_chars=max_full_text_brief_chars,
     )
+    if write_html:
+        write_report_html_if_present(brief_output, "Scholar Alert Reader Full-Text Brief")
+        write_report_html_if_present(workup_path, "Scholar Alert Reader Paper Workup")
+        write_report_html_if_present(review_pack_path, "Scholar Alert Reader Review Context Pack")
 
     next_action = (
         "Open the review pack with Codex, Claude, ChatGPT, or another assistant, then verify methods/results before citing."
@@ -8587,9 +8605,9 @@ def write_review_workflow_report(
         f"- Full-text extraction: {extraction_status}",
         f"- Full-text source: `{extraction_source}`" if extraction_source else "- Full-text source: none",
         f"- Full-text cache: {dashboard_link('text cache', text_output, workflow_output.parent)}",
-        f"- Full-text brief: {dashboard_link('full-text brief', brief_output, workflow_output.parent)}",
-        f"- Workup: {dashboard_link('paper workup', workup_path, workflow_output.parent)}",
-        f"- Review pack: {dashboard_link('review pack', review_pack_path, workflow_output.parent)}",
+        f"- {dashboard_report_link('Full-text brief', brief_output, workflow_output.parent)}",
+        f"- {dashboard_report_link('Workup', workup_path, workflow_output.parent)}",
+        f"- {dashboard_report_link('Review pack', review_pack_path, workflow_output.parent)}",
         "",
         "## Next Action",
         "",
@@ -8634,6 +8652,7 @@ def review_workflow_command(args: argparse.Namespace) -> None:
         max_full_text_brief_chars=args.max_full_text_brief_chars,
         max_workup_brief_chars=args.max_workup_brief_chars,
         related_limit=args.related_limit,
+        write_html=not args.no_html,
     )
     print(f"Review workflow: {workflow_output}")
     write_browser_report_from_args(workflow_output, "Scholar Alert Reader Review Workflow", args, "Review workflow")

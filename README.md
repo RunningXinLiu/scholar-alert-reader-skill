@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.80`
+Version: `0.2.81`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -612,7 +612,7 @@ python3 scripts/scholar_reader.py review-workflow \
   --paper-id <ID>
 ```
 
-`review-workflow` writes `knowledge_base/analysis/<paper-id>_review_workflow.md` plus a sibling `.html` report, attempts local PDF/text extraction when a path is provided, synced from Zotero, or fetched from an explicit/open URL, writes/refreshes the full-text brief when possible, then writes both `knowledge_base/analysis/<paper-id>_workup.md` and `knowledge_base/analysis/<paper-id>_review_pack.md`. Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` to use existing caches only, and `--strict-full-text` when you want the command to fail if no local text cache is available.
+`review-workflow` writes `knowledge_base/analysis/<paper-id>_review_workflow.md` plus a sibling `.html` report, attempts local PDF/text extraction when a path is provided, synced from Zotero, or fetched from an explicit/open URL, writes/refreshes the full-text brief when possible, then writes both `knowledge_base/analysis/<paper-id>_workup.md` and `knowledge_base/analysis/<paper-id>_review_pack.md`. It also writes browser-friendly HTML companions for the full-text brief, workup, and review pack, and links the HTML versions first from the workflow report. Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` to use existing caches only, `--no-html` for markdown-only workflow artifacts, and `--strict-full-text` when you want the command to fail if no local text cache is available.
 
 Build an LLM-ready review context pack for Codex, Claude, ChatGPT, or another markdown-capable assistant:
 

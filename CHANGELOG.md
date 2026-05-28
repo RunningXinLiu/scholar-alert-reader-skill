@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.81 - 2026-05-28
+
+- Make `review-workflow` generate browser-friendly HTML companions for generated full-text brief, workup, and review-pack child reports.
+- Link workflow outputs to HTML first, with Markdown fallbacks, so the one-paper workflow is easier to inspect from a browser.
+- Respect `review-workflow --no-html` for both the workflow report and child report HTML generation.
+
 ## v0.2.80 - 2026-05-28
 
 - Write browser-friendly `.html` companions by default for selected-paper `deep-read`, `full-text`, `workup`, `review-pack`, and `review-workflow` reports.

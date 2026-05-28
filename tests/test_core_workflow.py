@@ -2524,13 +2524,54 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             workflow_content = workflow.read_text(encoding="utf-8")
             self.assertIn("Selected Paper Review Workflow", workflow_content)
             self.assertIn("Full-text extraction: extracted with text-file", workflow_content)
-            self.assertIn("paper workup", workflow_content)
-            self.assertIn("review pack", workflow_content)
+            self.assertIn("p1_full_text_brief.html", workflow_content)
+            self.assertIn("p1_workup.html", workflow_content)
+            self.assertIn("p1_review_pack.html", workflow_content)
             self.assertTrue((kb / "full_text" / "p1.txt").exists())
             self.assertTrue((kb / "analysis" / "p1_full_text_brief.md").exists())
+            self.assertTrue((kb / "analysis" / "p1_full_text_brief.html").exists())
             self.assertTrue((kb / "analysis" / "p1_workup.md").exists())
+            self.assertTrue((kb / "analysis" / "p1_workup.html").exists())
             self.assertTrue((kb / "analysis" / "p1_review_pack.md").exists())
+            self.assertTrue((kb / "analysis" / "p1_review_pack.html").exists())
             self.assertIn("Local Full Text", (kb / "analysis" / "p1_review_pack.md").read_text(encoding="utf-8"))
+
+            no_html_kb = root / "no_html_kb"
+            no_html_kb.mkdir()
+            (no_html_kb / "library.json").write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            no_html_workflow = root / "no_html_review_workflow.md"
+            no_html_workup = root / "no_html_workup.md"
+            no_html_pack = root / "no_html_review_pack.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "review-workflow",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(no_html_kb),
+                    "--paper-id",
+                    "p1",
+                    "--no-extract",
+                    "--no-html",
+                    "--output",
+                    str(no_html_workflow),
+                    "--workup-output",
+                    str(no_html_workup),
+                    "--review-pack-output",
+                    str(no_html_pack),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertTrue(no_html_workflow.exists())
+            self.assertTrue(no_html_workup.exists())
+            self.assertTrue(no_html_pack.exists())
+            self.assertFalse(no_html_workflow.with_suffix(".html").exists())
+            self.assertFalse(no_html_workup.with_suffix(".html").exists())
+            self.assertFalse(no_html_pack.with_suffix(".html").exists())
 
             deep_with_default_full_text = root / "deep_with_default_full_text.md"
             subprocess.run(
@@ -2922,6 +2963,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     html_body = response.read().decode("utf-8")
                 workflow = kb / "analysis" / "p1_review_workflow.md"
                 self.assertTrue(workflow.exists())
+                self.assertTrue((kb / "analysis" / "p1_workup.html").exists())
+                self.assertTrue((kb / "analysis" / "p1_review_pack.html").exists())
                 self.assertIn("Saved feedback for p1: review_workflow", html_body)
                 self.assertIn("/report?name=p1_review_workflow.md", html_body)
                 self.assertIn("/report?name=p1_workup.md", html_body)
