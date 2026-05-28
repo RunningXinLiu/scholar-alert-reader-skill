@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.87 - 2026-05-28
+
+- Add `evidence` / generated `evidence_reader.sh` to explain the evidence ladder and inspect one paper's current evidence status.
+- Show what each evidence level can support, what remains unverified, local artifact availability, and concrete next commands for moving from metadata-only triage to full-text-backed review.
+- Cover generic evidence-guide output, selected-paper evidence status, and scaffolded helper-script creation in workflow tests.
+
 ## v0.2.86 - 2026-05-28
 
 - Add figure/table caption candidate extraction to local full-text briefs.

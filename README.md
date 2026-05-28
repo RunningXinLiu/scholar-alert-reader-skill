@@ -132,6 +132,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Checks optional embedding readiness before a real embedding rerank, without loading models unless you pass `--load-model`.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Labels each paper with its current evidence level, such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed, so users can tell when a report is based on snippets versus cached full text.
+- Adds an `evidence` command and generated `evidence_reader.sh` helper so users can inspect one paper's evidence status, local artifacts, boundaries, and next upgrade commands before treating a report as citation-ready.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, analysis report index, source readiness summary, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card or answer index, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
@@ -149,19 +150,21 @@ For a concise product-boundary report, run:
 
 ```bash
 python3 -m scholar_alert_reader capabilities
+python3 -m scholar_alert_reader evidence
 # or inside an initialized project
 ./capabilities.sh
+./evidence_reader.sh --paper-id <ID>
 ```
 
 The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional semantic reranking. `semantic-rerank` defaults to sparse TF-IDF with no extra dependencies; `--backend sentence-transformers` uses a user-installed local embedding model. It is not a hosted embedding service or autonomous reviewer.
 
-`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. Digest cards, feedback UI cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show an evidence level so users can distinguish metadata-only triage from PDF-ready or full-text-backed work. `deep-read` also includes an Evidence Boundary section with the current basis, what the report can and cannot support, and the command to upgrade a selected paper into the PDF/full-text review workflow. `ask`, `advice`, `compare`, and `map` surface saved notes as evidence, so your own reading judgments become part of the local research memory. These commands are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
+`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. Digest cards, feedback UI cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show an evidence level so users can distinguish metadata-only triage from PDF-ready or full-text-backed work. `evidence --paper-id <ID>` turns that label into a concise status report with what the current evidence can support, what remains unverified, local artifact availability, and the next command to upgrade the selected paper. `deep-read` also includes an Evidence Boundary section with the current basis, what the report can and cannot support, and the command to upgrade a selected paper into the PDF/full-text review workflow. `ask`, `advice`, `compare`, and `map` surface saved notes as evidence, so your own reading judgments become part of the local research memory. These commands are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
 ## Product Modes
 
 Scholar Alert Reader is useful without any external note app:
 
-1. **Codex-only**: read alerts or bibliography exports, rank papers, evaluate ranking from feedback, run semantic rerank, fetch explicit/open PDFs when available, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/review-workflow/Q&A/review-pack/advice commands.
+1. **Codex-only**: read alerts or bibliography exports, rank papers, evaluate ranking from feedback, run semantic rerank, inspect evidence levels, fetch explicit/open PDFs when available, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/review-workflow/Q&A/review-pack/advice commands.
 2. **Codex + Obsidian**: sync generated notes, maps, reading status, answers, comparisons, and deep reads into a generated Obsidian folder.
 3. **Codex + Zotero + Obsidian**: use Zotero for citations/PDFs and Obsidian for durable human-written notes and synthesis.
 
@@ -567,6 +570,18 @@ Selected-paper report commands (`deep-read`, `full-text`, `workup`, `review-pack
 `deep-read` loads `knowledge_base/feedback.json` by default, so saved reading status, labels, and personal notes appear in the report. Use `--feedback-file` to point at a custom feedback file.
 
 Capability boundary: `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, adaptive feedback similarity, the retained local library, and cached local full-text briefs when available. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path, sync it from Zotero, or fetch an explicit/open PDF URL. The tool does not crawl publisher pages, bypass access controls, or download paywalled PDFs.
+
+Check what one paper's evidence level currently supports before citing it or sharing an analysis:
+
+```bash
+python3 scripts/scholar_reader.py evidence \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json out/recent/papers.json \
+  --paper-id <ID>
+```
+
+`evidence` prints the full evidence ladder when no paper is selected. With `--paper-id` or `--title`, it reports the selected paper's current level, local text/brief/review-pack availability, known PDF candidates, what the current evidence can support, what remains unverified, and the next commands for moving toward `full-text`, `workup`, `review-pack`, or `review-workflow`.
 
 Fetch an explicit or open PDF URL into the local project:
 

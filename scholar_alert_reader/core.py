@@ -2383,6 +2383,230 @@ def paper_evidence_text(paper: Paper, kb_dir: Path | None = None) -> str:
     return f"{summary['level']} ({badges}) - {summary['description']}"
 
 
+EVIDENCE_LADDER = [
+    {
+        "level": "metadata-only",
+        "basis": "Title, source line, alert/import snippet, profile terms, and saved feedback.",
+        "supports": "Fast triage, rough profile fit, duplicate detection, and deciding whether to look for the paper.",
+        "boundary": "Do not treat method, data, figures, results, limitations, or citation claims as verified.",
+        "upgrade": "Run `enrich` for public metadata, find/sync a PDF through Zotero or an open URL, then run `full-text` or `review-workflow`.",
+    },
+    {
+        "level": "metadata-enriched",
+        "basis": "Alert/import metadata plus OpenAlex/Crossref-style public metadata such as DOI, venue, year, authors, or citation count.",
+        "supports": "Better bibliographic cleanup, citation lookup, venue/year context, and stronger reading priority decisions.",
+        "boundary": "Still not a full-paper reading. Title-based metadata matches can be ambiguous and need human review.",
+        "upgrade": "Use `fetch-pdf` when an explicit/open PDF URL is available, or attach/sync a local PDF and run `full-text`.",
+    },
+    {
+        "level": "PDF-link-ready",
+        "basis": "A candidate open PDF URL or recorded local PDF path is known, but no local text cache exists yet.",
+        "supports": "A clear next action toward full-text-backed review.",
+        "boundary": "The PDF has not been extracted locally, so figures, methods, datasets, and results are not yet checked.",
+        "upgrade": "Run `fetch-pdf --extract` for open URLs, or `review-workflow --fetch-pdf` for a one-command selected-paper workflow.",
+    },
+    {
+        "level": "local-PDF-ready",
+        "basis": "A local PDF/text path exists and can be used for extraction.",
+        "supports": "Local full-text extraction without another source lookup.",
+        "boundary": "Until extraction succeeds, the selected-paper reports should still be treated as pre-reading triage.",
+        "upgrade": "Run `full-text` to build a section-aware brief, or `review-workflow` to produce full-text brief, workup, and review pack.",
+    },
+    {
+        "level": "full-text-backed",
+        "basis": "A local text cache or section-aware full-text brief exists.",
+        "supports": "Closer selected-paper workups, review packs, section coverage checks, evidence excerpts, and figure/table caption inspection.",
+        "boundary": "This is still assisted reading. Verify the original PDF before final citation, peer-review, or manuscript claims.",
+        "upgrade": "Run `workup`, `review-pack`, or `review-workflow`; paste the review pack into Codex, Claude, ChatGPT, or another assistant for a careful discussion.",
+    },
+]
+
+
+def evidence_ladder_entry(level: str) -> dict[str, str]:
+    for entry in EVIDENCE_LADDER:
+        if entry["level"] == level:
+            return entry
+    return EVIDENCE_LADDER[0]
+
+
+def render_evidence_ladder() -> list[str]:
+    lines = [
+        "## Evidence Ladder",
+        "",
+        "| Level | Current basis | What it can support | Boundary | Best upgrade |",
+        "|---|---|---|---|---|",
+    ]
+    for entry in EVIDENCE_LADDER:
+        lines.append(
+            "| {level} | {basis} | {supports} | {boundary} | {upgrade} |".format(
+                level=entry["level"],
+                basis=entry["basis"],
+                supports=entry["supports"],
+                boundary=entry["boundary"],
+                upgrade=entry["upgrade"],
+            )
+        )
+    return lines
+
+
+def evidence_command_base(
+    profile: Path | None,
+    kb_dir: Path,
+    papers_json: Path | None,
+    paper_id: str,
+) -> str:
+    command = ["python3", "-m", "scholar_alert_reader", "__CMD__"]
+    profile_display = str(profile.expanduser()) if profile else "profiles/research_profile.json"
+    kb_display = str(kb_dir.expanduser())
+    base_flags = ["--profile", profile_display, "--kb-dir", kb_display]
+    if papers_json:
+        base_flags.extend(["--papers-json", str(papers_json.expanduser())])
+    base_flags.extend(["--paper-id", paper_id])
+    return " ".join(shlex.quote(part) for part in command + base_flags).replace("__CMD__", "{cmd}")
+
+
+def render_paper_evidence_report(
+    target: dict[str, Any],
+    kb_dir: Path,
+    profile: Path | None = None,
+    papers_json: Path | None = None,
+) -> str:
+    paper = paper_from_dict(target)
+    summary = paper_evidence_summary(paper, kb_dir)
+    entry = evidence_ladder_entry(str(summary.get("level", "metadata-only")))
+    paper_id = paper.id or str(target.get("id", "paper") or "paper")
+    command_template = evidence_command_base(profile, kb_dir, papers_json, paper_id)
+    full_text_cache = kb_dir / "full_text" / f"{paper_id}.txt"
+    full_text_brief = kb_dir / "analysis" / f"{paper_id}_full_text_brief.md"
+    review_pack = kb_dir / "analysis" / f"{paper_id}_review_pack.md"
+
+    lines = [
+        "# Paper Evidence Status",
+        "",
+        f"- Paper: **{paper.title}**",
+        f"- ID: `{paper_id}`",
+        f"- Current evidence level: `{summary['level']}`",
+        f"- Evidence badges: {', '.join(summary['badges'])}",
+        f"- Meaning: {summary['description']}",
+        f"- Tier/score: {paper.tier} / {paper.score}",
+        "",
+        "## What This Can Support",
+        "",
+        f"- {entry['supports']}",
+        "",
+        "## Boundary",
+        "",
+        f"- {entry['boundary']}",
+        "",
+        "## Local Artifacts",
+        "",
+        f"- Full-text cache: {path_status(str(full_text_cache), kb_dir)}",
+        f"- Full-text brief: {path_status(str(full_text_brief), kb_dir)}",
+        f"- Review pack: {path_status(str(review_pack), kb_dir)}",
+    ]
+    if summary.get("pdf_paths"):
+        lines.append("- Local PDF paths:")
+        for path in summary["pdf_paths"]:
+            lines.append(f"  - {path_status(str(path), kb_dir)}")
+    if summary.get("pdf_urls"):
+        lines.append(f"- PDF URL candidates: {len(summary['pdf_urls'])} configured")
+    lines.extend(
+        [
+            "",
+            "## Next Commands",
+            "",
+            f"- Check or refresh this status: `{command_template.format(cmd='evidence')}`",
+        ]
+    )
+    level = str(summary.get("level", "metadata-only"))
+    if level == "full-text-backed":
+        lines.extend(
+            [
+                f"- Build a selected-paper workup: `{command_template.format(cmd='workup')}`",
+                f"- Build an assistant-ready review pack: `{command_template.format(cmd='review-pack')}`",
+                f"- Re-run the full workflow if needed: `{command_template.format(cmd='review-workflow')}`",
+            ]
+        )
+    elif level == "local-PDF-ready":
+        lines.extend(
+            [
+                f"- Extract local full text: `{command_template.format(cmd='full-text')}`",
+                f"- Or run the one-paper workflow: `{command_template.format(cmd='review-workflow')}`",
+            ]
+        )
+    elif level == "PDF-link-ready":
+        lines.extend(
+            [
+                f"- Fetch and extract an open PDF when available: `{command_template.format(cmd='fetch-pdf')} --extract`",
+                f"- Or run the one-paper workflow with fetching: `{command_template.format(cmd='review-workflow')} --fetch-pdf`",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"- Enrich public metadata first: `{command_template.format(cmd='enrich')} --update-library`",
+                f"- If you have a PDF path, pass it directly: `{command_template.format(cmd='full-text')} --pdf-path /path/to/paper.pdf`",
+                f"- For assistant discussion without full text, build a limited review pack: `{command_template.format(cmd='review-pack')}`",
+            ]
+        )
+    lines.extend(["", *render_evidence_ladder()])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_evidence_report(
+    kb_dir: Path,
+    profile: Path | None = None,
+    papers_json: Path | None = None,
+    paper_id: str | None = None,
+    title: str | None = None,
+) -> str:
+    lines = [
+        "# Scholar Alert Reader Evidence Guide",
+        "",
+        "Use this guide to avoid confusing quick triage with full-text-backed analysis.",
+        "",
+    ]
+    if paper_id or title:
+        records = merged_paper_records(kb_dir, papers_json)
+        target = select_paper_record(records, paper_id, title)
+        return render_paper_evidence_report(target, kb_dir, profile=profile, papers_json=papers_json)
+    lines.extend(render_evidence_ladder())
+    lines.extend(
+        [
+            "",
+            "## How To Use",
+            "",
+            "- Run `evidence --paper-id <ID>` before treating a selected-paper report as citation-ready.",
+            "- Move from metadata-only to full-text-backed by syncing/attaching a PDF, running `full-text`, then running `workup` or `review-pack`.",
+            "- Keep evidence levels visible in shared screenshots so users understand what the report is based on.",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def evidence_command(args: argparse.Namespace) -> None:
+    if args.kb_dir:
+        kb_dir = args.kb_dir.expanduser()
+    elif args.profile:
+        kb_dir = default_kb_dir(args.profile, Path("out")).expanduser()
+    else:
+        kb_dir = Path("knowledge_base")
+    report = render_evidence_report(
+        kb_dir=kb_dir,
+        profile=args.profile,
+        papers_json=args.papers_json,
+        paper_id=args.paper_id,
+        title=args.title,
+    )
+    if args.output:
+        output = args.output.expanduser()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report, encoding="utf-8")
+        print(f"Evidence report: {output}")
+    else:
+        print(report.rstrip())
+
+
 def write_csv(path: Path, papers: list[Paper]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = list(paper_to_row(papers[0]).keys()) if papers else [
@@ -5510,6 +5734,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_workflow.sh": 'exec "${SKILL_CMD[@]}" review-workflow --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "analysis_index.sh": 'exec "${SKILL_CMD[@]}" analysis-index --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
+        "evidence_reader.sh": 'exec "${SKILL_CMD[@]}" evidence --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "explain_ranking.sh": 'exec "${SKILL_CMD[@]}" explain-ranking --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ranking_eval.sh": 'exec "${SKILL_CMD[@]}" ranking-eval --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "embedding_check.sh": 'exec "${SKILL_CMD[@]}" embedding-check --project-dir "$PROJECT_DIR" "$@"\n',
@@ -10350,6 +10575,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Reranking saved records with local semantic similarity to profile terms, interested seeds, and archived seeds, using sparse TF-IDF by default and optional user-installed sentence-transformers embeddings when requested.",
         "- Checking optional embedding rerank readiness without loading models by default, with an explicit model-load preflight for users who want it.",
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
+        "- Explaining evidence levels with an `evidence` report so users know whether a paper is metadata-only, PDF-ready, or full-text-backed before citing or sharing it.",
         "- Including explicit evidence boundaries and cached local full-text evidence snapshots in selected-paper deep reads when a full-text brief exists.",
         "- Writing browser-friendly HTML companions for selected-paper deep-read, full-text, workup, review-pack, and review-workflow reports.",
         "- Indexing accumulated selected-paper and ranking reports into a browser-friendly analysis shelf.",
@@ -10383,8 +10609,9 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "4. Build an initial `foundation`, then use `daily` for new papers only.",
         "5. Mark interested/archive papers and rerun `ranking-eval` plus `profile-tune` after several feedback rounds.",
         "6. Run `embedding-check --backend sentence-transformers` before using the optional embedding reranker.",
-        "7. Sync Zotero local PDF paths when available, or run `fetch-pdf` for explicit/open PDF URLs, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
-        "8. Open `analysis-index` or `./analysis_index.sh --open` when accumulated reports become hard to find.",
+        "7. Run `evidence --paper-id <ID>` before treating a selected-paper report as citation-ready.",
+        "8. Sync Zotero local PDF paths when available, or run `fetch-pdf` for explicit/open PDF URLs, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
+        "9. Open `analysis-index` or `./analysis_index.sh --open` when accumulated reports become hard to find.",
         "",
         "## Practical Upgrade Path",
         "",
@@ -11280,6 +11507,15 @@ def build_parser() -> argparse.ArgumentParser:
     capabilities.add_argument("--project-dir", type=Path, help="Optional local project directory to include a redacted setup snapshot")
     capabilities.add_argument("--output", type=Path, help="Write markdown report to this path instead of stdout")
     capabilities.set_defaults(func=capabilities_command)
+
+    evidence = sub.add_parser("evidence", help="Explain evidence levels or inspect one paper's evidence status")
+    evidence.add_argument("--profile", type=Path, help="Profile path used for copy-paste follow-up commands")
+    evidence.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base or ./knowledge_base")
+    evidence.add_argument("--papers-json", type=Path, help="Optional digest papers.json to resolve a recent paper")
+    evidence.add_argument("--paper-id", help="Paper ID to inspect")
+    evidence.add_argument("--title", help="Case-insensitive title substring to inspect")
+    evidence.add_argument("--output", type=Path, help="Write markdown report to this path instead of stdout")
+    evidence.set_defaults(func=evidence_command)
 
     return parser
 

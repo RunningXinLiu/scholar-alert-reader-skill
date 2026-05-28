@@ -257,6 +257,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_workflow.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
             self.assertTrue((project / "analysis_index.sh").exists())
+            self.assertTrue((project / "evidence_reader.sh").exists())
             self.assertTrue((project / "explain_ranking.sh").exists())
             self.assertTrue((project / "ranking_eval.sh").exists())
             self.assertTrue((project / "embedding_check.sh").exists())
@@ -990,6 +991,68 @@ class CoreWorkflowTests(unittest.TestCase):
             html_content = html_digest.read_text(encoding="utf-8")
             self.assertIn("evidence full-text-backed", html_content)
             self.assertIn("cached full text", html_content)
+
+    def test_evidence_command_reports_ladder_and_selected_paper_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ladder_report = root / "evidence_ladder.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "evidence",
+                    "--output",
+                    str(ladder_report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            ladder_content = ladder_report.read_text(encoding="utf-8")
+            self.assertIn("Scholar Alert Reader Evidence Guide", ladder_content)
+            self.assertIn("metadata-only", ladder_content)
+            self.assertIn("full-text-backed", ladder_content)
+            self.assertIn("avoid confusing quick triage", ladder_content)
+
+            kb = root / "knowledge_base"
+            (kb / "full_text").mkdir(parents=True)
+            (kb / "analysis").mkdir(parents=True)
+            (kb / "full_text" / "p1.txt").write_text("cached full text", encoding="utf-8")
+            (kb / "analysis" / "p1_full_text_brief.md").write_text("# Full-Text Brief", encoding="utf-8")
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir()
+            profile.write_text(json.dumps({"name": "Evidence test"}), encoding="utf-8")
+            papers_json = root / "papers.json"
+            papers_json.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            paper_report = root / "paper_evidence.md"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "evidence",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--papers-json",
+                    str(papers_json),
+                    "--paper-id",
+                    "p1",
+                    "--output",
+                    str(paper_report),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            paper_content = paper_report.read_text(encoding="utf-8")
+            self.assertIn("Paper Evidence Status", paper_content)
+            self.assertIn("Current evidence level: `full-text-backed`", paper_content)
+            self.assertIn("Full-text cache: <project>/full_text/p1.txt (exists)", paper_content)
+            self.assertIn("Review pack: <project>/analysis/p1_review_pack.md (missing)", paper_content)
+            self.assertIn("Build an assistant-ready review pack", paper_content)
+            self.assertIn("python3 -m scholar_alert_reader review-pack", paper_content)
+            self.assertIn("Evidence Ladder", paper_content)
 
     def test_profile_tune_reports_and_applies_feedback_suggestions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1899,6 +1962,7 @@ SCHEDULE_TIME=09:00
             self.assertIn("publisher access", content)
             self.assertIn("review-pack", content)
             self.assertIn("embedding-check", content)
+            self.assertIn("evidence --paper-id", content)
             self.assertIn("analysis-index", content)
             self.assertIn("<project>", content)
             self.assertNotIn(str(root), content)

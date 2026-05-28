@@ -31,7 +31,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 11. For interactive triage, use `serve` to open a local feedback UI. The UI can save notes, mark reading decisions, open a one-paper workspace, ask library-wide or selected-paper questions, show existing selected-paper answers on matching paper cards, and link to refreshed reading plans, dashboards, foundation/interested indexes, reading status, weekly review, generated answers, and generated paper reports through local allowlisted routes. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, profile health, knowledge base, and diagnostics.
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
-14. Use `reading-plan`, `explain-ranking`, `ranking-eval`, `embedding-check`, `semantic-rerank`, `deep-read`, `workup`, `fetch-pdf`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
+14. Use `reading-plan`, `evidence`, `explain-ranking`, `ranking-eval`, `embedding-check`, `semantic-rerank`, `deep-read`, `workup`, `fetch-pdf`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
 16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `privacy-check`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems or preparing public reports.
 
@@ -39,7 +39,7 @@ Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
-Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local semantic reranking, and retained-library context. Digest cards, feedback UI cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show per-paper evidence levels such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed. `deep-read` includes an Evidence Boundary section that says what the current report can support and how to upgrade a selected paper into `review-workflow` / `full-text` analysis. `semantic-rerank` defaults to dependency-free sparse TF-IDF; `--backend sentence-transformers` uses an optional user-installed local embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
+Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local semantic reranking, and retained-library context. Digest cards, feedback UI cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show per-paper evidence levels such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed. Use `evidence --paper-id <ID>` when a user asks whether a selected paper is citation-ready or why a report is still metadata-only; it reports local artifact availability, what the current level can support, what remains unverified, and the next upgrade commands. `deep-read` includes an Evidence Boundary section that says what the current report can support and how to upgrade a selected paper into `review-workflow` / `full-text` analysis. `semantic-rerank` defaults to dependency-free sparse TF-IDF; `--backend sentence-transformers` uses an optional user-installed local embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
 
 ## Outputs
 
@@ -131,6 +131,17 @@ python3 -m scholar_alert_reader capabilities
 python3 -m scholar_alert_reader capabilities \
   --project-dir ~/scholar_alerts \
   --output ~/scholar_alerts/CAPABILITIES.md
+```
+
+Explain evidence levels or inspect one selected paper before citation/review decisions:
+
+```bash
+python3 -m scholar_alert_reader evidence
+python3 -m scholar_alert_reader evidence \
+  --profile ~/scholar_alerts/profiles/research_profile.json \
+  --kb-dir ~/scholar_alerts/knowledge_base \
+  --papers-json ~/scholar_alerts/reader_out/recent/papers.json \
+  --paper-id <ID>
 ```
 
 After `python3 -m pip install .` or a GitHub install, `scholar-alert-reader quickstart ...` and `scholar-reader quickstart ...` are equivalent. When running from a source checkout, `python3 scripts/scholar_reader.py ...` remains supported for backward compatibility.
@@ -369,6 +380,18 @@ python3 scripts/scholar_reader.py deep-read \
 ```
 
 Every `deep-read` report includes an evidence level and Evidence Boundary section. When `knowledge_base/analysis/<paper-id>_full_text_brief.md` exists, `deep-read` includes a local full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. It loads `knowledge_base/feedback.json` by default, so saved reading status, labels, and personal notes appear in the report. Selected-paper report commands write a sibling `.html` file by default; use `--open`, `--html-output`, or `--no-html` to control browser output. Use `--feedback-file`, `--full-text-brief-path`, and `--full-text-path` for custom files.
+
+Check a selected paper's evidence level and upgrade path:
+
+```bash
+python3 scripts/scholar_reader.py evidence \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --papers-json out/recent/papers.json \
+  --paper-id <ID>
+```
+
+Initialized projects provide `./evidence_reader.sh --paper-id <ID>`. Without a selected paper, `evidence` prints the evidence ladder.
 
 Extract local PDF/text content and write a section-aware full-text brief:
 
