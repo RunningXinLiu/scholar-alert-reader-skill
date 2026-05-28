@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.79`
+Version: `0.2.80`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -562,6 +562,8 @@ python3 scripts/scholar_reader.py deep-read \
 
 Every `deep-read` report starts with an evidence level and Evidence Boundary section. Metadata-only or metadata-enriched reports are suitable for triage, profile fit, and discussion questions; they are not a substitute for verifying methods, datasets, figures, results, or citation-ready claims in the full paper. If `knowledge_base/analysis/<paper-id>_full_text_brief.md` already exists, `deep-read` includes a full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. Use `--full-text-brief-path` when the brief was written to a custom path.
 
+Selected-paper report commands (`deep-read`, `full-text`, `workup`, `review-pack`, and `review-workflow`) write a sibling `.html` report by default. Add `--open` to open that browser report immediately, `--html-output PATH` to choose a custom HTML path, or `--no-html` for markdown-only output.
+
 `deep-read` loads `knowledge_base/feedback.json` by default, so saved reading status, labels, and personal notes appear in the report. Use `--feedback-file` to point at a custom feedback file.
 
 Capability boundary: `deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile terms, adaptive feedback similarity, the retained local library, and cached local full-text briefs when available. They are designed for triage and research planning. `full-text` can extract a local PDF/text file when you provide the path, sync it from Zotero, or fetch an explicit/open PDF URL. The tool does not crawl publisher pages, bypass access controls, or download paywalled PDFs.
@@ -588,7 +590,7 @@ python3 scripts/scholar_reader.py full-text \
   --paper-id <ID>
 ```
 
-`full-text` uses local files only. It tries `pdftotext` first, then optional Python PDF libraries (`pypdf` / `PyPDF2`), and also accepts `.txt` / `.md` text exports through `--pdf-path`. It writes `knowledge_base/full_text/<paper-id>.txt` and `knowledge_base/analysis/<paper-id>_full_text_brief.md`. The brief detects common paper sections, reports section coverage, extracts evidence by section, flags figure/table/supplement/data/code signals, lists missing or weak sections, and adds a citation-readiness checklist before you build a `review-pack`.
+`full-text` uses local files only. It tries `pdftotext` first, then optional Python PDF libraries (`pypdf` / `PyPDF2`), and also accepts `.txt` / `.md` text exports through `--pdf-path`. It writes `knowledge_base/full_text/<paper-id>.txt`, `knowledge_base/analysis/<paper-id>_full_text_brief.md`, and a browser-friendly sibling `.html` report. The brief detects common paper sections, reports section coverage, extracts evidence by section, flags figure/table/supplement/data/code signals, lists missing or weak sections, and adds a citation-readiness checklist before you build a `review-pack`.
 
 Build a human-readable paper workup for one selected paper:
 
@@ -599,7 +601,7 @@ python3 scripts/scholar_reader.py workup \
   --paper-id <ID>
 ```
 
-`workup` writes `knowledge_base/analysis/<paper-id>_workup.md`. It connects one paper to your profile, feedback state, closest foundation/interested papers, optional full-text brief, possible manuscript role, citation checks, and next commands. Use it when you want to decide whether a paper should become `reading`, `must-cite`, `method-reference`, `background-only`, or `not-relevant`.
+`workup` writes `knowledge_base/analysis/<paper-id>_workup.md` plus a sibling `.html` report. It connects one paper to your profile, feedback state, closest foundation/interested papers, optional full-text brief, possible manuscript role, citation checks, and next commands. Use it when you want to decide whether a paper should become `reading`, `must-cite`, `method-reference`, `background-only`, or `not-relevant`.
 
 Run the one-paper review workflow when you want the simplest path from a selected paper to usable review artifacts:
 
@@ -610,7 +612,7 @@ python3 scripts/scholar_reader.py review-workflow \
   --paper-id <ID>
 ```
 
-`review-workflow` writes `knowledge_base/analysis/<paper-id>_review_workflow.md`, attempts local PDF/text extraction when a path is provided, synced from Zotero, or fetched from an explicit/open URL, writes/refreshes the full-text brief when possible, then writes both `knowledge_base/analysis/<paper-id>_workup.md` and `knowledge_base/analysis/<paper-id>_review_pack.md`. Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` to use existing caches only, and `--strict-full-text` when you want the command to fail if no local text cache is available.
+`review-workflow` writes `knowledge_base/analysis/<paper-id>_review_workflow.md` plus a sibling `.html` report, attempts local PDF/text extraction when a path is provided, synced from Zotero, or fetched from an explicit/open URL, writes/refreshes the full-text brief when possible, then writes both `knowledge_base/analysis/<paper-id>_workup.md` and `knowledge_base/analysis/<paper-id>_review_pack.md`. Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` to use existing caches only, and `--strict-full-text` when you want the command to fail if no local text cache is available.
 
 Build an LLM-ready review context pack for Codex, Claude, ChatGPT, or another markdown-capable assistant:
 
@@ -621,7 +623,7 @@ python3 scripts/scholar_reader.py review-pack \
   --paper-id <ID>
 ```
 
-`review-pack` writes `knowledge_base/analysis/<paper-id>_review_pack.md`. It combines the selected paper, your research profile, feedback status, closest foundation papers, interested/active-reading papers, any cached `knowledge_base/analysis/<paper-id>_full_text_brief.md`, and any cached `knowledge_base/full_text/<paper-id>.txt`. Paste that file into your assistant when you want a more careful discussion of one paper without uploading your whole mailbox or knowledge base. Use `--full-text-brief-path` when your brief was written to a custom path.
+`review-pack` writes `knowledge_base/analysis/<paper-id>_review_pack.md` plus a sibling `.html` report. It combines the selected paper, your research profile, feedback status, closest foundation papers, interested/active-reading papers, any cached `knowledge_base/analysis/<paper-id>_full_text_brief.md`, and any cached `knowledge_base/full_text/<paper-id>.txt`. Paste the markdown file into your assistant when you want a more careful discussion of one paper without uploading your whole mailbox or knowledge base. Use `--full-text-brief-path` when your brief was written to a custom path.
 
 Build a batch review queue for the top papers. When Zotero has synced local PDF paths, or when `fetch-pdf --update-library` has stored open PDF paths, the command attempts local full-text extraction first, then writes one review pack per paper plus an index:
 

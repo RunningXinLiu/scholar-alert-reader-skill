@@ -1953,6 +1953,45 @@ SCHEDULE_TIME=09:00
             self.assertTrue((root / "START_HERE.html").exists())
             self.assertEqual(opened, [(root.resolve(strict=False) / "START_HERE.html")])
 
+    def test_deep_read_open_writes_browser_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = root / "kb"
+            kb.mkdir()
+            (kb / "library.json").write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            output = root / "deep.md"
+            opened: list[Path] = []
+            original_open = core.open_local_path
+            try:
+                core.open_local_path = lambda path: opened.append(path)
+                core.deep_read_command(
+                    argparse.Namespace(
+                        profile=profile,
+                        kb_dir=kb,
+                        paper_id="p1",
+                        title=None,
+                        papers_json=None,
+                        feedback_file=None,
+                        output=output,
+                        limit=12,
+                        full_text_path=None,
+                        full_text_brief_path=None,
+                        max_full_text_brief_chars=7000,
+                        html_output=None,
+                        no_html=False,
+                        open=True,
+                    )
+                )
+            finally:
+                core.open_local_path = original_open
+            html_output = output.with_suffix(".html")
+            self.assertTrue(output.exists())
+            self.assertTrue(html_output.exists())
+            self.assertIn("Evidence Boundary", html_output.read_text(encoding="utf-8"))
+            self.assertEqual(opened, [html_output])
+
     def test_copilot_commands_write_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2339,6 +2378,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 check=True,
             )
             self.assertIn("ambient noise tomography", full_text_cache.read_text(encoding="utf-8"))
+            self.assertTrue(full_text_report.with_suffix(".html").exists())
+            self.assertIn("Full-Text Brief", full_text_report.with_suffix(".html").read_text(encoding="utf-8"))
             full_text_content = full_text_report.read_text(encoding="utf-8")
             self.assertIn("Full-Text Brief", full_text_content)
             self.assertIn("Profile Overlap", full_text_content)
@@ -2376,6 +2417,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 capture_output=True,
                 check=True,
             )
+            self.assertTrue(deep_with_full_text.with_suffix(".html").exists())
+            self.assertIn("Evidence Boundary", deep_with_full_text.with_suffix(".html").read_text(encoding="utf-8"))
             deep_with_full_text_content = deep_with_full_text.read_text(encoding="utf-8")
             self.assertIn("Evidence level: `full-text-backed`", deep_with_full_text_content)
             self.assertIn("Current evidence level: `full-text-backed`", deep_with_full_text_content)
@@ -2409,6 +2452,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 capture_output=True,
                 check=True,
             )
+            self.assertTrue(review_pack.with_suffix(".html").exists())
+            self.assertIn("Paper Review Context Pack", review_pack.with_suffix(".html").read_text(encoding="utf-8"))
             review_pack_content = review_pack.read_text(encoding="utf-8")
             self.assertIn("Paper Review Context Pack", review_pack_content)
             self.assertIn("Review Task For The Assistant", review_pack_content)
@@ -2440,6 +2485,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 capture_output=True,
                 check=True,
             )
+            self.assertTrue(workup.with_suffix(".html").exists())
+            self.assertIn("Paper Workup", workup.with_suffix(".html").read_text(encoding="utf-8"))
             workup_content = workup.read_text(encoding="utf-8")
             self.assertIn("Paper Workup", workup_content)
             self.assertIn("Decision Snapshot", workup_content)
@@ -2472,6 +2519,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 capture_output=True,
                 check=True,
             )
+            self.assertTrue(workflow.with_suffix(".html").exists())
+            self.assertIn("Selected Paper Review Workflow", workflow.with_suffix(".html").read_text(encoding="utf-8"))
             workflow_content = workflow.read_text(encoding="utf-8")
             self.assertIn("Selected Paper Review Workflow", workflow_content)
             self.assertIn("Full-text extraction: extracted with text-file", workflow_content)
@@ -2502,6 +2551,7 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 capture_output=True,
                 check=True,
             )
+            self.assertTrue(deep_with_default_full_text.with_suffix(".html").exists())
             deep_with_default_content = deep_with_default_full_text.read_text(encoding="utf-8")
             self.assertIn("Current evidence level: `full-text-backed`", deep_with_default_content)
             self.assertIn("Local Full-Text Evidence Snapshot", deep_with_default_content)

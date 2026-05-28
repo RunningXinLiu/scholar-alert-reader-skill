@@ -3569,6 +3569,20 @@ def write_markdown_html(markdown_path: Path, html_path: Path, title: str) -> Pat
     return html_path
 
 
+def write_browser_report_from_args(markdown_path: Path, title: str, args: argparse.Namespace, label: str) -> Path | None:
+    if getattr(args, "no_html", False):
+        if getattr(args, "open", False):
+            open_local_path(markdown_path)
+        return None
+    html_output = getattr(args, "html_output", None)
+    html_path = html_output.expanduser() if html_output else markdown_path.with_suffix(".html")
+    html_path = write_markdown_html(markdown_path, html_path, title)
+    print(f"{label} HTML: {html_path}")
+    if getattr(args, "open", False):
+        open_local_path(html_path)
+    return html_path
+
+
 def write_knowledge_base(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], summary: dict[str, Any]) -> None:
     kb_dir.mkdir(parents=True, exist_ok=True)
     additions = retained_for_foundation(papers, profile)
@@ -4813,9 +4827,9 @@ def render_project_guide(
         "- `./embedding_check.sh`: check whether optional local embedding reranking dependencies and model loading are ready.",
         "- `./semantic_rerank.sh`: find papers that are semantically close to your profile or interested seeds but weakly matched by exact keywords.",
         "- `./fetch_pdf.sh --paper-id <ID> --extract`: fetch an explicit/open PDF URL, then build a local full-text brief.",
-        "- `./deep_read_paper.sh --paper-id <ID>`: analyze one selected paper against your foundation.",
-        "- `./workup_paper.sh --paper-id <ID>`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
-        "- `./review_workflow.sh --paper-id <ID>`: run local full-text extraction when possible, then write a workup and review pack.",
+        "- `./deep_read_paper.sh --paper-id <ID> --open`: analyze one selected paper against your foundation and open the browser report.",
+        "- `./workup_paper.sh --paper-id <ID> --open`: decide how a selected paper fits your foundation, interested papers, and manuscript needs.",
+        "- `./review_workflow.sh --paper-id <ID> --open`: run local full-text extraction when possible, then write a workup, review pack, and browser report.",
         "- `./ask_library.sh --question \"...\"`: query your retained literature base.",
         "- `./reading_plan.sh`: choose what to read next and which paper IDs to send into review packs.",
         "- `./advice_reader.sh`: generate reading strategy and gap advice.",
@@ -5050,7 +5064,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "6. Run `./embedding_check.sh --backend sentence-transformers` before using optional embedding rerank.",
             "7. Run `./semantic_rerank.sh` to find weak-keyword papers that are close to your profile or interested seeds.",
             "8. Run `./fetch_pdf.sh --paper-id ID --extract` when a paper has an explicit/open PDF URL but no local file.",
-            "9. Run `./review_workflow.sh --paper-id ID` for a one-paper path from local full text to workup and review pack.",
+            "9. Run `./review_workflow.sh --paper-id ID --open` for a one-paper path from local full text to workup, review pack, and browser report.",
             "10. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
             "11. Sync to Obsidian/Zotero only after the retained library looks right.",
             "",
@@ -8033,6 +8047,7 @@ def deep_read_command(args: argparse.Namespace) -> None:
         max_full_text_brief_chars=args.max_full_text_brief_chars,
     )
     print(f"Deep-read report: {output}")
+    write_browser_report_from_args(output, "Scholar Alert Reader Deep Read", args, "Deep-read report")
 
 
 def write_full_text_brief_report(
@@ -8080,6 +8095,7 @@ def full_text_command(args: argparse.Namespace) -> None:
     print(f"Extraction method: {extraction_method}")
     print(f"Text cache: {text_output}")
     print(f"Full-text brief: {report_output}")
+    write_browser_report_from_args(report_output, "Scholar Alert Reader Full-Text Brief", args, "Full-text brief")
 
 
 def normalize_pdf_candidate_url(value: Any) -> str:
@@ -8358,6 +8374,7 @@ def review_pack_command(args: argparse.Namespace) -> None:
         max_full_text_brief_chars=args.max_full_text_brief_chars,
     )
     print(f"Review context pack: {output}")
+    write_browser_report_from_args(output, "Scholar Alert Reader Review Context Pack", args, "Review context pack")
     if actual_full_text_brief_path:
         print(f"Included full-text brief: {actual_full_text_brief_path}")
     else:
@@ -8426,6 +8443,7 @@ def paper_workup_command(args: argparse.Namespace) -> None:
         max_full_text_brief_chars=args.max_full_text_brief_chars,
     )
     print(f"Paper workup: {output}")
+    write_browser_report_from_args(output, "Scholar Alert Reader Paper Workup", args, "Paper workup")
     if actual_full_text_brief_path:
         print(f"Included full-text brief: {actual_full_text_brief_path}")
     else:
@@ -8618,6 +8636,7 @@ def review_workflow_command(args: argparse.Namespace) -> None:
         related_limit=args.related_limit,
     )
     print(f"Review workflow: {workflow_output}")
+    write_browser_report_from_args(workflow_output, "Scholar Alert Reader Review Workflow", args, "Review workflow")
     print(f"Full-text extraction: {extraction_status}")
     print(f"Paper workup: {workup_path}")
     print(f"Review context pack: {review_pack_path}")
@@ -9976,6 +9995,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Checking optional embedding rerank readiness without loading models by default, with an explicit model-load preflight for users who want it.",
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
         "- Including explicit evidence boundaries and cached local full-text evidence snapshots in selected-paper deep reads when a full-text brief exists.",
+        "- Writing browser-friendly HTML companions for selected-paper deep-read, full-text, workup, review-pack, and review-workflow reports.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
@@ -10247,6 +10267,12 @@ def quickstart_command(args: argparse.Namespace) -> None:
         open_local_path(open_target)
     if args.strict and not passed:
         raise SystemExit(1)
+
+
+def add_browser_report_args(cmd: argparse.ArgumentParser, report_name: str) -> None:
+    cmd.add_argument("--html-output", type=Path, help=f"Write browser-friendly {report_name} HTML. Defaults to --output with .html suffix")
+    cmd.add_argument("--no-html", action="store_true", help=f"Do not write a browser-friendly {report_name} HTML copy")
+    cmd.add_argument("--open", action="store_true", help=f"Open the browser-friendly {report_name} after writing it")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -10594,6 +10620,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum full-text brief characters to include",
     )
     deep.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_deep_read.md")
+    add_browser_report_args(deep, "deep-read report")
     deep.set_defaults(func=deep_read_command)
 
     full_text = sub.add_parser("full-text", help="Extract local PDF/text content and write a full-text reading brief")
@@ -10607,6 +10634,7 @@ def build_parser() -> argparse.ArgumentParser:
     full_text.add_argument("--timeout", type=int, default=30, help="PDF extraction timeout in seconds")
     full_text.add_argument("--text-output", type=Path, help="Output text cache. Defaults to kb-dir/full_text/<paper-id>.txt")
     full_text.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_full_text_brief.md")
+    add_browser_report_args(full_text, "full-text brief")
     full_text.set_defaults(func=full_text_command)
 
     fetch_pdf = sub.add_parser("fetch-pdf", aliases=["pdf-fetch"], help="Fetch an explicit/open PDF URL for one selected paper")
@@ -10637,6 +10665,7 @@ def build_parser() -> argparse.ArgumentParser:
     workup.add_argument("--max-full-text-brief-chars", type=int, default=7000, help="Maximum full-text brief characters to include")
     workup.add_argument("--limit", type=int, default=10, help="Related foundation papers to include")
     workup.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_workup.md")
+    add_browser_report_args(workup, "paper workup")
     workup.set_defaults(func=paper_workup_command)
 
     review_pack = sub.add_parser("review-pack", help="Build an LLM-ready paper review context pack")
@@ -10652,6 +10681,7 @@ def build_parser() -> argparse.ArgumentParser:
     review_pack.add_argument("--max-full-text-brief-chars", type=int, default=16000, help="Maximum full-text brief characters to include")
     review_pack.add_argument("--limit", type=int, default=12, help="Related/interested papers to include")
     review_pack.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/<paper-id>_review_pack.md")
+    add_browser_report_args(review_pack, "review context pack")
     review_pack.set_defaults(func=review_pack_command)
 
     review_workflow = sub.add_parser(
@@ -10683,6 +10713,7 @@ def build_parser() -> argparse.ArgumentParser:
     review_workflow.add_argument("--output", type=Path, help="Output workflow markdown path. Defaults to kb-dir/analysis/<paper-id>_review_workflow.md")
     review_workflow.add_argument("--workup-output", type=Path, help="Output workup markdown path. Defaults to kb-dir/analysis/<paper-id>_workup.md")
     review_workflow.add_argument("--review-pack-output", type=Path, help="Output review-pack markdown path. Defaults to kb-dir/analysis/<paper-id>_review_pack.md")
+    add_browser_report_args(review_workflow, "review workflow report")
     review_workflow.set_defaults(func=review_workflow_command)
 
     review_queue = sub.add_parser("review-queue", help="Build review packs for a queue of selected papers")

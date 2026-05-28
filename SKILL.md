@@ -64,12 +64,12 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/directions/*.md`: direction-specific retained-paper indexes with links to paper pages and saved feedback context when present.
 - `knowledge_base/weekly_review.md`: recurring synthesis from the retained library, feedback state, and saved personal notes.
 - `knowledge_base/reading_plan.md` and `knowledge_base/reading_plan.html`: prioritized next-reading queue from retained/recent papers and feedback, refreshed automatically by runs, feedback actions, and reading-status updates that update the knowledge base.
-- `knowledge_base/analysis/<paper-id>_deep_read.md`: selected-paper deep-read brief against the foundation, including cached local full-text evidence when available.
+- `knowledge_base/analysis/<paper-id>_deep_read.md` and `.html`: selected-paper deep-read brief against the foundation, including cached local full-text evidence when available.
 - `knowledge_base/full_text/<paper-id>.txt`: local text cache extracted from a linked PDF/text file.
-- `knowledge_base/analysis/<paper-id>_full_text_brief.md`: local full-text extraction brief with section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks for a selected paper.
-- `knowledge_base/analysis/<paper-id>_review_workflow.md`: selected-paper workflow report linking full-text extraction status, workup, review pack, and next actions.
-- `knowledge_base/analysis/<paper-id>_workup.md`: human-readable selected-paper decision brief for reading priority, foundation fit, manuscript role, and citation checks.
-- `knowledge_base/analysis/<paper-id>_review_pack.md`: LLM-ready context pack for selected-paper review against the user's profile, foundation, interested papers, optional full-text brief, and optional full-text cache.
+- `knowledge_base/analysis/<paper-id>_full_text_brief.md` and `.html`: local full-text extraction brief with section coverage, evidence excerpts, figure/table/data/code signals, missing-section notes, and citation-readiness checks for a selected paper.
+- `knowledge_base/analysis/<paper-id>_review_workflow.md` and `.html`: selected-paper workflow report linking full-text extraction status, workup, review pack, and next actions.
+- `knowledge_base/analysis/<paper-id>_workup.md` and `.html`: human-readable selected-paper decision brief for reading priority, foundation fit, manuscript role, and citation checks.
+- `knowledge_base/analysis/<paper-id>_review_pack.md` and `.html`: LLM-ready context pack for selected-paper review against the user's profile, foundation, interested papers, optional full-text brief, and optional full-text cache.
 - `knowledge_base/analysis/review_queue.md` and `knowledge_base/analysis/review_queue.html`: batch reading panel with selected review packs, full-text extraction status, section coverage, visual/data/code signals, and next actions.
 - `knowledge_base/analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers.
 - `knowledge_base/analysis/ranking_evaluation.md`: ranking quality benchmark against explicit interested/archive feedback labels.
@@ -367,7 +367,7 @@ python3 scripts/scholar_reader.py deep-read \
   --paper-id <ID>
 ```
 
-Every `deep-read` report includes an evidence level and Evidence Boundary section. When `knowledge_base/analysis/<paper-id>_full_text_brief.md` exists, `deep-read` includes a local full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. It loads `knowledge_base/feedback.json` by default, so saved reading status, labels, and personal notes appear in the report. Use `--feedback-file`, `--full-text-brief-path`, and `--full-text-path` for custom files.
+Every `deep-read` report includes an evidence level and Evidence Boundary section. When `knowledge_base/analysis/<paper-id>_full_text_brief.md` exists, `deep-read` includes a local full-text evidence snapshot with section coverage, missing sections, visual/data/code signals, profile overlap, and an excerpt. It loads `knowledge_base/feedback.json` by default, so saved reading status, labels, and personal notes appear in the report. Selected-paper report commands write a sibling `.html` file by default; use `--open`, `--html-output`, or `--no-html` to control browser output. Use `--feedback-file`, `--full-text-brief-path`, and `--full-text-path` for custom files.
 
 Extract local PDF/text content and write a section-aware full-text brief:
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.80 - 2026-05-28
+
+- Write browser-friendly `.html` companions by default for selected-paper `deep-read`, `full-text`, `workup`, `review-pack`, and `review-workflow` reports.
+- Add `--html-output`, `--no-html`, and `--open` controls to the selected-paper report commands so CLI users can inspect reports without browsing the file tree.
+- Cover selected-paper HTML report generation and `deep-read --open` in workflow tests.
+
 ## v0.2.79 - 2026-05-28
 
 - Add explicit evidence level, evidence basis, and evidence badges to selected-paper `deep-read` reports.
