@@ -343,6 +343,8 @@ class CoreWorkflowTests(unittest.TestCase):
             schedule_report = (project / "SCHEDULE.md").read_text(encoding="utf-8")
             self.assertIn("Scholar Alert Reader Schedule", schedule_report)
             self.assertIn("weekdays", schedule_report)
+            self.assertIn("Source Readiness Gate", schedule_report)
+            self.assertIn("Ready for install: `False`", schedule_report)
             dry_run_plist = project / "dry_run_schedule.plist"
             dry_run_report = project / "DRY_RUN_SCHEDULE.md"
             subprocess.run(
@@ -362,7 +364,9 @@ class CoreWorkflowTests(unittest.TestCase):
                 check=True,
             )
             self.assertFalse(dry_run_plist.exists())
-            self.assertIn("dry-run install", dry_run_report.read_text(encoding="utf-8"))
+            dry_run_content = dry_run_report.read_text(encoding="utf-8")
+            self.assertIn("dry-run install", dry_run_content)
+            self.assertIn("Source Readiness Gate", dry_run_content)
             start_here = (project / "START_HERE.md").read_text(encoding="utf-8")
             self.assertIn("Persistent Configuration", start_here)
             self.assertIn("SOURCE: `rss`", start_here)
@@ -456,6 +460,90 @@ class CoreWorkflowTests(unittest.TestCase):
                 env={**os.environ, "PYTHONPATH": str(ROOT), "SKILL_SCRIPT": str(project / "missing_scholar_reader.py")},
             )
             self.assertIn("mbox parse", module_fallback.stdout)
+
+    def test_schedule_install_requires_live_source_check(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "reader"
+            project.mkdir()
+            run_script = project / "run_reader.sh"
+            run_script.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            run_script.chmod(0o755)
+            plist_path = project / "blocked.plist"
+            report_path = project / "SCHEDULE_BLOCKED.md"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "schedule",
+                    "--project-dir",
+                    str(project),
+                    "--action",
+                    "install",
+                    "--output",
+                    str(plist_path),
+                    "--report",
+                    str(report_path),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Source readiness gate failed", result.stderr)
+            self.assertFalse(plist_path.exists())
+            report = report_path.read_text(encoding="utf-8")
+            self.assertIn("Source Readiness Gate", report)
+            self.assertIn("Gate status: `blocked`", report)
+            self.assertIn("Ready for install: `False`", report)
+
+    def test_schedule_report_passes_with_live_ok_source_check(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "reader"
+            project.mkdir()
+            run_script = project / "run_reader.sh"
+            run_script.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            run_script.chmod(0o755)
+            (project / "SOURCE_CHECK.md").write_text(
+                "\n".join(
+                    [
+                        "# Scholar Alert Reader Source Check",
+                        "",
+                        "- Requested source: `rss`",
+                        "- Effective source: `rss`",
+                        "- Platform: `darwin`",
+                        "- Live check: `True`",
+                        "",
+                        "## Checks",
+                        "",
+                        "- [OK] RSS/Atom live read: 3 papers",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            report_path = project / "DRY_RUN_SCHEDULE.md"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "schedule",
+                    "--project-dir",
+                    str(project),
+                    "--action",
+                    "install",
+                    "--dry-run",
+                    "--report",
+                    str(report_path),
+                ],
+                cwd=project,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("dry-run install", result.stdout)
+            report = report_path.read_text(encoding="utf-8")
+            self.assertIn("Gate status: `pass`", report)
+            self.assertIn("Ready for install: `True`", report)
 
     def test_privacy_check_flags_private_project_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

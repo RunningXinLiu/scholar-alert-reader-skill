@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.84 - 2026-05-28
+
+- Add a Source Readiness Gate to `schedule` / `SCHEDULE.md`, summarizing the latest `SOURCE_CHECK.md` result, live-check state, and next action.
+- Refuse real LaunchAgent installs unless the latest source check is a live `OK`, with an explicit `--skip-source-check` bypass for advanced users.
+- Keep `write` and `--dry-run install` as safe previews while making install-blocking reasons visible in tests and documentation.
+
 ## v0.2.83 - 2026-05-28
 
 - Summarize the latest `SOURCE_CHECK.md` result directly in `DASHBOARD.md/html`, including effective source, live-check state, key check row, and next action.

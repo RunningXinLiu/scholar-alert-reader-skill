@@ -123,6 +123,7 @@ For users who want citation/PDF management.
 - A user can generate a sanitized support bundle for public bug reports without exposing raw mail, tokens, private source lists, feedback contents, or generated knowledge-base text.
 - A user can run manually, through generated shell scripts, through Codex automations, or through their operating system scheduler.
 - LaunchAgent install/uninstall must be explicit; default schedule generation should be a safe write/preview step.
+- LaunchAgent install must refuse missing, unreadable, warning, or non-live `SOURCE_CHECK.md` results unless the user deliberately bypasses the gate, and `SCHEDULE.md` must explain the gate status before any real install.
 - Obsidian and Zotero must remain optional.
 - Raw mailbox contents, OAuth secrets, Gmail tokens, personal bibliography/feed lists, feedback, and generated personal knowledge bases must not be committed.
 - Public issue and PR templates must actively steer users away from uploading raw mail, credentials, private bibliography/feed lists, or generated knowledge bases.

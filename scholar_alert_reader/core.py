@@ -6578,6 +6578,25 @@ WEEKDAY_ALIASES = {
 }
 
 
+def schedule_source_gate_status(report_path: Path) -> tuple[bool, dict[str, str], str]:
+    summary = dashboard_source_check_summary(report_path)
+    result = summary.get("result", "unknown")
+    result_ok = result.upper() == "OK"
+    live_value = summary.get("live", "unknown").strip().lower()
+    live_ok = live_value == "true"
+    if result_ok and live_ok:
+        return True, summary, "Latest live source check passed."
+    if result == "missing":
+        reason = "No SOURCE_CHECK.md found."
+    elif result == "unreadable":
+        reason = summary.get("detail", "SOURCE_CHECK.md could not be read.")
+    elif not result_ok:
+        reason = f"Latest source-check result is `{result}`."
+    else:
+        reason = f"Latest source-check was not live (`Live check: {summary.get('live', 'unknown')}`)."
+    return False, summary, reason
+
+
 def parse_schedule_time(value: str) -> tuple[int, int]:
     text = (value or "09:00").strip()
     match = re.match(r"^(\d{1,2}):(\d{2})$", text)
@@ -6691,6 +6710,11 @@ def render_schedule_report(
     project_dir: Path,
     label: str,
     plist_path: Path,
+    source_check_path: Path,
+    source_gate_ready: bool,
+    source_gate_summary: dict[str, str],
+    source_gate_reason: str,
+    source_gate_status: str,
     schedule_time: str,
     schedule_days: str,
     timezone_name: str,
@@ -6717,6 +6741,19 @@ def render_schedule_report(
         f"- stdout log: `{logs_dir / 'scholar-alert-reader.out.log'}`",
         f"- stderr log: `{logs_dir / 'scholar-alert-reader.err.log'}`",
         "",
+        "## Source Readiness Gate",
+        "",
+        f"- Report: `{source_check_path}`",
+        f"- Gate status: `{source_gate_status}`",
+        f"- Ready for install: `{source_gate_ready}`",
+        f"- Requested source: `{source_gate_summary.get('requested', 'unknown')}`",
+        f"- Effective source: `{source_gate_summary.get('effective', 'unknown')}`",
+        f"- Live check: `{source_gate_summary.get('live', 'unknown')}`",
+        f"- Result: `{source_gate_summary.get('result', 'unknown')}`",
+        f"- Detail: {source_gate_summary.get('detail', 'unknown')}",
+        f"- Reason: {source_gate_reason}",
+        f"- Next action: {source_gate_summary.get('next_action', 'Run `./source_check.sh --source auto --live`.')}",
+        "",
         "## Commands",
         "",
         "```bash",
@@ -6728,7 +6765,9 @@ def render_schedule_report(
         "",
         "## Notes",
         "",
-        "- Run `./source_check.sh --source auto --live` before installing a daily schedule.",
+        "- `./schedule_reader.sh --action install` requires the latest source-check report to show a live `OK` result.",
+        "- Use `./source_check.sh --source auto --live` after changing Gmail, Mail.app, mbox, BibTeX/RIS, web, RSS, or arXiv settings.",
+        "- Advanced users can pass `--skip-source-check` to install anyway, but scheduled zero-paper runs are then harder to diagnose.",
         "- `run_reader.sh` reads `reader.env`, so schedule changes made with `./setup_reader.sh --schedule-time ... --schedule-days ...` should be followed by `./schedule_reader.sh --action install`.",
         "- Keep Gmail OAuth tokens, mailbox exports, private feed lists, and generated knowledge-base files out of Git.",
         "",
@@ -6756,10 +6795,43 @@ def schedule_command(args: argparse.Namespace) -> None:
     report_path = (args.report.expanduser() if args.report else project_dir / "SCHEDULE.md")
     run_at_load = bool(args.run_at_load)
     dry_run = bool(args.dry_run)
+    source_check_path = (args.source_check.expanduser() if args.source_check else project_dir / "SOURCE_CHECK.md")
+    source_gate_ready, source_gate_summary, source_gate_reason = schedule_source_gate_status(source_check_path)
+    source_gate_status = "pass" if source_gate_ready else "warning"
+    if args.skip_source_check and not source_gate_ready:
+        source_gate_status = "bypassed"
     status_text = ""
 
     parse_schedule_time(schedule_time)
     parse_schedule_days(schedule_days)
+
+    if args.action == "install" and not dry_run and not args.skip_source_check and not source_gate_ready:
+        status_text = "blocked by source readiness gate"
+        write_schedule_report(
+            report_path,
+            render_schedule_report(
+                args.action,
+                project_dir,
+                label,
+                plist_path,
+                source_check_path,
+                source_gate_ready,
+                source_gate_summary,
+                source_gate_reason,
+                "blocked",
+                schedule_time,
+                schedule_days,
+                timezone_name,
+                run_at_load,
+                dry_run,
+                status_text,
+            ),
+        )
+        raise SystemExit(
+            "Source readiness gate failed for schedule install. "
+            f"{source_gate_reason} Run `./source_check.sh --source auto --live` first, "
+            "or pass --skip-source-check if you intentionally want to install anyway."
+        )
 
     if args.action in {"install", "uninstall"} and sys.platform != "darwin" and not dry_run:
         raise SystemExit("LaunchAgent install/uninstall is macOS-only. Use --action write to generate the plist, then schedule run_reader.sh with your OS scheduler.")
@@ -6807,6 +6879,11 @@ def schedule_command(args: argparse.Namespace) -> None:
             project_dir,
             label,
             plist_path,
+            source_check_path,
+            source_gate_ready,
+            source_gate_summary,
+            source_gate_reason,
+            source_gate_status,
             schedule_time,
             schedule_days,
             timezone_name,
@@ -10605,8 +10682,10 @@ def build_parser() -> argparse.ArgumentParser:
     schedule.add_argument("--label", help="LaunchAgent label. Defaults to a stable project-specific label")
     schedule.add_argument("--output", type=Path, help="Plist path. Defaults to project LaunchAgents/ for write and ~/Library/LaunchAgents/ for install/status/uninstall")
     schedule.add_argument("--report", type=Path, help="Schedule report path. Defaults to project-dir/SCHEDULE.md")
+    schedule.add_argument("--source-check", type=Path, help="Source-check report path. Defaults to project-dir/SOURCE_CHECK.md")
     schedule.add_argument("--run-at-load", action="store_true", help="Ask launchd to run once when the job is loaded")
     schedule.add_argument("--dry-run", action="store_true", help="Validate and report without writing/removing plist files or calling launchctl")
+    schedule.add_argument("--skip-source-check", action="store_true", help="Install even when the latest live source-check report is missing or not OK")
     schedule.set_defaults(func=schedule_command)
 
     wizard = sub.add_parser("setup-wizard", aliases=["wizard"], help="Interactively configure a local project and write reader.env")

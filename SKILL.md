@@ -195,7 +195,7 @@ python3 scripts/scholar_reader.py schedule \
   --action write
 ```
 
-Initialized projects provide `./schedule_reader.sh --action write`, `./schedule_reader.sh --action install`, `./schedule_reader.sh --action status`, and `./schedule_reader.sh --action uninstall`. LaunchAgent install/uninstall is macOS-only; other platforms should use the same `run_reader.sh` with their native scheduler.
+Initialized projects provide `./schedule_reader.sh --action write`, `./schedule_reader.sh --action install`, `./schedule_reader.sh --action status`, and `./schedule_reader.sh --action uninstall`. The schedule report includes a Source Readiness Gate from `SOURCE_CHECK.md`; real `install` requires a latest live `OK` source check unless the user passes `--skip-source-check` deliberately. LaunchAgent install/uninstall is macOS-only; other platforms should use the same `run_reader.sh` with their native scheduler.
 
 Persist local source/integration/schedule defaults:
 

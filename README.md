@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.83`
+Version: `0.2.84`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -379,7 +379,7 @@ Render or install the local schedule:
 ./schedule_reader.sh --action status
 ```
 
-`schedule_reader.sh --action write` creates `SCHEDULE.md` plus a LaunchAgent plist under `LaunchAgents/` without touching macOS scheduling. On macOS, `--action install` writes the plist to `~/Library/LaunchAgents/` and loads it with `launchctl`; `--action uninstall` removes it. Other platforms can use the generated report and `run_reader.sh` with cron, systemd timers, or Task Scheduler.
+`schedule_reader.sh --action write` creates `SCHEDULE.md` plus a LaunchAgent plist under `LaunchAgents/` without touching macOS scheduling. The schedule report now includes a Source Readiness Gate summary from `SOURCE_CHECK.md`, so you can see whether the configured source was checked live before installing automation. On macOS, `--action install` writes the plist to `~/Library/LaunchAgents/` and loads it with `launchctl` only after the latest source check shows a live `OK` result; run `./source_check.sh --source auto --live` first, or pass `--skip-source-check` only when you intentionally want to install despite a warning. `--action uninstall` removes the LaunchAgent. Other platforms can use the generated report and `run_reader.sh` with cron, systemd timers, or Task Scheduler.
 
 Choose a starting research profile:
 
