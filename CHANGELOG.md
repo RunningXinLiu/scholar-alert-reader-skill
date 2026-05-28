@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.82 - 2026-05-28
+
+- Add `analysis-index` / generated `analysis_index.sh` to group accumulated selected-paper and ranking reports into Markdown and browser-friendly HTML.
+- Refresh `knowledge_base/analysis/analysis_index.md/html` from `dashboard` so `DASHBOARD.html` links a current report shelf.
+- Document the analysis index in README, SKILL guidance, product requirements, and scaffold tests.
+
 ## v0.2.81 - 2026-05-28
 
 - Make `review-workflow` generate browser-friendly HTML companions for generated full-text brief, workup, and review-pack child reports.

@@ -256,6 +256,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "review_paper.sh").exists())
             self.assertTrue((project / "review_workflow.sh").exists())
             self.assertTrue((project / "review_queue.sh").exists())
+            self.assertTrue((project / "analysis_index.sh").exists())
             self.assertTrue((project / "explain_ranking.sh").exists())
             self.assertTrue((project / "ranking_eval.sh").exists())
             self.assertTrue((project / "embedding_check.sh").exists())
@@ -416,12 +417,15 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Scholar Alert Reader Dashboard", dashboard)
             self.assertIn("Latest digest HTML", dashboard)
             self.assertIn("Review Workflow", dashboard)
+            self.assertIn("Analysis index HTML", dashboard)
             self.assertIn("Profile Health", dashboard)
             self.assertIn("Privacy check", dashboard)
             self.assertIn("Ranking evaluation", dashboard)
             self.assertIn("Embedding check", dashboard)
             self.assertIn("Semantic rerank report", dashboard)
             self.assertIn("profile_doctor.md", dashboard)
+            self.assertTrue((project / "knowledge_base" / "analysis" / "analysis_index.md").exists())
+            self.assertTrue((project / "knowledge_base" / "analysis" / "analysis_index.html").exists())
             self.assertIn("sample_web_article.html", dashboard)
             self.assertTrue((project / "profiles" / "profile_doctor.md").exists())
             source_check = subprocess.run(
@@ -1802,6 +1806,7 @@ SCHEDULE_TIME=09:00
             self.assertIn("publisher access", content)
             self.assertIn("review-pack", content)
             self.assertIn("embedding-check", content)
+            self.assertIn("analysis-index", content)
             self.assertIn("<project>", content)
             self.assertNotIn(str(root), content)
 
@@ -2207,10 +2212,13 @@ SCHEDULE_TIME=09:00
             dashboard_content = dashboard.read_text(encoding="utf-8")
             self.assertIn("Scholar Alert Reader Dashboard", dashboard_content)
             self.assertIn("Reading plan HTML", dashboard_content)
+            self.assertIn("Analysis index HTML", dashboard_content)
             self.assertIn("Retained library: 1 records", dashboard_content)
             self.assertIn("Profile Health", dashboard_content)
             self.assertIn("Start Here HTML", dashboard_content)
             self.assertIn("Run `./profile_doctor.sh`", dashboard_content)
+            self.assertTrue((kb / "analysis" / "analysis_index.md").exists())
+            self.assertTrue((kb / "analysis" / "analysis_index.html").exists())
             self.assertTrue(dashboard_html.exists())
             self.assertIn("<!doctype html>", dashboard_html.read_text(encoding="utf-8"))
 
@@ -2643,6 +2651,56 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             self.assertIn("ambient noise tomography", queued_pack)
             self.assertIn("Local Full-Text Brief", queued_pack)
             self.assertIn("Visual, Table, Data, And Code Signals", queued_pack)
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "review-workflow",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--paper-id",
+                    "p1",
+                    "--no-extract",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            analysis_index = root / "analysis_index.md"
+            analysis_index_html = root / "analysis_index.html"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "analysis-index",
+                    "--kb-dir",
+                    str(kb),
+                    "--output",
+                    str(analysis_index),
+                    "--html-output",
+                    str(analysis_index_html),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            analysis_index_content = analysis_index.read_text(encoding="utf-8")
+            self.assertIn("Analysis Report Index", analysis_index_content)
+            self.assertIn("Review workflows", analysis_index_content)
+            self.assertIn("p1_review_workflow.html", analysis_index_content)
+            self.assertIn("Paper workups", analysis_index_content)
+            self.assertIn("p1_workup.html", analysis_index_content)
+            self.assertIn("Review packs", analysis_index_content)
+            self.assertIn("p1_review_pack.html", analysis_index_content)
+            self.assertIn("Full-text briefs", analysis_index_content)
+            self.assertIn("p1_full_text_brief.html", analysis_index_content)
+            self.assertTrue(analysis_index_html.exists())
+            self.assertIn("Analysis Report Index", analysis_index_html.read_text(encoding="utf-8"))
+
             answers_dir = kb / "answers"
             answers_dir.mkdir(parents=True, exist_ok=True)
             (answers_dir / "2026-05-28_p1_selected_answer.md").write_text(

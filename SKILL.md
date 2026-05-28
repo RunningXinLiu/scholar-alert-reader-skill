@@ -50,7 +50,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `seen_papers.json`: dedupe state; can include every alert item.
 - `QUICKSTART_REPORT.md` and `QUICKSTART_REPORT.html`: first-run setup/check report written by `quickstart`, including clickable links to generated local artifacts, source recommendations, and copy-paste next commands.
 - `START_HERE.md` and `START_HERE.html`: local onboarding guide with first-run workflow, recommended next actions, source setup matrix, current source readiness hints from local files and `reader.env`, optional integrations, and setup status.
-- `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, profile health, library files, setup reports, and next actions.
+- `DASHBOARD.md` and `DASHBOARD.html`: local project home page linking the latest digest, reading plan, review queue, analysis report index, profile health, library files, setup reports, and next actions.
 - `PRIVACY_CHECK.md`: local report of files that should not be published, review-before-sharing files, and recommended `.gitignore` coverage.
 - `SCHEDULE.md` and `LaunchAgents/*.plist`: local schedule report and macOS LaunchAgent plist generated from `reader.env`.
 - `knowledge_base/feedback.json`: explicit user feedback and ranking signals.
@@ -71,6 +71,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/analysis/<paper-id>_workup.md` and `.html`: human-readable selected-paper decision brief for reading priority, foundation fit, manuscript role, and citation checks.
 - `knowledge_base/analysis/<paper-id>_review_pack.md` and `.html`: LLM-ready context pack for selected-paper review against the user's profile, foundation, interested papers, optional full-text brief, and optional full-text cache.
 - `knowledge_base/analysis/review_queue.md` and `knowledge_base/analysis/review_queue.html`: batch reading panel with selected review packs, full-text extraction status, section coverage, visual/data/code signals, and next actions.
+- `knowledge_base/analysis/analysis_index.md` and `knowledge_base/analysis/analysis_index.html`: browser-first shelf of generated deep-read, full-text, workup, review-pack, review-workflow, and ranking reports.
 - `knowledge_base/analysis/ranking_explanation.md`: score/tier explanation and profile tuning moves for selected papers.
 - `knowledge_base/analysis/ranking_evaluation.md`: ranking quality benchmark against explicit interested/archive feedback labels.
 - `EMBEDDING_CHECK.md`: optional embedding backend readiness report for semantic rerank.
@@ -410,6 +411,16 @@ python3 scripts/scholar_reader.py review-workflow \
 ```
 
 Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` for existing caches only, and `--strict-full-text` when missing local text should fail the command. By default, `review-workflow` links browser-friendly HTML companions for the generated full-text brief, workup, and review pack; use `--no-html` when the user wants markdown-only artifacts.
+
+Index generated analysis reports:
+
+```bash
+python3 scripts/scholar_reader.py analysis-index \
+  --kb-dir knowledge_base \
+  --open
+```
+
+Initialized projects provide `./analysis_index.sh --open`. `dashboard` refreshes this index automatically so the user can find accumulated selected-paper reports from `DASHBOARD.html`.
 
 Build a selected-paper review context pack for Codex, Claude, ChatGPT, or another assistant:
 

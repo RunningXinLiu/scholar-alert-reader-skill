@@ -29,8 +29,8 @@ Current releases are strongest as a triage and research-memory layer. Ranking, r
 For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
-- Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `profiles/profile_doctor.md`, `knowledge_base/`.
-- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, embedding check, semantic rerank, dashboard, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, feedback-aware ask-library, advice, compare, map.
+- Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `analysis_index.html`, `profiles/profile_doctor.md`, `knowledge_base/`.
+- Main actions: self-test, profile-based ranking, ranking explanation, ranking evaluation, embedding check, semantic rerank, dashboard, analysis-index, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, feedback-aware ask-library, advice, compare, map.
 
 ## Platform Boundaries
 
@@ -101,6 +101,7 @@ For users who want citation/PDF management.
 - A user can see each paper's current evidence level in Markdown/HTML digests, feedback UI cards, foundation/interested indexes, direction pages, and paper notes, so metadata-only triage is not confused with full-text-backed analysis.
 - A user can generate a selected-paper workup that connects one paper to the local foundation, interested papers, feedback, optional full-text brief, possible manuscript role, and citation-readiness checks.
 - A user can run one selected-paper review workflow that attempts local full-text extraction when possible, writes a workup, writes a review pack, and records next actions in one report.
+- A user can open an analysis index that groups accumulated selected-paper deep reads, full-text briefs, workups, review packs, review workflows, and ranking reports with HTML-first links.
 - A user can trigger selected-paper deep-read/full-review/workup/review-pack reports from the local feedback UI, see and filter current feedback/reading-status badges, save personal reading notes that carry into deep-read/workup/reading-status reports, knowledge-base paper pages, and Obsidian paper notes, mark papers as background-only or not-relevant after reading, and open generated markdown reports from local browser links.
 - A browser UI user can ask a question against the retained library and current digest, generate an answer report under `knowledge_base/answers/`, and open it through a safe local route.
 - A browser UI user can open a one-paper workspace from a digest card and ask a selected-paper question that compares that paper against the retained foundation, interested papers, reading labels, and saved personal notes.

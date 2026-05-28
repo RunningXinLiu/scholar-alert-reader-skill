@@ -4950,6 +4950,99 @@ def dashboard_profile_doctor_summary(report_path: Path) -> tuple[str, str]:
     return result, f"{records} records considered"
 
 
+ANALYSIS_REPORT_TYPES: list[tuple[str, str]] = [
+    ("Review workflows", "_review_workflow.md"),
+    ("Paper workups", "_workup.md"),
+    ("Review packs", "_review_pack.md"),
+    ("Full-text briefs", "_full_text_brief.md"),
+    ("Deep reads", "_deep_read.md"),
+]
+
+
+def analysis_report_group(path: Path) -> str:
+    for label, suffix in ANALYSIS_REPORT_TYPES:
+        if path.name.endswith(suffix):
+            return label
+    if path.name in {"review_queue.md", "ranking_explanation.md", "ranking_evaluation.md", "semantic_rerank.md"}:
+        return "Workflow and ranking reports"
+    return "Other analysis reports"
+
+
+def markdown_report_title(path: Path) -> str:
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:24]:
+            stripped = line.strip()
+            if stripped.startswith("# "):
+                return stripped[2:].strip() or path.stem.replace("_", " ")
+    except Exception:
+        pass
+    return path.stem.replace("_", " ")
+
+
+def write_analysis_index_report(
+    kb_dir: Path,
+    output: Path | None = None,
+    html_output: Path | None = None,
+    write_html: bool = True,
+) -> tuple[Path, Path | None, dict[str, int]]:
+    analysis_dir = kb_dir / "analysis"
+    output_path = output or analysis_dir / "analysis_index.md"
+    html_path = html_output or output_path.with_suffix(".html")
+    analysis_dir.mkdir(parents=True, exist_ok=True)
+    reports = [
+        path
+        for path in sorted(analysis_dir.glob("*.md"), key=lambda item: (analysis_report_group(item), item.name.lower()))
+        if path.resolve() != output_path.resolve() and path.name != "analysis_index.md"
+    ]
+    grouped: dict[str, list[Path]] = {}
+    for report in reports:
+        grouped.setdefault(analysis_report_group(report), []).append(report)
+    counts = {label: len(items) for label, items in grouped.items()}
+    base_dir = output_path.parent
+    lines = [
+        "# Analysis Report Index",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Reports indexed: {len(reports)}",
+        f"- Analysis folder: `{analysis_dir}`",
+        "",
+        "Use this index as the local report shelf for selected-paper deep reads, full-text briefs, workups, review packs, review workflows, and ranking reports.",
+        "",
+    ]
+    if not reports:
+        lines.extend(
+            [
+                "## No Reports Yet",
+                "",
+                "- Run `./review_workflow.sh --paper-id <ID> --open`, `./review_queue.sh`, `./deep_read_paper.sh --paper-id <ID>`, or `./workup_paper.sh --paper-id <ID>` to create analysis reports.",
+                "",
+            ]
+        )
+    for label, _ in ANALYSIS_REPORT_TYPES:
+        items = grouped.pop(label, [])
+        if not items:
+            continue
+        lines.extend([f"## {label} ({len(items)})", ""])
+        for item in items:
+            modified = datetime.fromtimestamp(item.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            lines.append(f"- {dashboard_report_link(markdown_report_title(item), item, base_dir)}")
+            lines.append(f"  - File: `{item.name}`; modified: {modified}")
+        lines.append("")
+    for label in sorted(grouped):
+        items = grouped[label]
+        lines.extend([f"## {label} ({len(items)})", ""])
+        for item in items:
+            modified = datetime.fromtimestamp(item.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            lines.append(f"- {dashboard_report_link(markdown_report_title(item), item, base_dir)}")
+            lines.append(f"  - File: `{item.name}`; modified: {modified}")
+        lines.append("")
+    write_report(output_path, "\n".join(lines).rstrip() + "\n")
+    written_html = None
+    if write_html:
+        written_html = write_markdown_html(output_path, html_path, "Scholar Alert Reader Analysis Index")
+    return output_path, written_html, counts
+
+
 def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path, out_dir: Path) -> str:
     base_dir = project_dir
     profile_name = "unknown"
@@ -4982,6 +5075,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
         f"- {dashboard_link('Latest digest HTML', out_dir / 'digest.html', base_dir)}",
         f"- {dashboard_link('Reading plan HTML', kb_dir / 'reading_plan.html', base_dir)}",
         f"- {dashboard_link('Review queue HTML', analysis_dir / 'review_queue.html', base_dir)}",
+        f"- {dashboard_link('Analysis index HTML', analysis_dir / 'analysis_index.html', base_dir)}",
         f"- {dashboard_link('Feedback UI source JSON', out_dir / 'papers.json', base_dir)}",
         "",
         "## Latest Run",
@@ -5061,6 +5155,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "",
             f"- {dashboard_link('Reading plan markdown', kb_dir / 'reading_plan.md', base_dir)}",
             f"- {dashboard_link('Review queue markdown', analysis_dir / 'review_queue.md', base_dir)}",
+            f"- {dashboard_link('Analysis index markdown', analysis_dir / 'analysis_index.md', base_dir)}",
             f"- {dashboard_link('Ranking evaluation', analysis_dir / 'ranking_evaluation.md', base_dir)}",
             f"- {dashboard_link('Embedding check', project_dir / 'EMBEDDING_CHECK.md', base_dir)}",
             f"- {dashboard_link('Semantic rerank report', analysis_dir / 'semantic_rerank.md', base_dir)}",
@@ -5112,6 +5207,7 @@ def dashboard_command(args: argparse.Namespace) -> None:
     out_dir = (args.out_dir or project_dir / "reader_out" / "daily").expanduser()
     output = (args.output or project_dir / "DASHBOARD.md").expanduser()
     html_output = args.html_output or output.with_suffix(".html")
+    write_analysis_index_report(kb_dir, write_html=not args.no_html)
     report = render_project_dashboard(project_dir, profile_path, kb_dir, out_dir)
     write_report(output, report)
     if not args.no_html:
@@ -5121,6 +5217,24 @@ def dashboard_command(args: argparse.Namespace) -> None:
     print(f"Dashboard: {output}")
     if not args.no_html:
         print(f"Dashboard HTML: {html_output}")
+
+
+def analysis_index_command(args: argparse.Namespace) -> None:
+    if args.kb_dir:
+        kb_dir = args.kb_dir.expanduser()
+    elif args.profile:
+        kb_dir = default_kb_dir(args.profile, Path("out")).expanduser()
+    else:
+        kb_dir = Path("knowledge_base")
+    output = (args.output or kb_dir / "analysis" / "analysis_index.md").expanduser()
+    html_output = args.html_output or output.with_suffix(".html")
+    output_path, html_path, counts = write_analysis_index_report(kb_dir, output=output, html_output=html_output, write_html=not args.no_html)
+    print(f"Analysis index: {output_path}")
+    if html_path:
+        print(f"Analysis index HTML: {html_path}")
+    print(f"Report groups: {json.dumps(counts, ensure_ascii=False)}")
+    if args.open:
+        open_local_path(html_path if html_path else output_path)
 
 
 def init_project(args: argparse.Namespace) -> None:
@@ -5325,6 +5439,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "review_paper.sh": 'exec "${SKILL_CMD[@]}" review-pack --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_workflow.sh": 'exec "${SKILL_CMD[@]}" review-workflow --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "review_queue.sh": 'exec "${SKILL_CMD[@]}" review-queue --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
+        "analysis_index.sh": 'exec "${SKILL_CMD[@]}" analysis-index --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
         "explain_ranking.sh": 'exec "${SKILL_CMD[@]}" explain-ranking --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "ranking_eval.sh": 'exec "${SKILL_CMD[@]}" ranking-eval --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "embedding_check.sh": 'exec "${SKILL_CMD[@]}" embedding-check --project-dir "$PROJECT_DIR" "$@"\n',
@@ -10015,6 +10130,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "- Fetching explicit/open PDF URLs into local files before full-text extraction.",
         "- Including explicit evidence boundaries and cached local full-text evidence snapshots in selected-paper deep reads when a full-text brief exists.",
         "- Writing browser-friendly HTML companions for selected-paper deep-read, full-text, workup, review-pack, and review-workflow reports.",
+        "- Indexing accumulated selected-paper and ranking reports into a browser-friendly analysis shelf.",
         "- Producing a selected-paper workup that connects one paper to the user's foundation, interested papers, full-text brief, and possible manuscript role.",
         "- Running a one-paper review workflow that attempts local full-text extraction, writes a workup, and writes an assistant-ready review pack.",
         "- Exporting Zotero-ready BibTeX/RIS and Obsidian-ready Markdown while keeping both integrations optional.",
@@ -10046,6 +10162,7 @@ def render_capability_report(project_dir: Path | None = None) -> str:
         "5. Mark interested/archive papers and rerun `ranking-eval` plus `profile-tune` after several feedback rounds.",
         "6. Run `embedding-check --backend sentence-transformers` before using the optional embedding reranker.",
         "7. Sync Zotero local PDF paths when available, or run `fetch-pdf` for explicit/open PDF URLs, then run `review-workflow`, `full-text`, `workup`, `review-pack`, or `review-queue` for selected papers.",
+        "8. Open `analysis-index` or `./analysis_index.sh --open` when accumulated reports become hard to find.",
         "",
         "## Practical Upgrade Path",
         "",
@@ -10482,6 +10599,15 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard.add_argument("--no-html", action="store_true", help="Do not write a browser-friendly HTML dashboard")
     dashboard.add_argument("--open", action="store_true", help="Open the dashboard in the default browser")
     dashboard.set_defaults(func=dashboard_command)
+
+    analysis_index = sub.add_parser("analysis-index", help="Index generated selected-paper and analysis reports")
+    analysis_index.add_argument("--profile", type=Path, help="Profile path used to infer kb-dir when --kb-dir is omitted")
+    analysis_index.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base or ./knowledge_base")
+    analysis_index.add_argument("--output", type=Path, help="Output markdown path. Defaults to kb-dir/analysis/analysis_index.md")
+    analysis_index.add_argument("--html-output", type=Path, help="Output browser-friendly index path. Defaults to output with .html suffix")
+    analysis_index.add_argument("--no-html", action="store_true", help="Do not write a browser-friendly HTML index")
+    analysis_index.add_argument("--open", action="store_true", help="Open the index in the default browser")
+    analysis_index.set_defaults(func=analysis_index_command)
 
     source_check = sub.add_parser("source-check", help="Check Gmail, Mail.app, mbox, BibTeX, RIS, web metadata, RSS/Atom, arXiv, or auto source readiness")
     source_check.add_argument("--source", choices=["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "rss", "arxiv"], default="auto")

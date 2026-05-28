@@ -6,7 +6,7 @@
 
 Turn paper alerts, bibliography exports, structured scholarly webpages, and web feeds into a personalized reading queue, daily digest, and cumulative research knowledge base.
 
-Version: `0.2.81`
+Version: `0.2.82`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -132,7 +132,7 @@ Sanitized demo screenshots are included for product previews and sharing.
 - Checks optional embedding readiness before a real embedding rerank, without loading models unless you pass `--load-model`.
 - Produces daily or manual HTML/Markdown digests, CSV/JSON outputs, and a retained knowledge base.
 - Labels each paper with its current evidence level, such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed, so users can tell when a report is based on snippets versus cached full text.
-- Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, profile health, retained library, and setup diagnostics.
+- Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, analysis report index, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
 - Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card or answer index, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
@@ -614,6 +614,16 @@ python3 scripts/scholar_reader.py review-workflow \
 
 `review-workflow` writes `knowledge_base/analysis/<paper-id>_review_workflow.md` plus a sibling `.html` report, attempts local PDF/text extraction when a path is provided, synced from Zotero, or fetched from an explicit/open URL, writes/refreshes the full-text brief when possible, then writes both `knowledge_base/analysis/<paper-id>_workup.md` and `knowledge_base/analysis/<paper-id>_review_pack.md`. It also writes browser-friendly HTML companions for the full-text brief, workup, and review pack, and links the HTML versions first from the workflow report. Use `--pdf-path /path/to/paper.pdf` for an explicit local file, `--fetch-pdf --pdf-url https://.../paper.pdf` for an open PDF URL, `--no-extract` to use existing caches only, `--no-html` for markdown-only workflow artifacts, and `--strict-full-text` when you want the command to fail if no local text cache is available.
 
+Index generated analysis reports when your project accumulates multiple deep reads, workups, review packs, and review workflows:
+
+```bash
+python3 scripts/scholar_reader.py analysis-index \
+  --kb-dir knowledge_base \
+  --open
+```
+
+`analysis-index` writes `knowledge_base/analysis/analysis_index.md` and `knowledge_base/analysis/analysis_index.html`. It groups selected-paper reports by type and links HTML first when a browser-friendly companion exists. `dashboard` refreshes this index automatically so `DASHBOARD.html` remains the project home page for generated reports.
+
 Build an LLM-ready review context pack for Codex, Claude, ChatGPT, or another markdown-capable assistant:
 
 ```bash
@@ -716,7 +726,7 @@ python3 scripts/scholar_reader.py dashboard \
   --open
 ```
 
-Initialized projects also provide `./dashboard_reader.sh --open`. The dashboard writes `DASHBOARD.md` and `DASHBOARD.html`, then links the current digest, `reading_plan.html`, `review_queue.html`, profile doctor report, foundation/interested files, source check, doctor report, and next commands. Successful `./run_reader.sh` runs refresh both `profiles/profile_doctor.md` and the dashboard automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
+Initialized projects also provide `./dashboard_reader.sh --open` and `./analysis_index.sh --open`. The dashboard writes `DASHBOARD.md` and `DASHBOARD.html`, refreshes `knowledge_base/analysis/analysis_index.md/html`, then links the current digest, `reading_plan.html`, `review_queue.html`, analysis index, profile doctor report, foundation/interested files, source check, doctor report, and next commands. Successful `./run_reader.sh` runs refresh both `profiles/profile_doctor.md` and the dashboard automatically unless `REFRESH_PROFILE_DOCTOR=0` or `REFRESH_DASHBOARD=0` is set.
 
 When a run produces zero papers, check the `No-paper diagnosis` section in the digest or Dashboard. The same structured reason appears in `summary.json` as `empty_run_diagnosis`, with one of the common reasons: `all_seen`, `source_no_items`, `parsed_no_papers`, or `empty_unknown`.
 
@@ -739,7 +749,7 @@ python3 scripts/scholar_reader.py advice \
   --kb-dir knowledge_base
 ```
 
-Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./fetch_pdf.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./explain_ranking.sh`, `./ranking_eval.sh`, `./embedding_check.sh`, `./semantic_rerank.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
+Project scaffolds also provide `./deep_read_paper.sh`, `./workup_paper.sh`, `./full_text_paper.sh`, `./fetch_pdf.sh`, `./review_paper.sh`, `./review_workflow.sh`, `./review_queue.sh`, `./analysis_index.sh`, `./explain_ranking.sh`, `./ranking_eval.sh`, `./embedding_check.sh`, `./semantic_rerank.sh`, `./reading_plan.sh`, `./tune_profile.sh`, `./ask_library.sh`, and `./advice_reader.sh`.
 
 Tune the profile after you have marked papers as interested/archive or more-like-this/less-like-this:
 
@@ -872,6 +882,7 @@ The richer knowledge base includes:
 - `analysis/<paper-id>_workup.md`: selected-paper decision brief for reading, citation, and manuscript use
 - `analysis/<paper-id>_review_pack.md`: selected-paper review context for an assistant
 - `analysis/review_queue.md` / `analysis/review_queue.html`: batch index for review packs and full-text extraction status
+- `analysis/analysis_index.md` / `analysis/analysis_index.html`: local shelf of generated deep-read, full-text, workup, review-pack, review-workflow, and ranking reports
 - Project-root `DASHBOARD.md` / `DASHBOARD.html`: home page for current outputs, setup status, and next actions
 
 ## Export And Diagnostics
