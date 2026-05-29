@@ -23,7 +23,7 @@ No Obsidian/Zotero needed.
 
 Obsidian/Zotero are optional downstream sinks.
 
-- Obsidian: exported Markdown notes and indexes.
+- Obsidian: exported Markdown paper notes (`clean` by default, `full` only when explicitly requested).
 - Zotero: BibTeX/RIS exports and retained-paper sync.
 
 These tools are sinks only; they are not required for core triage.
@@ -216,7 +216,7 @@ Sanitized demo screenshots are included for product previews and sharing. Inline
 - Includes `privacy-check` so users can scan local projects for files that should not be published before sharing issue attachments, screenshots, or zip archives.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
 - Fetches explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata into local files before full-text extraction.
-- Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes with generated dashboard/index pages while keeping both tools optional.
+- Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes. Obsidian defaults to `clean` note-only export so machine-generated dashboard/index files stay in the tool workspace unless explicitly requested.
 
 ### Experimental copilot layer (optional)
 
@@ -249,7 +249,8 @@ The core ranking layer is local and explainable: profile terms, methods, regions
    - Keep local reading state and local library outputs.
 
 2. **Integrated**:
-   - Obsidian sync of generated notes/indexes.
+   - Obsidian sync of selected generated paper notes (`clean` default).
+   - Optional full Obsidian bundle (`--obsidian-mode full`) when you intentionally want generated dashboards/maps/report indexes inside the vault export.
    - Zotero export for citation/bibliography workflows.
 
 Obsidian and Zotero are optional integrations, not hard dependencies.
@@ -964,7 +965,9 @@ python3 scripts/scholar_reader.py zotero-sync \
 
 This matches retained papers by DOI or normalized title and stores Zotero citation keys, item keys, and local PDF paths under `metadata.zotero`. Obsidian exports then reuse the Zotero citation key and include linked PDF paths in paper-note frontmatter.
 
-Export an Obsidian-ready Markdown folder:
+Export selected notes to Obsidian (recommended clean mode, default):
+
+Use a dedicated inbox folder inside your vault (for example `01_Literatures/10_Scholar_Alert_Reader`), not the vault root.
 
 ```bash
 python3 scripts/scholar_reader.py obsidian \
@@ -973,7 +976,40 @@ python3 scripts/scholar_reader.py obsidian \
   --vault-dir "~/Documents/Obsidian Vault/01_Literatures/10_Scholar_Alert_Reader"
 ```
 
-The Obsidian export is structured as `00_Dashboard/`, `01_Papers/`, `02_Maps/`, `03_Reading/`, `04_Answers/`, `05_Comparisons/`, and `06_Deep_Reads/` inside the target folder. The dashboard links generated index notes for answers, comparisons, and analysis reports so synced folders are browsable without searching the filesystem. Keep that generated folder separate from user-written reading notes and topic notes.
+`clean` mode exports only per-paper Markdown notes under `01_Papers/`, and only for:
+
+- `Must read` papers.
+- Papers explicitly marked `interested`.
+
+This avoids auto-generated dashboards/indexes dominating your personal Obsidian graph.
+
+If you want a fully conservative clean export that never removes older full-export artifacts in that target folder, add:
+
+```bash
+python3 scripts/scholar_reader.py obsidian \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --vault-dir "~/Documents/Obsidian Vault/01_Literatures/10_Scholar_Alert_Reader" \
+  --no-prune
+```
+
+If you intentionally want the legacy generated bundle (dashboard/maps/reading/answers/comparisons/deep-reads), opt in explicitly:
+
+```bash
+python3 scripts/scholar_reader.py obsidian \
+  --profile profiles/research_profile.json \
+  --kb-dir knowledge_base \
+  --obsidian-mode full \
+  --vault-dir "~/Documents/Obsidian Vault/01_Literatures/10_Scholar_Alert_Reader"
+```
+
+Boundary guidance:
+
+- `knowledge_base/` is the tool's machine-generated working area.
+- Obsidian should usually receive selected paper notes, not the whole generated workspace.
+- Do **not** sync or copy the entire `knowledge_base/` folder into Obsidian.
+- Generated clean notes avoid automatic `[[wikilinks]]`; they use tags and normal Markdown links.
+- Dashboard/index/search files remain useful for this tool, but should not dominate your personal knowledge graph by default.
 
 Project scaffolds also provide `./status_reader.sh`, `./compare_papers.sh`, `./map_reader.sh`, `./zotero_export.sh`, `./zotero_sync.sh`, `./obsidian_export.sh`, and `./sync_obsidian_vault.sh`.
 

@@ -75,6 +75,8 @@ SOURCE_CHOICES = ["auto", "gmail", "mail-app", "mbox", "bibtex", "ris", "web", "
 MODE_CHOICES = ["daily", "foundation", "run"]
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 FEEDBACK_VERSION = 1
+OBSIDIAN_FULL_EXPORT_MARKER = "scholar-alert-reader:obsidian-full-generated"
+OBSIDIAN_FULL_EXPORT_MANIFEST = ".scholar_alert_reader_obsidian_full_manifest.json"
 
 
 @dataclass(frozen=True)
@@ -9490,6 +9492,56 @@ def preferred_citation_key(record: dict[str, Any], existing: set[str]) -> str:
     return cite_key(record, existing)
 
 
+def obsidian_feedback_status(record: dict[str, Any], feedback: dict[str, Any] | None) -> str:
+    from .library.status import feedback_record
+
+    item = feedback_record(record, feedback)
+    return str(item.get("status", "") or "").strip().lower()
+
+
+def clean_obsidian_records(
+    records: list[dict[str, Any]],
+    feedback: dict[str, Any] | None,
+    limit: int = 0,
+) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for record in records:
+        paper_id = str(record.get("id", "")).strip()
+        if paper_id and paper_id in seen_ids:
+            continue
+        tier = str(record.get("tier", "")).strip().lower()
+        status = obsidian_feedback_status(record, feedback)
+        include = tier == "must read" or status == "interested"
+        if not include:
+            continue
+        if paper_id:
+            seen_ids.add(paper_id)
+        selected.append(record)
+
+    def record_sort_key(item: dict[str, Any]) -> tuple[int, float, str]:
+        tier = str(item.get("tier", "")).strip().lower()
+        status = obsidian_feedback_status(item, feedback)
+        if tier == "must read":
+            priority = 0
+        elif status == "interested":
+            priority = 1
+        else:
+            priority = 2
+        try:
+            score = float(item.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0.0
+        return (
+            priority,
+            -score,
+            str(item.get("title", "")).lower(),
+        )
+
+    selected.sort(key=record_sort_key)
+    return selected[:limit] if limit > 0 else selected
+
+
 def obsidian_export_command(args: argparse.Namespace) -> None:
     from .copilot import (
         obsidian_note_name,
@@ -9500,65 +9552,101 @@ def obsidian_export_command(args: argparse.Namespace) -> None:
         render_research_map,
     )
 
+    mode = str(getattr(args, "obsidian_mode", "clean") or "clean").strip().lower()
+    no_prune = bool(getattr(args, "no_prune", False))
+    if mode not in {"clean", "full"}:
+        raise SystemExit("Unsupported --obsidian-mode. Use 'clean' or 'full'.")
+
     profile = load_profile(args.profile)
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
     feedback = load_feedback(args.feedback_file or default_feedback_file(kb_dir))
-    records = paper_records_from_library(kb_dir)
-    records = filter_records_for_export(records, split_csv(args.tiers), args.limit)
+    all_records = paper_records_from_library(kb_dir)
+    if mode == "clean":
+        records = clean_obsidian_records(all_records, feedback, limit=args.limit)
+    else:
+        records = filter_records_for_export(all_records, split_csv(args.tiers), args.limit)
     vault_dir = args.vault_dir or (kb_dir / "obsidian")
-    dashboard_dir = vault_dir / "00_Dashboard"
     papers_dir = vault_dir / "01_Papers"
-    maps_dir = vault_dir / "02_Maps"
-    reading_dir = vault_dir / "03_Reading"
-    answers_dir = vault_dir / "04_Answers"
-    comparisons_dir = vault_dir / "05_Comparisons"
-    deep_reads_dir = vault_dir / "06_Deep_Reads"
-    for directory in [dashboard_dir, papers_dir, maps_dir, reading_dir, answers_dir, comparisons_dir, deep_reads_dir]:
-        directory.mkdir(parents=True, exist_ok=True)
-    (dashboard_dir / "Scholar Alert Dashboard.md").write_text(
-        render_obsidian_index(records, feedback=feedback), encoding="utf-8"
-    )
-    (maps_dir / "Research Map.md").write_text(render_research_map(records, profile, feedback=feedback), encoding="utf-8")
-    (reading_dir / "Reading Status.md").write_text(render_reading_status(records, feedback=feedback), encoding="utf-8")
+    papers_dir.mkdir(parents=True, exist_ok=True)
+    pruned = 0
+    if mode == "clean" and not no_prune:
+        pruned = prune_obsidian_full_artifacts(vault_dir)
     existing_citation_keys: set[str] = set()
     for record in records:
         citation_key = preferred_citation_key(record, existing_citation_keys)
         (papers_dir / f"{obsidian_note_name(record)}.md").write_text(
-            render_obsidian_paper(record, feedback=feedback, citation_key=citation_key),
+            render_obsidian_paper(
+                record,
+                feedback=feedback,
+                citation_key=citation_key,
+                obsidian_import=mode,
+            ),
             encoding="utf-8",
         )
-    copied_answers = copy_markdown_outputs(kb_dir / "answers", answers_dir)
-    copied_comparisons = copy_markdown_outputs(kb_dir / "comparisons", comparisons_dir)
-    copied_deep_reads = copy_markdown_outputs(kb_dir / "analysis", deep_reads_dir)
-    (answers_dir / "Answer Index.md").write_text(
-        render_obsidian_output_index(
-            "Library And Paper Answers",
-            "Generated answers from library-wide questions and selected-paper workspaces.",
-            copied_answers,
-        ),
-        encoding="utf-8",
-    )
-    (comparisons_dir / "Comparison Index.md").write_text(
-        render_obsidian_output_index(
-            "Paper Comparisons",
-            "Generated side-by-side paper comparisons.",
-            copied_comparisons,
-        ),
-        encoding="utf-8",
-    )
-    (deep_reads_dir / "Analysis Index.md").write_text(
-        render_obsidian_output_index(
-            "Deep Reads And Review Reports",
-            "Generated deep reads, full-text briefs, workups, review workflows, review packs, and ranking reports.",
-            copied_deep_reads,
-        ),
-        encoding="utf-8",
-    )
+    if mode == "full":
+        dashboard_dir = vault_dir / "00_Dashboard"
+        maps_dir = vault_dir / "02_Maps"
+        reading_dir = vault_dir / "03_Reading"
+        answers_dir = vault_dir / "04_Answers"
+        comparisons_dir = vault_dir / "05_Comparisons"
+        deep_reads_dir = vault_dir / "06_Deep_Reads"
+        managed_paths = [dashboard_dir, maps_dir, reading_dir, answers_dir, comparisons_dir, deep_reads_dir]
+        for directory in [dashboard_dir, maps_dir, reading_dir, answers_dir, comparisons_dir, deep_reads_dir]:
+            directory.mkdir(parents=True, exist_ok=True)
+        (dashboard_dir / "Scholar Alert Dashboard.md").write_text(
+            render_obsidian_index(records, feedback=feedback), encoding="utf-8"
+        )
+        (maps_dir / "Research Map.md").write_text(
+            render_research_map(records, profile, feedback=feedback), encoding="utf-8"
+        )
+        (reading_dir / "Reading Status.md").write_text(
+            render_reading_status(records, feedback=feedback), encoding="utf-8"
+        )
+        copied_answers = copy_markdown_outputs(kb_dir / "answers", answers_dir)
+        copied_comparisons = copy_markdown_outputs(kb_dir / "comparisons", comparisons_dir)
+        copied_deep_reads = copy_markdown_outputs(kb_dir / "analysis", deep_reads_dir)
+        (answers_dir / "Answer Index.md").write_text(
+            render_obsidian_output_index(
+                "Library And Paper Answers",
+                "Generated answers from library-wide questions and selected-paper workspaces.",
+                copied_answers,
+            ),
+            encoding="utf-8",
+        )
+        (comparisons_dir / "Comparison Index.md").write_text(
+            render_obsidian_output_index(
+                "Paper Comparisons",
+                "Generated side-by-side paper comparisons.",
+                copied_comparisons,
+            ),
+            encoding="utf-8",
+        )
+        (deep_reads_dir / "Analysis Index.md").write_text(
+            render_obsidian_output_index(
+                "Deep Reads And Review Reports",
+                "Generated deep reads, full-text briefs, workups, review workflows, review packs, and ranking reports.",
+                copied_deep_reads,
+            ),
+            encoding="utf-8",
+        )
+        manifest = write_obsidian_full_manifest(vault_dir, managed_paths)
+        print(f"Obsidian export mode: {mode}")
+        print(f"Obsidian export: {vault_dir}")
+        print(f"Paper notes: {len(records)}")
+        print(f"Copied answers: {len(copied_answers)}")
+        print(f"Copied comparisons: {len(copied_comparisons)}")
+        print(f"Copied deep reads: {len(copied_deep_reads)}")
+        print(f"Managed-path manifest: {manifest}")
+        return
+
+    print(f"Obsidian export mode: {mode}")
     print(f"Obsidian export: {vault_dir}")
     print(f"Paper notes: {len(records)}")
-    print(f"Copied answers: {len(copied_answers)}")
-    print(f"Copied comparisons: {len(copied_comparisons)}")
-    print(f"Copied deep reads: {len(copied_deep_reads)}")
+    if pruned:
+        print(f"Removed legacy full-export artifacts: {pruned}")
+    if mode == "clean" and no_prune:
+        print("Prune step skipped (`--no-prune`). Existing full-export artifacts were left unchanged.")
+    print("Clean mode exports only selected paper notes (Must read + interested).")
 
 
 def copy_markdown_outputs(source_dir: Path, target_dir: Path) -> list[Path]:
@@ -9570,6 +9658,62 @@ def copy_markdown_outputs(source_dir: Path, target_dir: Path) -> list[Path]:
         shutil.copy2(source, target)
         copied.append(target)
     return copied
+
+
+def write_obsidian_full_manifest(vault_dir: Path, managed_paths: list[Path]) -> Path:
+    manifest = vault_dir / OBSIDIAN_FULL_EXPORT_MANIFEST
+    payload = {
+        "marker": OBSIDIAN_FULL_EXPORT_MARKER,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "managed_paths": [str(path.relative_to(vault_dir)) for path in managed_paths],
+    }
+    save_json(manifest, payload)
+    return manifest
+
+
+def _safe_manifest_relative_path(raw: Any) -> Path | None:
+    rel = Path(str(raw or "").strip())
+    if not str(rel):
+        return None
+    if rel.is_absolute():
+        return None
+    if ".." in rel.parts:
+        return None
+    return rel
+
+
+def prune_obsidian_full_artifacts(vault_dir: Path) -> int:
+    manifest = vault_dir / OBSIDIAN_FULL_EXPORT_MANIFEST
+    if not manifest.exists():
+        return 0
+    try:
+        data = load_json(manifest)
+    except Exception:
+        return 0
+    if not isinstance(data, dict):
+        return 0
+    if str(data.get("marker", "")) != OBSIDIAN_FULL_EXPORT_MARKER:
+        return 0
+
+    removed = 0
+    managed_paths = data.get("managed_paths", [])
+    if isinstance(managed_paths, list):
+        for raw in managed_paths:
+            rel = _safe_manifest_relative_path(raw)
+            if rel is None:
+                continue
+            target = vault_dir / rel
+            if target.is_dir():
+                shutil.rmtree(target)
+                removed += 1
+            elif target.exists():
+                target.unlink()
+                removed += 1
+
+    if manifest.exists():
+        manifest.unlink()
+        removed += 1
+    return removed
 
 
 def doctor_command(args: argparse.Namespace) -> None:
@@ -10522,9 +10666,24 @@ def build_parser() -> argparse.ArgumentParser:
     obsidian.add_argument("--profile", type=Path, required=True)
     obsidian.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
     obsidian.add_argument("--feedback-file", type=Path, help="Feedback JSON. Defaults to kb-dir/feedback.json")
-    obsidian.add_argument("--tiers", default="Must read,Skim", help="Comma-separated tiers to export; empty means all")
+    obsidian.add_argument(
+        "--tiers",
+        default="Must read,Skim",
+        help="Comma-separated tiers for `full` mode export; ignored in `clean` mode.",
+    )
     obsidian.add_argument("--limit", type=int, default=0, help="Max papers to export; 0 means no limit")
     obsidian.add_argument("--vault-dir", type=Path, help="Output folder. Defaults to kb-dir/obsidian")
+    obsidian.add_argument(
+        "--obsidian-mode",
+        choices=["clean", "full"],
+        default="clean",
+        help="`clean` exports selected paper notes only; `full` also exports generated dashboards and report indexes.",
+    )
+    obsidian.add_argument(
+        "--no-prune",
+        action="store_true",
+        help="Only for `clean` mode: do not remove previously generated full-export artifacts in the target folder.",
+    )
     obsidian.set_defaults(func=obsidian_export_command)
 
     doctor = sub.add_parser("doctor", help="Check local setup, credentials, outputs, and knowledge-base files")

@@ -1426,6 +1426,7 @@ def render_obsidian_paper(
     record: dict[str, Any],
     feedback: dict[str, Any] | None = None,
     citation_key: str = "",
+    obsidian_import: str = "full",
 ) -> str:
     labels = reading_labels(record, feedback)
     status = reading_status(record, feedback)
@@ -1438,8 +1439,16 @@ def render_obsidian_paper(
     metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
     zotero = metadata.get("zotero") if isinstance(metadata.get("zotero"), dict) else {}
     pdf_paths = [str(path) for path in zotero.get("pdf_paths", [])] if isinstance(zotero, dict) else []
+    source_types = [str(source) for source in record.get("alerts", []) if str(source).strip()]
     frontmatter = [
         "---",
+        "type: paper",
+        "generated: true",
+        "source_tool: scholar-alert-reader",
+        f"obsidian_import: {yaml_scalar(obsidian_import)}",
+        f"paper_id: {yaml_scalar(record.get('id', ''))}",
+        f"title: {yaml_scalar(text(record.get('title', 'Untitled')))}",
+        f"source_types: {yaml_list(source_types)}",
         f"id: {record.get('id', '')}",
         f"citation_key: {yaml_scalar(citation_key)}",
         f"tier: {record.get('tier', '')}",

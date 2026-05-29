@@ -2964,6 +2964,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     str(profile),
                     "--kb-dir",
                     str(kb),
+                    "--obsidian-mode",
+                    "full",
                     "--vault-dir",
                     str(obsidian_dir),
                 ],
