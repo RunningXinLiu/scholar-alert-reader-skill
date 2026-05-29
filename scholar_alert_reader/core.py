@@ -41,6 +41,7 @@ from urllib.request import Request, urlopen
 
 from . import __version__
 from .ranking import scorer as ranking_scorer
+from .ranking import format as ranking_format
 from .ingest import mail as ingest_mail
 from .ingest import bibtex as ingest_bibtex
 from .ingest import ris as ingest_ris
@@ -48,6 +49,7 @@ from .ingest import rss as ingest_rss
 from .ingest import web as ingest_web
 from .ingest import arxiv as ingest_arxiv
 from .library import store as library_store
+from .library import render as library_render
 
 
 SCHOLAR_SENDER = "scholaralerts-noreply@google.com"
@@ -198,66 +200,15 @@ class Paper:
 
 
 def paper_score_components(paper: Paper) -> list[dict[str, Any]]:
-    """Normalize score components into a serializable dict list."""
+    """Compatibility wrapper for score-component normalization."""
 
-    components = []
-    for component in getattr(paper, "score_components", []):
-        if isinstance(component, dict):
-            name = str(component.get("name", "")).strip()
-            value = component.get("value", 0.0)
-            if value is None:
-                value = 0.0
-            terms = [str(term) for term in component.get("matched_terms", []) if str(term).strip()]
-            evidence = component.get("evidence_field")
-            explanation = str(component.get("explanation", "")).strip()
-            if name:
-                components.append(
-                    {
-                        "name": name,
-                        "value": float(value),
-                        "matched_terms": terms,
-                        "evidence_field": str(evidence) if evidence else "",
-                        "explanation": explanation,
-                    }
-                )
-        else:
-            name = str(getattr(component, "name", "")).strip()
-            if not name:
-                continue
-            value = getattr(component, "value", 0.0)
-            if value is None:
-                value = 0.0
-            matched_terms = getattr(component, "matched_terms", [])
-            components.append(
-                {
-                    "name": name,
-                    "value": float(value),
-                    "matched_terms": [str(term) for term in matched_terms if str(term).strip()],
-                    "evidence_field": str(getattr(component, "evidence_field", "") or ""),
-                    "explanation": str(getattr(component, "explanation", "")).strip(),
-                }
-            )
-    return components
+    return ranking_format.paper_score_components(paper)
 
 
 def score_component_lines(paper: Paper, include_zero: bool = False) -> list[str]:
-    lines: list[str] = []
-    for component in paper_score_components(paper):
-        value = float(component.get("value", 0.0))
-        if not include_zero and value == 0.0:
-            continue
-        matched_terms = ", ".join(component.get("matched_terms", []))
-        evidence = component.get("evidence_field") or "unknown"
-        explanation = component.get("explanation") or ""
-        value_text = f"{value:+.2f}" if value % 1 else f"{value:+.0f}"
-        line = f"- `{component.get('name', '')}` {value_text}"
-        if matched_terms:
-            line += f" | matched: {matched_terms}"
-        if explanation:
-            line += f" | {explanation}"
-        line += f" | evidence: `{evidence}`"
-        lines.append(line)
-    return lines
+    """Compatibility wrapper for score-component rendering lines."""
+
+    return ranking_format.score_component_lines(paper, include_zero=include_zero)
 
 
 def decode_mime_header(value: str | None) -> str:
@@ -2604,235 +2555,18 @@ def slugify(value: str) -> str:
 
 
 def metadata_lines(paper: Paper) -> list[str]:
-    lines: list[str] = []
-    zotero = paper.metadata.get("zotero") if paper.metadata else None
-    full_text = paper.metadata.get("full_text") if paper.metadata else None
-    openalex = paper.metadata.get("openalex") if paper.metadata else None
-    crossref = paper.metadata.get("crossref") if paper.metadata else None
-    if isinstance(zotero, dict):
-        lines.extend(
-            [
-                "## Zotero",
-                "",
-                f"- Citation key: {zotero.get('citation_key', '')}",
-                f"- Item key: {zotero.get('item_key', '')}",
-                f"- DOI: {zotero.get('doi', '')}",
-            ]
-        )
-        for path in coerce_list(zotero.get("pdf_paths")):
-            lines.append(f"- Local PDF: {path}")
-        lines.append("")
-    if isinstance(full_text, dict):
-        lines.extend(
-            [
-                "## Full Text",
-                "",
-                f"- Source: {full_text.get('source', '')}",
-                f"- PDF URL: {full_text.get('pdf_url', '')}",
-            ]
-        )
-        for path in coerce_list(full_text.get("pdf_paths")):
-            lines.append(f"- Local PDF: {path}")
-        lines.append("")
-    if isinstance(openalex, dict):
-        lines.extend(
-            [
-                "## OpenAlex",
-                "",
-                f"- Year: {openalex.get('publication_year', '')}",
-                f"- Cited by: {openalex.get('cited_by_count', '')}",
-                f"- Source: {openalex.get('source', '')}",
-                f"- DOI: {openalex.get('doi', '')}",
-                f"- PDF: {openalex.get('pdf_url', '')}",
-                "",
-            ]
-        )
-    if isinstance(crossref, dict):
-        lines.extend(
-            [
-                "## Crossref",
-                "",
-                f"- DOI: {crossref.get('doi', '')}",
-                f"- Journal/source: {crossref.get('container_title', '')}",
-                f"- Publisher: {crossref.get('publisher', '')}",
-                f"- Referenced by: {crossref.get('is_referenced_by_count', '')}",
-                "",
-            ]
-        )
-    return lines
-
-
-def _yaml_scalar(value: Any) -> str:
-    if value is None:
-        return "null"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return str(value)
-    return json.dumps(str(value), ensure_ascii=False)
-
-
-def _yaml_score_components_lines(components: list[dict[str, Any]]) -> list[str]:
-    if not components:
-        return ["score_components: []"]
-
-    lines: list[str] = ["score_components:"]
-
-    for component in components:
-        lines.extend(
-            [
-                "  -",
-                f"    name: {_yaml_scalar(component.get('name', ''))}",
-                f"    value: {_yaml_scalar(component.get('value', 0.0))}",
-                f"    explanation: {_yaml_scalar(component.get('explanation', ''))}",
-                f"    evidence_field: {_yaml_scalar(component.get('evidence_field', ''))}",
-                "    matched_terms:",
-            ]
-        )
-        for term in component.get("matched_terms", []):
-            lines.append(f"      - {_yaml_scalar(term)}")
-    return lines
-
-
-def _paper_metadata_from_authors_source(authors_source: str) -> dict[str, str | None]:
-    cleaned = re.sub(r"\s+[-–—]\s+", " - ", authors_source or "").strip()
-    parts = [part.strip() for part in cleaned.split(" - ") if part.strip()]
-    authors = parts[0] if parts else None
-    venue = parts[1] if len(parts) >= 2 else None
-    year = None
-    if len(parts) >= 3:
-        year = parts[2]
-    if not year:
-        year_match = re.search(r"\b(19|20)\d{2}\b", authors_source or "")
-        year = year_match.group(0) if year_match else None
-    doi = None
-    doi_match = re.search(r"\b10\.\d{4,9}/[-._;()/:A-Za-z0-9]+", authors_source or "")
-    if doi_match:
-        doi = doi_match.group(0)
-
-    return {
-        "authors": authors,
-        "venue": venue,
-        "year": year,
-        "doi": doi,
-    }
-
-
-def _paper_source_history_lines(paper: Paper, feedback: dict[str, Any] | None = None) -> list[str]:
-    lines = [
-        f"- First seen: {paper.first_seen or 'unknown'}",
-        f"- Last seen: {paper.last_seen or 'unknown'}",
-        f"- Occurrences: {paper.occurrences}",
-    ]
-    if paper.alerts:
-        lines.append("- Alerts:")
-        lines.extend(f"  - {alert}" for alert in paper.alerts)
-
-    if feedback is None:
-        return lines
-    item = feedback.get("papers", {}).get(paper.id, {}) if isinstance(feedback, dict) else {}
-    if not isinstance(item, dict):
-        item = {}
-    updated_at = item.get("updated_at")
-    if updated_at:
-        lines.append(f"- Last feedback update: {updated_at}")
-    return lines
+    return library_render.metadata_lines(paper)
 
 
 def write_kb_paper_pages(kb_dir: Path, papers: list[Paper], feedback: dict[str, Any] | None = None) -> None:
-    from .copilot import feedback_note, reading_labels, reading_status
-
     if feedback is None:
         feedback = load_feedback(default_feedback_file(kb_dir))
-    paper_dir = kb_dir / "papers"
-    paper_dir.mkdir(parents=True, exist_ok=True)
-    for paper in papers:
-        record = asdict(paper)
-        labels = reading_labels(record, feedback)
-        status = reading_status(record, feedback)
-        note = feedback_note(record, feedback, limit=3000)
-        components = paper_score_components(paper)
-        metadata = _paper_metadata_from_authors_source(paper.authors_source)
-        feedback_item = feedback.get("papers", {}).get(str(paper.id), {}) if isinstance(feedback, dict) else {}
-        if not isinstance(feedback_item, dict):
-            feedback_item = {}
-        feedback_status = str(feedback_item.get("status", "neutral") or "neutral")
-        frontmatter = [
-            "---",
-            f"paper_id: {_yaml_scalar(paper.id)}",
-            f"title: {_yaml_scalar(paper.title)}",
-            f"url: {_yaml_scalar(paper.url)}",
-            f"tier: {_yaml_scalar(paper.tier)}",
-            f"score: {_yaml_scalar(paper.score)}",
-            f"first_seen: {_yaml_scalar(paper.first_seen)}",
-            f"last_seen: {_yaml_scalar(paper.last_seen)}",
-            f"reading_status: {_yaml_scalar(status)}",
-            f"feedback_status: {_yaml_scalar(feedback_status)}",
-            "tags:",
-            *[f"  - {_yaml_scalar(tag)}" for tag in sorted(set(paper.tags))],
-            *_yaml_score_components_lines(components),
-            "source_types:",
-            *[f"  - {_yaml_scalar(alert)}" for alert in paper.alerts],
-            "---",
-            "",
-        ]
-        breakdown_lines = [f"  - {component.get('name', '')}: {float(component.get('value', 0.0)):+.2f}" for component in components]
-        lines = [
-            *frontmatter,
-            f"# {paper.title}",
-            "",
-            f"- ID: {paper.id}",
-            f"- Authors: {metadata['authors'] or 'unknown'}",
-            f"- Venue: {metadata['venue'] or 'unknown'}",
-            f"- Year: {metadata['year'] or 'unknown'}",
-            f"- DOI: {metadata['doi'] or 'unknown'}",
-            f"- Tier: {paper.tier}",
-            f"- Score: {paper.score}",
-            f"- Source: {paper.authors_source}",
-            f"- Evidence: {paper_evidence_text(paper, kb_dir)}",
-            f"- First seen: {paper.first_seen}",
-            f"- Last seen: {paper.last_seen}",
-            f"- Directions: {', '.join(paper_directions(paper))}",
-            f"- Matched: {', '.join(paper.matched_terms)}",
-            f"- Reading status: {status}",
-            f"- Labels: {', '.join(labels) if labels else 'none'}",
-            "",
-            "## Why selected",
-            "",
-            "- Score breakdown:",
-            *breakdown_lines,
-            "",
-            "## Snippet",
-            "",
-            paper.snippet or "No snippet available.",
-            "",
-            "## Why It Ranked",
-        ]
-        lines.extend(f"- {reason}" for reason in paper.reasons[:8])
-        lines.append("")
-        lines.extend(metadata_lines(paper))
-        lines.append("")
-        lines.append("## Source history")
-        lines.extend(_paper_source_history_lines(paper, feedback))
-        lines.append("")
-        if note:
-            lines.extend(
-                [
-                    "## Saved Feedback",
-                    "",
-                    note,
-                    "",
-                ]
-            )
-        lines.extend(
-            [
-                "## Notes",
-                "",
-                "- ",
-                "",
-            ]
-        )
-        (paper_dir / f"{paper.id}.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    library_render.write_kb_paper_pages(
+        kb_dir,
+        papers,
+        feedback=feedback,
+        paper_evidence_text_fn=paper_evidence_text,
+    )
 
 
 def write_kb_direction_pages(
@@ -2913,36 +2647,7 @@ def write_kb_search_index(
     papers: list[Paper],
     feedback: dict[str, Any] | None = None,
 ) -> None:
-    if feedback is None:
-        feedback = load_feedback(default_feedback_file(kb_dir))
-    feedback_papers = feedback.get("papers", {}) if isinstance(feedback, dict) else {}
-    search_records: list[dict[str, Any]] = []
-    for paper in sorted(papers, key=lambda item: (-item.score, item.title.lower())):
-        record = feedback_papers.get(paper.id, {}) if isinstance(feedback_papers, dict) else {}
-        if not isinstance(record, dict):
-            record = {}
-        search_records.append(
-            {
-                "id": paper.id,
-                "title": paper.title,
-                "tier": paper.tier,
-                "score": paper.score,
-                "url": paper.url,
-                "authors_source": paper.authors_source,
-                "snippet": paper.snippet,
-                "tags": list(paper.tags),
-                "matched_terms": list(paper.matched_terms),
-                "first_seen": paper.first_seen,
-                "last_seen": paper.last_seen,
-                "directions": paper_directions(paper),
-                "score_components": paper_score_components(paper),
-                "score_breakdown": {component["name"]: component["value"] for component in paper_score_components(paper)},
-                "feedback_status": str(record.get("status", "neutral") or "neutral"),
-                "reading_status": str(record.get("reading_status", "unread") or "unread"),
-                "labels": coerce_list(record.get("labels")),
-            }
-        )
-    save_json(kb_dir / "search_index.json", search_records)
+    library_render.write_kb_search_index(kb_dir, papers, feedback)
 
 
 def write_kb_archive_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any]) -> None:

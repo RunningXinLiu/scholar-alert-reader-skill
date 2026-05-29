@@ -49,6 +49,76 @@ def _paper(**overrides) -> core.Paper:
 
 
 class LibraryOutputTests(unittest.TestCase):
+    def test_search_index_aggregates_duplicate_score_component_names(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp) / "knowledge_base"
+            kb_dir.mkdir(parents=True, exist_ok=True)
+
+            paper = _paper(
+                id="dup-1",
+                score_components=[
+                    {
+                        "name": "topical_relevance",
+                        "value": 3.0,
+                        "matched_terms": ["ambient"],
+                        "explanation": "first match",
+                        "evidence_field": "title",
+                    },
+                    {
+                        "name": "topical_relevance",
+                        "value": 4.0,
+                        "matched_terms": ["seismic"],
+                        "explanation": "second match",
+                        "evidence_field": "abstract",
+                    },
+                ],
+            )
+
+            core.write_kb_search_index(kb_dir, [paper], core.empty_feedback())
+
+            search_records = json.loads((kb_dir / "search_index.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(search_records), 1)
+            breakdown = search_records[0]["score_breakdown"]
+            self.assertIn("topical_relevance", breakdown)
+            self.assertAlmostEqual(breakdown["topical_relevance"], 7.0, places=6)
+
+    def test_paper_note_frontmatter_escapes_titles_and_explanations_and_handles_empty_components(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp) / "knowledge_base"
+            kb_dir.mkdir(parents=True, exist_ok=True)
+
+            paper = _paper(
+                id="fm-1",
+                title='A: B "C" title with tricky chars',
+                score_components=[
+                    {
+                        "name": "topical_relevance",
+                        "value": 1.0,
+                        "matched_terms": ["A: B", "B: C"],
+                        "explanation": 'explain with colon: and "quote"',
+                        "evidence_field": "title",
+                    }
+                ],
+            )
+            paper2 = _paper(
+                id="fm-empty",
+                title="纯中文标题测试",
+                score_components=[],
+            )
+
+            core.write_kb_paper_pages(kb_dir, [paper, paper2], core.empty_feedback())
+
+            note_text = (kb_dir / "papers" / f"{paper.id}.md").read_text(encoding="utf-8")
+            self.assertIn(f"title: {json.dumps(paper.title, ensure_ascii=False)}", note_text)
+            self.assertIn(
+                f"explanation: {json.dumps('explain with colon: and \"quote\"', ensure_ascii=False)}",
+                note_text,
+            )
+            self.assertIn("score_components:", note_text)
+
+            note_text_empty = (kb_dir / "papers" / f"{paper2.id}.md").read_text(encoding="utf-8")
+            self.assertIn("score_components: []", note_text_empty)
+
     def test_library_outputs_include_index_html_paper_note_and_search_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             kb_dir = Path(tmp) / "knowledge_base"
