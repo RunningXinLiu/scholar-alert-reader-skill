@@ -32,7 +32,7 @@ These tools are sinks only; they are not required for core triage.
 
 ## Start Here
 
-> GitHub sometimes renders repository images through `raw.githubusercontent.com`, which can be blocked or slow on some networks. The README therefore uses native Mermaid/text for the main overview. Downloadable PNG/GIF assets are still included under [docs/assets](docs/assets) and [docs/screenshots](docs/screenshots).
+> This README now includes inline image previews plus link-based fallback tables. If your network blocks `raw.githubusercontent.com`, use the direct asset links under [docs/assets](docs/assets) and [docs/screenshots](docs/screenshots).
 
 Scholar Alert Reader works as a normal local Python CLI. Codex is the most guided entry point, but it is not required.
 
@@ -114,6 +114,18 @@ First expected outputs:
 
 If you are not on macOS, replace `open` with your platform equivalent (`xdg-open`, `start`, etc.).
 
+## Visual Preview
+
+![Scholar Alert Reader Logo](docs/assets/logo.png)
+
+![Workflow Demo](docs/assets/workflow.en.gif)
+
+![Daily Digest](docs/screenshots/01-daily-digest.png)
+
+![Feedback Triage UI](docs/screenshots/02-feedback-triage.png)
+
+![Foundation and Interested Library](docs/screenshots/03-foundation-interested.png)
+
 ## Use Without Codex
 
 You can run the core tool from any terminal or from any coding agent that can access local files and execute shell commands.
@@ -161,7 +173,7 @@ For credential leaks, raw mailbox exposure, or other security-sensitive problems
 
 ## Screenshots
 
-Sanitized demo screenshots are included for product previews and sharing. They are linked instead of embedded here so the GitHub README does not show broken image icons on networks that block `raw.githubusercontent.com`.
+Sanitized demo screenshots are included for product previews and sharing. Inline previews are shown above, and direct links are listed below for fallback and sharing.
 
 | Area | Asset |
 |---|---|
