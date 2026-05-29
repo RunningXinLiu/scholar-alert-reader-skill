@@ -193,7 +193,71 @@ class Paper:
     tags: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    score_components: list[dict[str, Any]] = field(default_factory=list)
     is_new: bool = True
+
+
+def paper_score_components(paper: Paper) -> list[dict[str, Any]]:
+    """Normalize score components into a serializable dict list."""
+
+    components = []
+    for component in getattr(paper, "score_components", []):
+        if isinstance(component, dict):
+            name = str(component.get("name", "")).strip()
+            value = component.get("value", 0.0)
+            if value is None:
+                value = 0.0
+            terms = [str(term) for term in component.get("matched_terms", []) if str(term).strip()]
+            evidence = component.get("evidence_field")
+            explanation = str(component.get("explanation", "")).strip()
+            if name:
+                components.append(
+                    {
+                        "name": name,
+                        "value": float(value),
+                        "matched_terms": terms,
+                        "evidence_field": str(evidence) if evidence else "",
+                        "explanation": explanation,
+                    }
+                )
+        else:
+            name = str(getattr(component, "name", "")).strip()
+            if not name:
+                continue
+            value = getattr(component, "value", 0.0)
+            if value is None:
+                value = 0.0
+            matched_terms = getattr(component, "matched_terms", [])
+            components.append(
+                {
+                    "name": name,
+                    "value": float(value),
+                    "matched_terms": [str(term) for term in matched_terms if str(term).strip()],
+                    "evidence_field": str(getattr(component, "evidence_field", "") or ""),
+                    "explanation": str(getattr(component, "explanation", "")).strip(),
+                }
+            )
+    return components
+
+
+def score_component_lines(paper: Paper, include_zero: bool = False) -> list[str]:
+    lines: list[str] = []
+    for component in paper_score_components(paper):
+        value = float(component.get("value", 0.0))
+        if not include_zero and value == 0.0:
+            continue
+        matched_terms = ", ".join(component.get("matched_terms", []))
+        evidence = component.get("evidence_field") or "unknown"
+        explanation = component.get("explanation") or ""
+        value_text = f"{value:+.2f}" if value % 1 else f"{value:+.0f}"
+        line = f"- `{component.get('name', '')}` {value_text}"
+        if matched_terms:
+            line += f" | matched: {matched_terms}"
+        if explanation:
+            line += f" | {explanation}"
+        line += f" | evidence: `{evidence}`"
+        lines.append(line)
+    return lines
 
 
 def decode_mime_header(value: str | None) -> str:
@@ -590,7 +654,17 @@ def score_paper(
     feedback: dict[str, Any] | None = None,
     library: list[Paper] | None = None,
 ) -> None:
-    ranking_scorer.score_paper(paper, profile, boost, feedback, library)
+    result = ranking_scorer.score_paper(paper, profile, boost, feedback, library)
+    paper.score_components = [
+        {
+            "name": component.name,
+            "value": float(component.value),
+            "matched_terms": sorted({str(term) for term in component.matched_terms}),
+            "explanation": str(component.explanation),
+            "evidence_field": str(component.evidence_field or ""),
+        }
+        for component in result.components
+    ]
 
 
 def build_reasons(hits: list[TermHit], paper: Paper) -> list[str]:
@@ -1368,6 +1442,7 @@ def paper_to_row(paper: Paper) -> dict[str, Any]:
     row["tags"] = "; ".join(paper.tags)
     row["reasons"] = " | ".join(paper.reasons)
     row["metadata"] = json.dumps(paper.metadata, ensure_ascii=False) if paper.metadata else ""
+    row["score_components"] = json.dumps(paper_score_components(paper), ensure_ascii=False)
     return row
 
 
@@ -2234,9 +2309,16 @@ def render_paper_html(index: int, paper: Paper, kb_dir: Path | None = None) -> s
     )
     badges.extend(f'<span class="badge">{html.escape(term)}</span>' for term in terms)
     reasons = "".join(f"<li>{html.escape(reason)}</li>" for reason in paper.reasons[:4])
+    breakdown = score_component_lines(paper)
     alerts = "; ".join(paper.alerts[:4])
     if len(paper.alerts) > 4:
         alerts += f"; +{len(paper.alerts) - 4} more"
+    breakdown_lines = "".join(f"<li>{html.escape(line)}</li>" for line in breakdown[:6])
+    score_breakdown_block = (
+        f'<div class="score-breakdown"><strong>Score breakdown:</strong><ul>{breakdown_lines}</ul></div>'
+        if breakdown_lines
+        else ""
+    )
     return "\n".join(
         [
             '<article class="paper">',
@@ -2248,6 +2330,7 @@ def render_paper_html(index: int, paper: Paper, kb_dir: Path | None = None) -> s
             f'<div class="evidence-note">{html.escape(str(evidence["description"]))}</div>',
             f'<p class="snippet">{html.escape(paper.snippet)}</p>',
             f'<div class="reason">Alert: {html.escape(alerts)}</div>',
+            score_breakdown_block,
             f'<ul class="why">{reasons}</ul>',
             "</div>",
             "</article>",
@@ -2275,6 +2358,10 @@ def render_paper(index: int, paper: Paper, kb_dir: Path | None = None) -> list[s
     ]
     for reason in paper.reasons[:4]:
         lines.append(f"  - {reason}")
+    breakdown = score_component_lines(paper)
+    if breakdown:
+        lines.append("- Score breakdown:")
+        lines.extend(breakdown[:8])
     lines.append("")
     return lines
 
@@ -2575,6 +2662,83 @@ def metadata_lines(paper: Paper) -> list[str]:
     return lines
 
 
+def _yaml_scalar(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def _yaml_score_components_lines(components: list[dict[str, Any]]) -> list[str]:
+    if not components:
+        return ["score_components: []"]
+
+    lines: list[str] = ["score_components:"]
+
+    for component in components:
+        lines.extend(
+            [
+                "  -",
+                f"    name: {_yaml_scalar(component.get('name', ''))}",
+                f"    value: {_yaml_scalar(component.get('value', 0.0))}",
+                f"    explanation: {_yaml_scalar(component.get('explanation', ''))}",
+                f"    evidence_field: {_yaml_scalar(component.get('evidence_field', ''))}",
+                "    matched_terms:",
+            ]
+        )
+        for term in component.get("matched_terms", []):
+            lines.append(f"      - {_yaml_scalar(term)}")
+    return lines
+
+
+def _paper_metadata_from_authors_source(authors_source: str) -> dict[str, str | None]:
+    cleaned = re.sub(r"\s+[-–—]\s+", " - ", authors_source or "").strip()
+    parts = [part.strip() for part in cleaned.split(" - ") if part.strip()]
+    authors = parts[0] if parts else None
+    venue = parts[1] if len(parts) >= 2 else None
+    year = None
+    if len(parts) >= 3:
+        year = parts[2]
+    if not year:
+        year_match = re.search(r"\b(19|20)\d{2}\b", authors_source or "")
+        year = year_match.group(0) if year_match else None
+    doi = None
+    doi_match = re.search(r"\b10\.\d{4,9}/[-._;()/:A-Za-z0-9]+", authors_source or "")
+    if doi_match:
+        doi = doi_match.group(0)
+
+    return {
+        "authors": authors,
+        "venue": venue,
+        "year": year,
+        "doi": doi,
+    }
+
+
+def _paper_source_history_lines(paper: Paper, feedback: dict[str, Any] | None = None) -> list[str]:
+    lines = [
+        f"- First seen: {paper.first_seen or 'unknown'}",
+        f"- Last seen: {paper.last_seen or 'unknown'}",
+        f"- Occurrences: {paper.occurrences}",
+    ]
+    if paper.alerts:
+        lines.append("- Alerts:")
+        lines.extend(f"  - {alert}" for alert in paper.alerts)
+
+    if feedback is None:
+        return lines
+    item = feedback.get("papers", {}).get(paper.id, {}) if isinstance(feedback, dict) else {}
+    if not isinstance(item, dict):
+        item = {}
+    updated_at = item.get("updated_at")
+    if updated_at:
+        lines.append(f"- Last feedback update: {updated_at}")
+    return lines
+
+
 def write_kb_paper_pages(kb_dir: Path, papers: list[Paper], feedback: dict[str, Any] | None = None) -> None:
     from .copilot import feedback_note, reading_labels, reading_status
 
@@ -2587,13 +2751,43 @@ def write_kb_paper_pages(kb_dir: Path, papers: list[Paper], feedback: dict[str, 
         labels = reading_labels(record, feedback)
         status = reading_status(record, feedback)
         note = feedback_note(record, feedback, limit=3000)
+        components = paper_score_components(paper)
+        metadata = _paper_metadata_from_authors_source(paper.authors_source)
+        feedback_item = feedback.get("papers", {}).get(str(paper.id), {}) if isinstance(feedback, dict) else {}
+        if not isinstance(feedback_item, dict):
+            feedback_item = {}
+        feedback_status = str(feedback_item.get("status", "neutral") or "neutral")
+        frontmatter = [
+            "---",
+            f"paper_id: {_yaml_scalar(paper.id)}",
+            f"title: {_yaml_scalar(paper.title)}",
+            f"url: {_yaml_scalar(paper.url)}",
+            f"tier: {_yaml_scalar(paper.tier)}",
+            f"score: {_yaml_scalar(paper.score)}",
+            f"first_seen: {_yaml_scalar(paper.first_seen)}",
+            f"last_seen: {_yaml_scalar(paper.last_seen)}",
+            f"reading_status: {_yaml_scalar(status)}",
+            f"feedback_status: {_yaml_scalar(feedback_status)}",
+            "tags:",
+            *[f"  - {_yaml_scalar(tag)}" for tag in sorted(set(paper.tags))],
+            *_yaml_score_components_lines(components),
+            "source_types:",
+            *[f"  - {_yaml_scalar(alert)}" for alert in paper.alerts],
+            "---",
+            "",
+        ]
+        breakdown_lines = [f"  - {component.get('name', '')}: {float(component.get('value', 0.0)):+.2f}" for component in components]
         lines = [
+            *frontmatter,
             f"# {paper.title}",
             "",
             f"- ID: {paper.id}",
+            f"- Authors: {metadata['authors'] or 'unknown'}",
+            f"- Venue: {metadata['venue'] or 'unknown'}",
+            f"- Year: {metadata['year'] or 'unknown'}",
+            f"- DOI: {metadata['doi'] or 'unknown'}",
             f"- Tier: {paper.tier}",
             f"- Score: {paper.score}",
-            f"- Link: {paper.url}",
             f"- Source: {paper.authors_source}",
             f"- Evidence: {paper_evidence_text(paper, kb_dir)}",
             f"- First seen: {paper.first_seen}",
@@ -2603,16 +2797,24 @@ def write_kb_paper_pages(kb_dir: Path, papers: list[Paper], feedback: dict[str, 
             f"- Reading status: {status}",
             f"- Labels: {', '.join(labels) if labels else 'none'}",
             "",
+            "## Why selected",
+            "",
+            "- Score breakdown:",
+            *breakdown_lines,
+            "",
             "## Snippet",
             "",
             paper.snippet or "No snippet available.",
             "",
-            "## Why It Was Ranked This Way",
-            "",
+            "## Why It Ranked",
         ]
         lines.extend(f"- {reason}" for reason in paper.reasons[:8])
         lines.append("")
         lines.extend(metadata_lines(paper))
+        lines.append("")
+        lines.append("## Source history")
+        lines.extend(_paper_source_history_lines(paper, feedback))
+        lines.append("")
         if note:
             lines.extend(
                 [
@@ -2733,6 +2935,8 @@ def write_kb_search_index(
                 "first_seen": paper.first_seen,
                 "last_seen": paper.last_seen,
                 "directions": paper_directions(paper),
+                "score_components": paper_score_components(paper),
+                "score_breakdown": {component["name"]: component["value"] for component in paper_score_components(paper)},
                 "feedback_status": str(record.get("status", "neutral") or "neutral"),
                 "reading_status": str(record.get("reading_status", "unread") or "unread"),
                 "labels": coerce_list(record.get("labels")),
@@ -8563,6 +8767,29 @@ def render_ranking_explanation_report(
         terms = [str(term) for term in record.get("matched_terms", []) if str(term).strip()]
         tags = [str(tag) for tag in record.get("tags", []) if str(tag).strip()]
         reasons = [str(reason) for reason in record.get("reasons", []) if str(reason).strip()]
+        score_components = record.get("score_components", [])
+        if isinstance(score_components, str):
+            try:
+                loaded = json.loads(score_components)
+                score_components = loaded if isinstance(loaded, list) else []
+            except Exception:
+                score_components = []
+        normalized_components: list[dict[str, Any]] = []
+        for component in score_components:
+            if not isinstance(component, dict):
+                continue
+            name = str(component.get("name", "")).strip()
+            if not name:
+                continue
+            normalized_components.append(
+                {
+                    "name": name,
+                    "value": float(component.get("value", 0.0)),
+                    "matched_terms": [str(term) for term in component.get("matched_terms", []) if str(term).strip()],
+                    "evidence_field": str(component.get("evidence_field", "") or ""),
+                    "explanation": str(component.get("explanation", "")).strip(),
+                }
+            )
         feedback_status = explain_feedback_status(record, feedback)
         delta_to_must = must_threshold - score
         delta_to_skim = skim_threshold - score
@@ -8593,6 +8820,19 @@ def render_ranking_explanation_report(
             lines.extend(f"- {reason}" for reason in reasons[:8])
         else:
             lines.append("- No stored ranking reasons. Rerun a source or regenerate the digest with the current profile to refresh reasons.")
+        if normalized_components:
+            lines.extend(["", "#### Score Breakdown", ""])
+            for component in normalized_components:
+                value = component["value"]
+                value_text = f"{value:+.2f}" if value % 1 else f"{value:+.0f}"
+                suffix = []
+                if component["matched_terms"]:
+                    suffix.append(f"matched: {', '.join(component['matched_terms'])}")
+                if component["evidence_field"]:
+                    suffix.append(f"evidence: {component['evidence_field']}")
+                if component["explanation"]:
+                    suffix.append(component["explanation"])
+                lines.append(f"- {component['name']}: {value_text}" + (f" ({'; '.join(suffix)})" if suffix else ""))
         lines.extend(["", "#### Next Tuning Moves", ""])
         for move in ranking_tuning_moves(record, profile, feedback_status, must_threshold, skim_threshold):
             lines.append(f"- {move}")

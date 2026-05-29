@@ -68,10 +68,15 @@ Good next prompts:
 - "Open the feedback UI so I can mark interested papers."
 - "Open my Scholar Alert dashboard so I can see the digest, reading plan, review queue, and setup status."
 - "Make a reading plan from my retained and recent papers."
+- "Export my retained library to Obsidian and Zotero."
+
+Optional/experimental follow-up prompts:
+
 - "Deep-read this paper against my foundation."
 - "Fetch the open PDF for this paper and build a full-text brief."
 - "Make a workup for this paper and tell me whether it is worth reading or citing."
-- "Export my retained library to Obsidian and Zotero."
+- "Ask my current retained library about this question: <research question>."
+- "Generate a research map for retained papers in my interest area."
 
 The skill works without Obsidian or Zotero. Those are optional upgrades for people who want a larger personal knowledge system.
 
@@ -144,6 +149,8 @@ Sanitized demo screenshots are included for product previews and sharing. They a
 
 ## What It Does
 
+### Core (standalone, required)
+
 - Connects to Gmail API, Apple Mail, exported `.mbox`, BibTeX/RIS files, structured scholarly webpages, RSS/Atom feeds, and arXiv queries.
 - Monitors configured web sources such as publisher article pages, journal feeds, saved-search feeds, and arXiv queries without depending on a hosted service.
 - Extracts paper title, author/source line, snippet, source label, and link, then deduplicates repeated papers across sources.
@@ -157,14 +164,20 @@ Sanitized demo screenshots are included for product previews and sharing. They a
 - Adds an `evidence` command and generated `evidence_reader.sh` helper so users can inspect one paper's evidence status, local artifacts, boundaries, and next upgrade commands before treating a report as citation-ready.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, analysis report index, source readiness summary, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
-- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, ask paper-specific or library-wide questions, revisit existing paper answers from the paper card or answer index, and trigger deep-read/full-review/workup/review-pack reports from the browser UI, then jump directly to answers, the refreshed reading plan, dashboard, foundation, interested queue, reading status, or weekly review from safe local links.
+- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, and jump directly to reading-plan, dashboard, foundation/interested queues, reading status, and weekly review from local links.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Writes and opens a browser-friendly `START_HERE.html` onboarding guide alongside `START_HERE.md` with recommended next actions, a source setup matrix, and current readiness hints for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv, including custom paths and direct web URLs from `reader.env`.
 - Includes `privacy-check` so users can scan local projects for files that should not be published before sharing issue attachments, screenshots, or zip archives.
 - Supports scheduled or manual runs through generated shell scripts, macOS LaunchAgent plists, Codex automations, or your own cron/system scheduler.
-- Adds a literature-copilot layer: selected-paper metadata briefs, one-command paper review workflows, human-readable paper workups, local-library Q&A, reading plans, paper comparison, research maps, gap/advice reports, and LLM-ready review packs.
 - Fetches explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata into local files before full-text extraction.
 - Exports Zotero-ready BibTeX/RIS and Obsidian-ready Markdown notes with generated dashboard/index pages while keeping both tools optional.
+
+### Experimental copilot layer (optional)
+
+- Paper workspace questions and one-paper planning commands: `ask`, `compare`, `map`, `advice`.
+- Paper investigation workflows: `deep-read`, `workup`, `review-pack`, `full-text`, and `review-workflow`.
+- review and synthesis artifacts (`analysis/` reports) with explicit evidence boundary labels.
+- These are planning/triage tools that should not replace full-text reading or manuscript writing.
 
 ## Capability Boundary
 
@@ -180,7 +193,7 @@ python3 -m scholar_alert_reader evidence
 
 The core ranking layer is local and explainable: profile terms, methods, regions, watched authors, exclusions, semantic queries, temporary boosts, explicit feedback, adaptive similarity to retained/interested papers, and optional semantic reranking. `semantic-rerank` defaults to sparse TF-IDF with no extra dependencies; `--backend sentence-transformers` uses a user-installed local embedding model. It is not a hosted embedding service or autonomous reviewer.
 
-`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` use alert metadata, bibliography fields, snippets, profile context, saved feedback, personal notes, the retained library, and cached local full-text briefs when available. Digest cards, feedback UI cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show an evidence level so users can distinguish metadata-only triage from PDF-ready or full-text-backed work. `evidence --paper-id <ID>` turns that label into a concise status report with what the current evidence can support, what remains unverified, local artifact availability, and the next command to upgrade the selected paper. `deep-read` also includes an Evidence Boundary section with the current basis, what the report can and cannot support, and the command to upgrade a selected paper into the PDF/full-text review workflow. `ask`, `advice`, `compare`, and `map` surface saved notes as evidence, so your own reading judgments become part of the local research memory. These commands are triage and research-planning aids. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
+`deep-read`, `workup`, `ask`, `compare`, `map`, and `advice` are optional experimental helpers. They can surface paper-level synthesis and planning signals from metadata/full-text cache context, but they are explicitly triage tools with an evidence boundary. For closer reading, provide local PDF/text paths directly or through Zotero, fetch an explicit/open PDF URL with `fetch-pdf`, run `review-workflow`, or use the lower-level `full-text`, `workup`, `review-pack`, and `review-queue` commands when you want more control.
 
 ## Product Modes
 

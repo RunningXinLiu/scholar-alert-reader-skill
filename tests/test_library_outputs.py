@@ -26,6 +26,22 @@ def _paper(**overrides) -> core.Paper:
         "tags": ["induced-seismicity", "dense-array"],
         "reasons": ["Matched high-priority focus terms."],
         "metadata": {},
+        "score_components": [
+            {
+                "name": "topical_relevance",
+                "value": 5.0,
+                "matched_terms": ["ambient noise"],
+                "explanation": "Title and snippet matched topical keyword.",
+                "evidence_field": "title",
+            },
+            {
+                "name": "method_relevance",
+                "value": 3.0,
+                "matched_terms": ["tomography"],
+                "explanation": "Method signal matched.",
+                "evidence_field": "title",
+            },
+        ],
         "is_new": True,
     }
     base.update(overrides)
@@ -76,16 +92,24 @@ class LibraryOutputTests(unittest.TestCase):
             self.assertTrue((kb_dir / "search_index.json").exists())
 
             note_text = (kb_dir / "papers" / f"{paper.id}.md").read_text(encoding="utf-8")
+            self.assertTrue(note_text.startswith("---\n"))
+            self.assertIn("paper_id:", note_text)
+            self.assertIn("score_components:", note_text)
+            self.assertIn("topical_relevance", note_text)
             self.assertIn("- Reading status: reading", note_text)
             self.assertIn("- Labels: must-cite", note_text)
+            self.assertIn("## Source history", note_text)
+            self.assertIn("## Why selected", note_text)
 
             search_records = json.loads((kb_dir / "search_index.json").read_text(encoding="utf-8"))
             self.assertEqual(len(search_records), 1)
             self.assertEqual(search_records[0]["id"], paper.id)
             self.assertEqual(search_records[0]["feedback_status"], "interested")
             self.assertEqual(search_records[0]["reading_status"], "reading")
+            self.assertIn("score_breakdown", search_records[0])
+            self.assertIn("topical_relevance", search_records[0]["score_breakdown"])
+            self.assertEqual(search_records[0]["score_breakdown"]["topical_relevance"], 5.0)
 
 
 if __name__ == "__main__":
     unittest.main()
-

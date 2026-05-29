@@ -982,6 +982,23 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("cached full text", full_text_backed["badges"])
             self.assertIn("full-text brief", full_text_backed["badges"])
 
+            paper.score_components = [
+                {
+                    "name": "topical_relevance",
+                    "value": 9.5,
+                    "matched_terms": ["ambient noise", "Taiwan"],
+                    "explanation": "Title matched high-priority topic terms.",
+                    "evidence_field": "title",
+                },
+                {
+                    "name": "method_relevance",
+                    "value": 2.0,
+                    "matched_terms": ["tomography"],
+                    "explanation": "Method token overlap found.",
+                    "evidence_field": "snippet",
+                },
+            ]
+
             digest = root / "out" / "digest.md"
             html_digest = root / "out" / "digest.html"
             summary = {"knowledge_base_dir": str(kb), "profile": str(root / "profile.json")}
@@ -991,6 +1008,11 @@ class CoreWorkflowTests(unittest.TestCase):
             html_content = html_digest.read_text(encoding="utf-8")
             self.assertIn("evidence full-text-backed", html_content)
             self.assertIn("cached full text", html_content)
+            digest_text = digest.read_text(encoding="utf-8")
+            self.assertIn("Score breakdown:", digest_text)
+            self.assertIn("topical_relevance", digest_text)
+            self.assertIn("method_relevance", digest_text)
+            self.assertIn("Score breakdown", html_content)
 
     def test_evidence_command_reports_ladder_and_selected_paper_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1164,10 +1186,32 @@ class CoreWorkflowTests(unittest.TestCase):
             kb = root / "kb"
             kb.mkdir()
             papers = root / "papers.json"
-            papers.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            paper_record = sample_paper()
+            paper_record["score_components"] = [
+                {
+                    "name": "topical_relevance",
+                    "value": 7.0,
+                    "matched_terms": ["ambient noise"],
+                    "explanation": "title match",
+                    "evidence_field": "title",
+                },
+                {
+                    "name": "method_relevance",
+                    "value": 4.0,
+                    "matched_terms": ["tomography"],
+                    "explanation": "method mention",
+                    "evidence_field": "snippet",
+                },
+            ]
+            papers.write_text(json.dumps([paper_record]), encoding="utf-8")
             feedback = {
                 "version": 1,
-                "papers": {"p1": {"status": "interested", "signals": {"more_like_this": True}}},
+                "papers": {
+                    "p1": {
+                        "status": "interested",
+                        "signals": {"more_like_this": True},
+                    }
+                },
                 "terms": [],
             }
             (kb / "feedback.json").write_text(json.dumps(feedback), encoding="utf-8")
@@ -1200,6 +1244,9 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Matched terms: ambient noise, tomography, Taiwan", content)
             self.assertIn("Feedback status: status=interested", content)
             self.assertIn("Why It Ranked This Way", content)
+            self.assertIn("#### Score Breakdown", content)
+            self.assertIn("topical_relevance", content)
+            self.assertIn("method_relevance", content)
             self.assertIn("Next Tuning Moves", content)
 
     def test_ranking_evaluation_report(self) -> None:
