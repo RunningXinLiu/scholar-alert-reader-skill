@@ -211,6 +211,12 @@ def score_component_lines(paper: Paper, include_zero: bool = False) -> list[str]
     return ranking_format.score_component_lines(paper, include_zero=include_zero)
 
 
+def human_score_component_lines(paper: Paper, include_zero: bool = False) -> list[str]:
+    """Compatibility wrapper for user-facing score-component lines."""
+
+    return ranking_format.human_score_component_lines(paper, include_zero=include_zero)
+
+
 def decode_mime_header(value: str | None) -> str:
     if not value:
         return ""
@@ -2260,7 +2266,7 @@ def render_paper_html(index: int, paper: Paper, kb_dir: Path | None = None) -> s
     )
     badges.extend(f'<span class="badge">{html.escape(term)}</span>' for term in terms)
     reasons = "".join(f"<li>{html.escape(reason)}</li>" for reason in paper.reasons[:4])
-    breakdown = score_component_lines(paper)
+    breakdown = human_score_component_lines(paper)
     alerts = "; ".join(paper.alerts[:4])
     if len(paper.alerts) > 4:
         alerts += f"; +{len(paper.alerts) - 4} more"
@@ -2309,7 +2315,7 @@ def render_paper(index: int, paper: Paper, kb_dir: Path | None = None) -> list[s
     ]
     for reason in paper.reasons[:4]:
         lines.append(f"  - {reason}")
-    breakdown = score_component_lines(paper)
+    breakdown = human_score_component_lines(paper)
     if breakdown:
         lines.append("- Score breakdown:")
         lines.extend(breakdown[:8])
@@ -2442,7 +2448,7 @@ def kb_feedback_markdown_lines(
     feedback: dict[str, Any] | None,
     indent: str = "  ",
 ) -> list[str]:
-    from .copilot import feedback_note_summary, feedback_record, reading_labels, reading_status
+    from .library.status import feedback_note_summary, feedback_record, reading_labels, reading_status
 
     record = asdict(paper)
     item = feedback_record(record, feedback)

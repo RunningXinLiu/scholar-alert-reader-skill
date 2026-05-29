@@ -10,7 +10,7 @@ from .scorer import (
     profile_terms,
     score_paper,
 )
-from .format import aggregate_score_breakdown, paper_score_components, score_component_lines
+from .format import aggregate_score_breakdown, human_score_component_lines, paper_score_components, score_component_lines
 
 __all__ = [
     "ScoreBreakdown",
@@ -22,6 +22,7 @@ __all__ = [
     "profile_terms",
     "score_paper",
     "aggregate_score_breakdown",
+    "human_score_component_lines",
     "paper_score_components",
     "score_component_lines",
 ]

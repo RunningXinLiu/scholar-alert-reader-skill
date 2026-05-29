@@ -6,7 +6,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .copilot import feedback_note, feedback_note_summary, reading_labels, reading_status
+from .library.status import feedback_note, feedback_note_summary, reading_labels, reading_status
 
 
 def parse_iso_date(value: str) -> date | None:

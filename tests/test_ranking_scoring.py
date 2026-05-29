@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from scholar_alert_reader import core
+from scholar_alert_reader.ranking import format as ranking_format
 from scholar_alert_reader.ranking import scorer
 
 
@@ -231,6 +232,39 @@ class RankingScoringTests(unittest.TestCase):
         self.assertEqual(paper.tier, "Must read")
         self.assertIn("feedback_similarity", {c.name for c in result.components})
         self.assertTrue(any("反馈相似度加权" in reason for reason in result.reasons))
+
+    def test_human_score_component_lines_are_readable_and_show_penalties(self) -> None:
+        paper = mk_paper(id="hr1", title="Readable score output")
+        paper.score_components = [
+            {
+                "name": "topical_relevance",
+                "value": 5.0,
+                "matched_terms": ["ambient noise"],
+                "explanation": "Title matched topical query.",
+                "evidence_field": "title",
+            },
+            {
+                "name": "exclusion_penalty",
+                "value": -2.0,
+                "matched_terms": ["benchmark"],
+                "explanation": "Excluded benchmark-like wording.",
+                "evidence_field": "snippet",
+            },
+        ]
+
+        lines = ranking_format.human_score_component_lines(paper, include_zero=True)
+
+        topic_line = next((line for line in lines if "topical_relevance" in line), "")
+        penalty_line = next((line for line in lines if "exclusion_penalty" in line), "")
+        self.assertTrue(topic_line, "Expected topical component line in readable output.")
+        self.assertTrue(penalty_line, "Expected exclusion component line in readable output.")
+        self.assertIn("Topic fit", topic_line)
+        self.assertIn("ambient noise", topic_line)
+        self.assertRegex(topic_line, r"\+\d")
+        self.assertIn("Exclusion penalty", penalty_line)
+        self.assertIn("penalty", penalty_line.lower())
+        self.assertIn("benchmark", penalty_line)
+        self.assertRegex(penalty_line, r"-\d")
 
 
 if __name__ == "__main__":

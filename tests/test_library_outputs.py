@@ -109,11 +109,9 @@ class LibraryOutputTests(unittest.TestCase):
             core.write_kb_paper_pages(kb_dir, [paper, paper2], core.empty_feedback())
 
             note_text = (kb_dir / "papers" / f"{paper.id}.md").read_text(encoding="utf-8")
+            escaped_explanation = json.dumps('explain with colon: and "quote"', ensure_ascii=False)
             self.assertIn(f"title: {json.dumps(paper.title, ensure_ascii=False)}", note_text)
-            self.assertIn(
-                f"explanation: {json.dumps('explain with colon: and \"quote\"', ensure_ascii=False)}",
-                note_text,
-            )
+            self.assertIn(f"explanation: {escaped_explanation}", note_text)
             self.assertIn("score_components:", note_text)
 
             note_text_empty = (kb_dir / "papers" / f"{paper2.id}.md").read_text(encoding="utf-8")

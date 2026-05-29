@@ -8,7 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ..ranking import aggregate_score_breakdown, paper_score_components
+from ..ranking import aggregate_score_breakdown, human_score_component_lines, paper_score_components
+from .status import feedback_note, reading_labels, reading_status
 from .store import paper_directions
 
 
@@ -31,10 +32,10 @@ def _yaml_score_components_lines(components: list[dict[str, Any]]) -> list[str]:
         lines.extend(
             [
                 "  -",
-                f"    name: {_yaml_scalar(component.get("name", ""))}",
-                f"    value: {_yaml_scalar(component.get("value", 0.0))}",
-                f"    explanation: {_yaml_scalar(component.get("explanation", ""))}",
-                f"    evidence_field: {_yaml_scalar(component.get("evidence_field", ""))}",
+                f"    name: {_yaml_scalar(component.get('name', ''))}",
+                f"    value: {_yaml_scalar(component.get('value', 0.0))}",
+                f"    explanation: {_yaml_scalar(component.get('explanation', ''))}",
+                f"    evidence_field: {_yaml_scalar(component.get('evidence_field', ''))}",
                 "    matched_terms:",
             ]
         )
@@ -160,8 +161,6 @@ def write_kb_paper_pages(
 ) -> None:
     """Write one markdown note per paper under kb_dir/papers."""
 
-    from ..copilot import feedback_note, reading_labels, reading_status
-
     if not isinstance(feedback, dict):
         feedback = {"version": 1, "papers": {}, "terms": []}
 
@@ -226,6 +225,10 @@ def write_kb_paper_pages(
             "",
             "- Score breakdown:",
             *breakdown_lines,
+            *human_score_component_lines(
+                paper,
+                include_zero=True,
+            ),
             "",
             "## Snippet",
             "",

@@ -40,7 +40,17 @@ scholar_alert_reader/
 
 ## Flow
 
-`Source parsing` → `Paper` (legacy) → `ranking.score_paper` → `library/store merge/persist` → `library artifacts + rankings + reasons`.
+Core dependency path (standalone):
+
+`ingest/*` → `ranking.scorer` → `ranking.format` → `library.store` / `library.render` → `digest` / `search_index` / exports.
+
+Notes:
+
+- `ranking.format` exposes both:
+  - developer/debug lines (`score_component_lines`)
+  - user-facing lines (`human_score_component_lines`)
+- `library.status` is the shared feedback/reading-state helper used by core and experimental layers.
+- `copilot.py` and related workflows are optional/experimental; they are outside the core dependency path above.
 
 Standalone outputs now include:
 
