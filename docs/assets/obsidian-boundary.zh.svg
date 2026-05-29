@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .title { font: 700 40px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; fill: #0f172a; }
+      .label { font: 600 24px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; fill: #0f172a; }
+      .small { font: 500 20px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; fill: #334155; }
+      .panel-left { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2; rx: 18; ry: 18; }
+      .panel-right { fill: #f0fdfa; stroke: #2dd4bf; stroke-width: 2; rx: 18; ry: 18; }
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 14; ry: 14; }
+      .box-good { fill: #ecfeff; stroke: #22d3ee; }
+      .warn { fill: #dc2626; font: 700 22px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+      .arrow { stroke: #0f766e; stroke-width: 4; fill: none; marker-end: url(#arrowhead); }
+      .stop { stroke: #dc2626; stroke-width: 3; stroke-dasharray: 8 6; fill: none; marker-end: url(#arrowred); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#0f766e" />
+    </marker>
+    <marker id="arrowred" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#dc2626" />
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" fill="#ffffff" />
+  <text x="70" y="90" class="title">目录边界：机器工作区 vs Obsidian 知识图谱</text>
+  <text x="70" y="130" class="small">机器产物留在工具目录里，不要直接灌进个人图谱。</text>
+
+  <rect x="80" y="180" width="700" height="640" class="panel-left" />
+  <text x="120" y="235" class="label">Scholar Alert Reader 项目目录（机器工作区）</text>
+  <text x="120" y="270" class="small">例如：~/scholar_alerts</text>
+
+  <rect x="120" y="320" width="620" height="90" class="box" />
+  <text x="150" y="375" class="label">knowledge_base/（库、索引、运行与分析文件）</text>
+
+  <rect x="120" y="440" width="620" height="90" class="box" />
+  <text x="150" y="495" class="label">reader_out/（digest 与运行输出）</text>
+
+  <rect x="120" y="560" width="620" height="90" class="box" />
+  <text x="150" y="615" class="label">profiles/、feedback.json、source 配置</text>
+
+  <text x="120" y="715" class="warn">不要把整个项目或 knowledge_base 整体同步到 Obsidian。</text>
+
+  <rect x="860" y="180" width="660" height="640" class="panel-right" />
+  <text x="900" y="235" class="label">Obsidian Vault（人工知识图谱区）</text>
+  <text x="900" y="270" class="small">使用独立 inbox 子目录，不要用 vault 根目录</text>
+
+  <rect x="900" y="340" width="580" height="120" class="box box-good" />
+  <text x="930" y="395" class="label">01_Literatures/10_Scholar_Alert_Reader/01_Papers/</text>
+  <text x="930" y="430" class="small">只放 clean 导出的精选论文笔记</text>
+
+  <rect x="900" y="500" width="580" height="130" class="box" />
+  <text x="930" y="555" class="label">你的手写主题笔记 / 项目笔记 / 综述笔记</text>
+  <text x="930" y="592" class="small">由你主动建立链接和知识结构</text>
+
+  <line x1="740" y1="375" x2="900" y2="400" class="arrow" />
+  <text x="760" y="355" class="small">obsidian export（clean）</text>
+
+  <line x1="740" y1="485" x2="900" y2="650" class="stop" />
+  <text x="720" y="520" class="warn">禁止</text>
+
+  <line x1="740" y1="605" x2="900" y2="700" class="stop" />
+  <text x="720" y="640" class="warn">禁止</text>
+</svg>

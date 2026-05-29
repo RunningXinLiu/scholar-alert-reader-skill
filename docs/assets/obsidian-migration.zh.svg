@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .title { font: 700 40px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; fill: #0f172a; }
+      .label { font: 600 24px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; fill: #0f172a; }
+      .small { font: 500 20px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; fill: #334155; }
+      .box { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2; rx: 16; ry: 16; }
+      .good { fill: #ecfeff; stroke: #22d3ee; }
+      .safe { fill: #ecfdf5; stroke: #34d399; }
+      .warn { fill: #fff7ed; stroke: #fb923c; }
+      .arrow { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .tag { font: 700 18px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; fill: #0f172a; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#475569" />
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" fill="#ffffff" />
+  <text x="70" y="90" class="title">迁移流程：旧 full 目录切换到 clean inbox</text>
+  <text x="70" y="130" class="small">先保守，再清理，避免误删或污染图谱。</text>
+
+  <rect x="80" y="190" width="420" height="110" class="box warn" />
+  <text x="290" y="248" class="label" text-anchor="middle">目录里已有 full 历史产物</text>
+
+  <rect x="600" y="170" width="520" height="150" class="box good" />
+  <text x="860" y="230" class="label" text-anchor="middle">先跑 clean + --no-prune</text>
+  <text x="860" y="270" class="small" text-anchor="middle">先导出精选 notes，不清理旧 full 产物</text>
+
+  <rect x="1220" y="190" width="300" height="110" class="box safe" />
+  <text x="1370" y="248" class="label" text-anchor="middle">检查导出效果</text>
+
+  <rect x="560" y="420" width="600" height="150" class="box" />
+  <text x="860" y="480" class="label" text-anchor="middle">是否还需要保留旧 full 产物？</text>
+  <text x="860" y="520" class="small" text-anchor="middle">dashboard / maps / answers / deep-read 索引等</text>
+
+  <rect x="220" y="660" width="520" height="130" class="box warn" />
+  <text x="480" y="718" class="label" text-anchor="middle">继续使用 clean + --no-prune</text>
+  <text x="480" y="754" class="small" text-anchor="middle">最保守，不做自动清理</text>
+
+  <rect x="860" y="660" width="520" height="130" class="box safe" />
+  <text x="1120" y="718" class="label" text-anchor="middle">使用 clean（不加 --no-prune）</text>
+  <text x="1120" y="754" class="small" text-anchor="middle">仅清理 manifest 标记过的 full 产物</text>
+
+  <line x1="500" y1="245" x2="600" y2="245" class="arrow" />
+  <line x1="1120" y1="245" x2="1220" y2="245" class="arrow" />
+  <line x1="1370" y1="300" x2="980" y2="420" class="arrow" />
+  <line x1="740" y1="570" x2="480" y2="660" class="arrow" />
+  <line x1="980" y1="570" x2="1120" y2="660" class="arrow" />
+
+  <text x="700" y="640" class="tag">是</text>
+  <text x="1040" y="640" class="tag">否</text>
+</svg>

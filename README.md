@@ -187,10 +187,13 @@ Sanitized demo screenshots are included for product previews and sharing. Inline
 ## Visual Assets
 
 | Purpose | English | Chinese |
-|---|---|
+|---|---|---|
 | Social card | [social-card.en.png](docs/assets/social-card.en.png) | [social-card.zh.png](docs/assets/social-card.zh.png) |
 | Workflow GIF | [workflow.en.gif](docs/assets/workflow.en.gif) | [workflow.zh.gif](docs/assets/workflow.zh.gif) |
 | Architecture diagram | [architecture-showcase.en.png](docs/assets/architecture-showcase.en.png) | [architecture-showcase.zh.png](docs/assets/architecture-showcase.zh.png) |
+| Obsidian mode decision | [obsidian-mode-decision.en.svg](docs/assets/obsidian-mode-decision.en.svg) | [obsidian-mode-decision.zh.svg](docs/assets/obsidian-mode-decision.zh.svg) |
+| Obsidian directory boundary | [obsidian-boundary.en.svg](docs/assets/obsidian-boundary.en.svg) | [obsidian-boundary.zh.svg](docs/assets/obsidian-boundary.zh.svg) |
+| Obsidian migration flow | [obsidian-migration.en.svg](docs/assets/obsidian-migration.en.svg) | [obsidian-migration.zh.svg](docs/assets/obsidian-migration.zh.svg) |
 | Logo | [logo.png](docs/assets/logo.png) | [logo.png](docs/assets/logo.png) |
 
 ## What It Does
@@ -260,6 +263,8 @@ More explicit boundaries are documented in:
 - [docs/product_boundary.md](docs/product_boundary.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/scoring_model.md](docs/scoring_model.md)
+- [docs/obsidian_export_guide.en.md](docs/obsidian_export_guide.en.md)
+- [docs/obsidian_export_guide.zh.md](docs/obsidian_export_guide.zh.md)
 
 ## Architecture
 
@@ -1010,6 +1015,11 @@ Boundary guidance:
 - Do **not** sync or copy the entire `knowledge_base/` folder into Obsidian.
 - Generated clean notes avoid automatic `[[wikilinks]]`; they use tags and normal Markdown links.
 - Dashboard/index/search files remain useful for this tool, but should not dominate your personal knowledge graph by default.
+
+Detailed operating guides (decision chart, directory boundary chart, and migration flow):
+
+- English: [docs/obsidian_export_guide.en.md](docs/obsidian_export_guide.en.md)
+- 中文: [docs/obsidian_export_guide.zh.md](docs/obsidian_export_guide.zh.md)
 
 Project scaffolds also provide `./status_reader.sh`, `./compare_papers.sh`, `./map_reader.sh`, `./zotero_export.sh`, `./zotero_sync.sh`, `./obsidian_export.sh`, and `./sync_obsidian_vault.sh`.
 
