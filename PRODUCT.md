@@ -2,6 +2,8 @@
 
 Scholar Alert Reader should feel like a small local literature product, not a pile of scripts.
 
+Phase-1 focus: reposition as **local literature triage + lightweight library builder** with optional downstream handoff to Obsidian/Zotero.
+
 ## Public Assets
 
 - `docs/assets/social-card.en.svg` and `docs/assets/social-card.en.png`: English social sharing card for GitHub and public launch.
@@ -20,17 +22,28 @@ Turn scattered paper alerts, bibliography exports, structured scholarly webpages
 
 ## Capability Boundary
 
-Current releases are strongest as a triage and research-memory layer. Ranking, ranking explanation, ranking evaluation, local semantic reranking, selected-paper evidence inspection, selected-paper deep-read briefs, selected-paper workups, Q&A, comparisons, maps, advice, and profile tuning use metadata, snippets, bibliography fields, exact profile terms, lightweight local semantic queries, adaptive feedback similarity, feedback, retained-library context, and cached local full-text briefs when available. Per-paper evidence levels must stay visible in digest cards, feedback UI cards, paper notes, foundation/interested indexes, and deep-read reports so users know whether they are seeing metadata-only, metadata-enriched, PDF-ready, or full-text-backed analysis. The `evidence` command should convert those labels into a practical status report: what the current evidence can support, what remains unverified, which local artifacts exist, and which command upgrades the selected paper. The default semantic reranker is sparse and zero-dependency; advanced users can opt into a user-installed local `sentence-transformers` embedding model. Local PDF/text extraction can create a full-text cache and section-aware brief with figure, table, data, and code signals when the user provides a local file path, Zotero supplies a local path, or `fetch-pdf` saves an explicit/open PDF URL locally. `review-workflow` gives users a simpler one-paper path from optional local full-text extraction to `workup` and `review-pack`. `deep-read` now surfaces a concise full-text evidence snapshot when that brief already exists and an Evidence Boundary section even when it is metadata-only; `workup` turns one selected paper into a human-readable reading/citation/manuscript decision brief; and `review-pack` turns the selected paper, user profile, foundation, interested papers, optional full-text brief, and optional full-text cache into an LLM-ready markdown context pack. Selected-paper report commands should write browser-friendly `.html` companions by default and support `--open` so users do not have to browse the file tree after choosing a paper. Public copy should still describe this as assisted reading rather than autonomous expert full-paper review.
+Core scope: **local ingestion, dedupe, scoring, explainability, feedback learning, and lightweight local library outputs**.
+
+Integrated scope:
+
+- Obsidian and Zotero are optional downstream integrations.
+- `deep-read`, `workup`, `compare`, `map`, `ask`, and `advice` are experimental helpers and remain evidence-aware planning/reporting workflows, not autonomous claims on full-text validity.
+
+Per-paper evidence must remain visible and explicit at the boundaries:
+
+`metadata-only -> metadata-enriched -> PDF-link-ready -> local-PDF-ready -> full-text-backed`.
+
+## User Modes
 
 ## User Tiers
 
-### Codex-only
+### Standalone (core)
 
 For users who do not use Obsidian or Zotero.
 
 - Input: Gmail API, Mail.app, exported `.mbox`, BibTeX/RIS, structured scholarly webpages, RSS/Atom feeds, or arXiv queries.
 - Output: `DASHBOARD.html`, `digest.html`, `digest.md`, `papers.json`, `reading_plan.html`, `review_queue.html`, `analysis_index.html`, `profiles/profile_doctor.md`, `knowledge_base/`.
-- Main actions: self-test, profile-based ranking, evidence inspection, ranking explanation, ranking evaluation, embedding check, semantic rerank, dashboard, analysis-index, feedback UI, scheduled/manual digest, profile-tune, reading-plan, deep-read, workup, fetch-pdf, full-text, review-workflow, review-pack, review-queue, feedback-aware ask-library, advice, compare, map.
+-- Main actions: self-test, profile-based ranking, evidence inspection, ranking explanation, ranking evaluation, embedding check, semantic rerank, dashboard, analysis-index, feedback UI, scheduled/manual digest, profile-tune, reading-plan, and data export.
 
 ## Platform Boundaries
 

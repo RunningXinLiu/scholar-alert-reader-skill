@@ -1,20 +1,36 @@
 # Scholar Alert Reader Skill
 
-Turn Scholar Alert emails, Gmail, Apple Mail, `.mbox`, BibTeX/RIS, scholarly webpages, RSS/Atom feeds, and arXiv queries into a personalized reading queue, daily digest, evidence-aware selected-paper workflow, and cumulative research knowledge base.
+Local, privacy-first literature triage and lightweight paper-library builder.
+
+This project converts multiple paper discovery sources into a deduped, ranked, and explainable reading queue, then stores outcomes in a local library.
 
 Version: `0.2.88`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
-```mermaid
-flowchart LR
-  A["Paper sources<br/>Gmail · Mail.app · mbox<br/>BibTeX/RIS · web · RSS · arXiv"]
-  B["Local triage engine<br/>extract · dedupe · score<br/>profile · feedback · evidence level"]
-  C["Reading outputs<br/>HTML digest · reading plan<br/>foundation · interested · review queue"]
-  D["Research memory<br/>full-text briefs · workups<br/>review packs · Q&A · maps"]
-  E["Optional handoff<br/>Obsidian notes<br/>Zotero BibTeX/RIS/PDF paths"]
-  A --> B --> C --> D --> E
-```
+## Product Boundary (v2)
+
+### Standalone mode (required)
+
+No Obsidian/Zotero needed.
+
+- Multi-source ingestion: Gmail, Mail.app, `.mbox`, BibTeX/RIS, web pages, RSS/Atom, arXiv.
+- Local paper metadata normalization, deduplication, scoring, rank explanation, and daily/manual digest.
+- Reading state and labels: `unread`, `reading`, `read`, `must-cite`, `archive`, `background-only`, `not-relevant`.
+- Export artifacts: markdown digest, JSONL/CSV, lightweight local `knowledge_base`.
+
+### Integrated mode (optional)
+
+Obsidian/Zotero are optional downstream sinks.
+
+- Obsidian: exported Markdown notes and indexes.
+- Zotero: BibTeX/RIS exports and retained-paper sync.
+
+These tools are sinks only; they are not required for core triage.
+
+> Experiment scope is still a local triage stack. `deep-read`, `workup`, `advice`, and related workflows are metadata-first and should be treated as planning aids, not final scholarly conclusions.
+
+## Start Here
 
 > GitHub sometimes renders repository images through `raw.githubusercontent.com`, which can be blocked or slow on some networks. The README therefore uses native Mermaid/text for the main overview. Downloadable PNG/GIF assets are still included under [docs/assets](docs/assets) and [docs/screenshots](docs/screenshots).
 
@@ -168,13 +184,22 @@ The core ranking layer is local and explainable: profile terms, methods, regions
 
 ## Product Modes
 
-Scholar Alert Reader is useful without any external note app:
+1. **Standalone** (default): works end-to-end with local files only.
+   - Read and normalize from multiple sources.
+   - Rank, explain, filter, and export a daily/local digest.
+   - Keep local reading state and local library outputs.
 
-1. **Codex-only**: read alerts or bibliography exports, rank papers, evaluate ranking from feedback, run semantic rerank, inspect evidence levels, fetch explicit/open PDFs when available, write HTML/Markdown digests, maintain a local knowledge base, and use reading-plan/deep-read/workup/review-workflow/Q&A/review-pack/advice commands.
-2. **Codex + Obsidian**: sync generated notes, maps, reading status, answers, comparisons, and deep reads into a generated Obsidian folder.
-3. **Codex + Zotero + Obsidian**: use Zotero for citations/PDFs and Obsidian for durable human-written notes and synthesis.
+2. **Integrated**:
+   - Obsidian sync of generated notes/indexes.
+   - Zotero export for citation/bibliography workflows.
 
-Obsidian and Zotero are optional integrations. The core workflow remains local files plus Codex.
+Obsidian and Zotero are optional integrations, not hard dependencies.
+
+More explicit boundaries are documented in:
+
+- [docs/product_boundary.md](docs/product_boundary.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/scoring_model.md](docs/scoring_model.md)
 
 ## Architecture
 
@@ -223,8 +248,10 @@ Chinese sharing assets are included under `docs/assets/*.zh.*` and paired with C
 
 ```text
 scholar_alert_reader/
-├── core.py        # CLI, source parsing/ranking pipeline, knowledge-base writes
-├── copilot.py     # deep-read, workups, Q&A, advice, maps, Obsidian rendering
+├── core.py        # CLI, source parsing/ranking pipeline, command wiring
+├── ranking/       # scoring extraction layer (standalone)
+├── models.py      # canonical data structures
+├── copilot.py     # deep-read, workups, Q&A, advice, maps
 ├── diagnostics.py # setup checks
 ├── enrich.py      # OpenAlex/Crossref enrichment
 ├── export.py      # BibTeX/RIS/Markdown/JSONL exporters
@@ -916,6 +943,8 @@ python3 scripts/scholar_reader.py weekly \
 
 The richer knowledge base includes:
 
+- `index.md` / `index.html`: standalone knowledge-base home page
+- `search_index.json`: lightweight local search/filter index for retained papers
 - `papers/<paper-id>.md`: one note page per retained paper
 - `directions/*.md`: retained papers grouped by topic tags
 - `weekly_review.md`: recurring synthesis from the retained library, feedback state, and saved personal notes

@@ -27,7 +27,6 @@ import subprocess
 import sys
 import tempfile
 import webbrowser
-import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -41,6 +40,14 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from . import __version__
+from .ranking import scorer as ranking_scorer
+from .ingest import mail as ingest_mail
+from .ingest import bibtex as ingest_bibtex
+from .ingest import ris as ingest_ris
+from .ingest import rss as ingest_rss
+from .ingest import web as ingest_web
+from .ingest import arxiv as ingest_arxiv
+from .library import store as library_store
 
 
 SCHOLAR_SENDER = "scholaralerts-noreply@google.com"
@@ -520,76 +527,11 @@ def feedback_adjustment(
     paper: Paper,
     feedback: dict[str, Any] | None,
 ) -> tuple[int, list[str], set[str], list[str], str | None]:
-    if not feedback:
-        return 0, [], set(), [], None
-
-    delta = 0
-    matched_terms: list[str] = []
-    tags: set[str] = set()
-    reasons: list[str] = []
-    forced_tier: str | None = None
-    fields = text_fields(paper)
-    haystack = "\n".join(fields.values())
-
-    paper_feedback = feedback.get("papers", {}).get(paper.id)
-    if isinstance(paper_feedback, dict):
-        status = paper_feedback.get("status")
-        if status == "interested":
-            delta += 12
-            forced_tier = "Must read"
-            tags.add("feedback")
-            reasons.append("用户反馈：这篇已标为 interested，强制进入重点阅读。")
-        elif status == "archive":
-            delta -= 100
-            forced_tier = "Archive"
-            tags.add("feedback")
-            reasons.append("用户反馈：这篇已标为 archive，强制归档。")
-
-        signals = paper_feedback.get("signals", {})
-        if isinstance(signals, dict) and signals.get("more_like_this"):
-            delta += 4
-            tags.add("feedback")
-            reasons.append("用户反馈：这篇曾被标记为 more-like-this。")
-        if isinstance(signals, dict) and signals.get("less_like_this"):
-            delta -= 8
-            tags.add("feedback")
-            reasons.append("用户反馈：这篇曾被标记为 less-like-this。")
-
-    for item in feedback.get("terms", []):
-        if not isinstance(item, dict):
-            continue
-        term = str(item.get("term", "")).strip()
-        if not term:
-            continue
-        if term.lower() not in haystack:
-            continue
-        weight = int(item.get("weight", 3))
-        direction = str(item.get("direction", "positive"))
-        tags.add("feedback")
-        if direction == "negative":
-            delta -= weight
-            matched_terms.append(f"user:-{term}")
-            reasons.append(f"用户反馈降权：命中 `{term}`。")
-        else:
-            delta += weight
-            matched_terms.append(f"user:{term}")
-            reasons.append(f"用户反馈加权：命中 `{term}`。")
-
-    return delta, sorted(set(matched_terms), key=lambda t: t.lower()), tags, reasons[:5], forced_tier
+    return ranking_scorer.feedback_adjustment(paper, feedback)
 
 
 def adaptive_ranking_settings(profile: dict[str, Any]) -> dict[str, Any]:
-    configured = profile.get("adaptive_ranking", {})
-    if not isinstance(configured, dict):
-        configured = {}
-    return {
-        "enabled": bool(configured.get("enabled", True)),
-        "positive_weight": int(configured.get("positive_weight", 4)),
-        "negative_weight": int(configured.get("negative_weight", 5)),
-        "min_overlap": max(2, int(configured.get("min_overlap", 3))),
-        "max_seed_papers": max(1, int(configured.get("max_seed_papers", 40))),
-        "seed_tiers": [str(tier) for tier in configured.get("seed_tiers", ["Must read"])],
-    }
+    return ranking_scorer.adaptive_ranking_settings(profile)
 
 
 def feedback_paper_record(feedback: dict[str, Any] | None, paper_id: str) -> dict[str, Any]:
@@ -638,86 +580,7 @@ def adaptive_ranking_adjustment(
     feedback: dict[str, Any] | None,
     library: list[Paper] | None,
 ) -> tuple[int, list[str], set[str], list[str]]:
-    settings = adaptive_ranking_settings(profile)
-    if not settings["enabled"]:
-        return 0, [], set(), []
-
-    seed_tiers = set(settings["seed_tiers"])
-    library_positive_seeds: list[Paper] = []
-    feedback_positive_seeds: list[Paper] = []
-    negative_seeds: list[Paper] = []
-    library_by_id = {seed.id: seed for seed in library or [] if seed.id != paper.id}
-    for seed in library_by_id.values():
-        if positive_seed_paper(seed, feedback, seed_tiers):
-            library_positive_seeds.append(seed)
-
-    for paper_id, record in (feedback or {}).get("papers", {}).items():
-        if not isinstance(record, dict) or str(paper_id) == paper.id:
-            continue
-        signals = record.get("signals", {}) if isinstance(record.get("signals", {}), dict) else {}
-        seed = library_by_id.get(str(paper_id)) or feedback_record_to_paper(str(paper_id), record)
-        if negative_seed_paper(record):
-            negative_seeds.append(seed)
-        elif record.get("status") == "interested" or signals.get("more_like_this"):
-            feedback_positive_seeds.append(seed)
-
-    positive_seeds = list({seed.id: seed for seed in feedback_positive_seeds + library_positive_seeds}.values())[
-        : settings["max_seed_papers"]
-    ]
-    negative_seeds = negative_seeds[: settings["max_seed_papers"]]
-    if not positive_seeds and not negative_seeds:
-        return 0, [], set(), []
-
-    target_tokens = paper_affinity_tokens(paper)
-    if len(target_tokens) < settings["min_overlap"]:
-        return 0, [], set(), []
-
-    def best(seed_papers: list[Paper]) -> tuple[Paper | None, list[str], int]:
-        best_seed: Paper | None = None
-        best_overlap: list[str] = []
-        best_score = 0
-        for seed in seed_papers:
-            seed_tokens = paper_affinity_tokens(seed)
-            overlap = sorted(target_tokens & seed_tokens)
-            overlap_count = len(overlap)
-            if overlap_count < settings["min_overlap"]:
-                continue
-            score = overlap_count * 100 + (50 if seed.tier == "Must read" else 0)
-            if score > best_score:
-                best_seed = seed
-                best_overlap = overlap
-                best_score = score
-        return best_seed, best_overlap, best_score
-
-    positive_seed, positive_overlap, _ = best(positive_seeds)
-    negative_seed, negative_overlap, _ = best(negative_seeds)
-
-    delta = 0
-    matched_terms: list[str] = []
-    tags: set[str] = set()
-    reasons: list[str] = []
-    if positive_seed:
-        strength = min(1.5, len(positive_overlap) / settings["min_overlap"])
-        boost = max(1, round(settings["positive_weight"] * strength))
-        delta += boost
-        matched_terms.append(f"similar:{positive_seed.title}")
-        tags.add("adaptive")
-        reasons.append(
-            f"反馈相似度加权：和已关注论文 `{positive_seed.title}` 共享 {len(positive_overlap)} 个关键词"
-            f"（{', '.join(positive_overlap[:6])}）。"
-        )
-    if negative_seed:
-        strength = min(1.5, len(negative_overlap) / settings["min_overlap"])
-        penalty = max(1, round(settings["negative_weight"] * strength))
-        delta -= penalty
-        matched_terms.append(f"dissimilar:{negative_seed.title}")
-        tags.add("adaptive")
-        reasons.append(
-            f"反馈相似度降权：和已归档论文 `{negative_seed.title}` 共享 {len(negative_overlap)} 个关键词"
-            f"（{', '.join(negative_overlap[:6])}）。"
-        )
-
-    return delta, matched_terms, tags, reasons[:3]
+    return ranking_scorer.adaptive_ranking_adjustment(paper, profile, feedback, library)
 
 
 def score_paper(
@@ -727,141 +590,15 @@ def score_paper(
     feedback: dict[str, Any] | None = None,
     library: list[Paper] | None = None,
 ) -> None:
-    positive, negative = profile_terms(profile, boost)
-    fields = text_fields(paper)
-    score = 0
-    hits: list[TermHit] = []
-
-    for item in positive:
-        if item["section"] == "watch_authors":
-            continue
-        term = item["term"]
-        needle = term.lower()
-        if not needle:
-            continue
-        exact_match = False
-        for field_name, field_text in fields.items():
-            if needle in field_text:
-                weight = item["weight"]
-                if field_name == "title":
-                    weight *= 2
-                elif field_name == "alerts" and item["section"] == "watch_authors":
-                    weight *= 2
-                score += weight
-                hits.append(TermHit(term, weight, item["section"], field_name, item.get("tags", [])))
-                exact_match = True
-                break
-        if not exact_match:
-            semantic = semantic_term_hit(item, fields)
-            if semantic:
-                weight, field_name, overlap = semantic
-                score += weight
-                tags = sorted(set(item.get("tags", [])) | {"semantic"})
-                hits.append(TermHit(term, weight, item["section"], field_name, tags, overlap))
-
-    topical_score = score
-    for item in positive:
-        if item["section"] != "watch_authors":
-            continue
-        term = item["term"]
-        needle = term.lower()
-        if not needle:
-            continue
-        for field_name, field_text in fields.items():
-            if needle not in field_text:
-                continue
-            weight = item["weight"]
-            if field_name == "authors_source":
-                weight *= 2
-            elif field_name == "alerts":
-                if topical_score < 4:
-                    weight = 0
-                else:
-                    weight = min(weight, 2)
-            elif field_name != "title":
-                weight = min(weight, 1)
-            if weight == 0:
-                break
-            score += weight
-            hits.append(TermHit(term, weight, item["section"], field_name, item.get("tags", [])))
-            break
-
-    for item in negative:
-        term = item["term"]
-        needle = term.lower()
-        if not needle:
-            continue
-        for field_name, field_text in fields.items():
-            if needle in field_text:
-                weight = item["weight"]
-                score -= weight
-                hits.append(TermHit(f"-{term}", -weight, "exclude_terms", field_name, []))
-                break
-
-    if paper.occurrences > 1:
-        score += min(3, paper.occurrences - 1)
-
-    current_year = datetime.now().year
-    if str(current_year) in paper.authors_source or str(current_year - 1) in paper.authors_source:
-        score += 1
-
-    if re.search(r"\b(review|survey|perspective|benchmark|dataset)\b", paper.title, re.I):
-        score += 1
-
-    feedback_delta, feedback_terms, feedback_tags, feedback_reasons, forced_tier = feedback_adjustment(paper, feedback)
-    score += feedback_delta
-    adaptive_delta, adaptive_terms, adaptive_tags, adaptive_reasons = adaptive_ranking_adjustment(
-        paper, profile, feedback, library
-    )
-    score += adaptive_delta
-
-    thresholds = profile.get("tier_thresholds", {})
-    must = int(thresholds.get("must_read", 8))
-    skim = int(thresholds.get("skim", 3))
-
-    paper.score = score
-    paper.tier = "Must read" if score >= must else "Skim" if score >= skim else "Archive"
-    if forced_tier == "Must read":
-        paper.score = max(paper.score, must)
-        paper.tier = "Must read"
-    elif forced_tier == "Archive":
-        paper.score = min(paper.score, -20)
-        paper.tier = "Archive"
-    paper.matched_terms = sorted(
-        {hit.term for hit in hits} | set(feedback_terms) | set(adaptive_terms),
-        key=lambda t: t.lower(),
-    )
-    paper.tags = sorted({tag for hit in hits for tag in hit.tags} | set(feedback_tags) | set(adaptive_tags))
-    profile_reasons = build_reasons(hits, paper) if hits or not (feedback_reasons or adaptive_reasons) else []
-    paper.reasons = feedback_reasons + adaptive_reasons + profile_reasons
+    ranking_scorer.score_paper(paper, profile, boost, feedback, library)
 
 
 def build_reasons(hits: list[TermHit], paper: Paper) -> list[str]:
-    if not hits:
-        return ["没有命中当前 profile 的重点词，默认归档或低优先级。"]
-    top_hits = sorted(hits, key=lambda h: abs(h.weight), reverse=True)[:4]
-    reasons = []
-    for hit in top_hits:
-        if hit.weight < 0:
-            reasons.append(f"降权：命中排除词 `{hit.term[1:]}`。")
-        elif hit.field == "title":
-            reasons.append(f"标题命中 `{hit.term}`，与 `{hit.section}` 相关。")
-        elif hit.field.startswith("semantic"):
-            overlap = f"；重叠词：{', '.join(hit.overlap[:6])}" if hit.overlap else ""
-            reasons.append(f"语义匹配 `{hit.term}`，与 `{hit.section}` 相关{overlap}。")
-        elif hit.field == "alerts":
-            reasons.append(f"来自/关联重点 alert `{hit.term}`。")
-        else:
-            reasons.append(f"摘要或来源命中 `{hit.term}`。")
-    if paper.occurrences > 1:
-        reasons.append(f"同一论文在 {paper.occurrences} 个 alert 记录中出现。")
-    return reasons
+    return ranking_scorer.build_reasons(hits, paper)
 
 
 def parse_alert_name(subject: str) -> str:
-    alert = re.sub(r"\s+-\s+(new related research|new articles|新的相关研究工作)\s*$", "", subject).strip()
-    alert = re.sub(r"^Google Scholar Alert:\s*", "", alert, flags=re.I)
-    return alert or subject
+    return ingest_mail.parse_alert_name(subject)
 
 
 def collect_papers_from_message(
@@ -870,103 +607,24 @@ def collect_papers_from_message(
     counts: Counter,
     cutoff: datetime | None,
 ) -> None:
-    counts["messages"] += 1
-    sender = decode_mime_header(message.get("from"))
-    if SCHOLAR_SENDER not in sender:
-        return
-    counts["scholar_messages"] += 1
-
-    message_dt = parse_message_date(message.get("date"))
-    if cutoff and message_dt and message_dt < cutoff:
-        counts["skipped_by_date"] += 1
-        return
-
-    date = message_dt.date().isoformat() if message_dt else ""
-    subject = decode_mime_header(message.get("subject"))
-    alert = parse_alert_name(subject)
-    html_body = get_html_body(message)
-    if not html_body:
-        counts["empty_html"] += 1
-        return
-
-    entry_count = 0
-    for match in ENTRY_RE.finditer(html_body):
-        title = clean_html(match.group("title"))
-        if not title:
-            continue
-        key = normalize_title(title)
-        authors_source = clean_html(match.group("meta"))
-        snippet = clean_html(match.group("snippet"))
-        url, scholar_url = resolve_scholar_url(match.group("href"))
-        existing = papers_by_key.get(key)
-
-        if existing is None:
-            papers_by_key[key] = Paper(
-                id=stable_id(title),
-                title=title,
-                authors_source=authors_source,
-                snippet=snippet,
-                url=url,
-                scholar_url=scholar_url,
-                first_seen=date,
-                last_seen=date,
-                alerts=[alert],
-                occurrences=1,
-            )
-        else:
-            existing.occurrences += 1
-            if alert not in existing.alerts:
-                existing.alerts.append(alert)
-            dates = [d for d in [existing.first_seen, existing.last_seen, date] if d]
-            if dates:
-                existing.first_seen = min(dates)
-                existing.last_seen = max(dates)
-            if len(snippet) > len(existing.snippet):
-                existing.snippet = snippet
-            if not existing.url and url:
-                existing.url = url
-                existing.scholar_url = scholar_url
-        entry_count += 1
-
-    counts["entries"] += entry_count
+    ingest_mail.collect_papers_from_message(
+        message=message,
+        papers_by_key=papers_by_key,
+        counts=counts,
+        cutoff=cutoff,
+        paper_factory=Paper,
+    )
 
 
 def parse_mbox(
     mbox_path: Path,
     since_days: int | None = None,
 ) -> tuple[list[Paper], dict[str, int]]:
-    if mbox_path.is_dir():
-        mbox_path = mbox_path / "mbox"
-    if not mbox_path.exists():
-        raise SystemExit(f"Cannot find mbox file: {mbox_path}")
-
-    cutoff = None
-    if since_days is not None:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
-
-    messages = mailbox.mbox(mbox_path)
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-
-    for message in messages:
-        collect_papers_from_message(message, papers_by_key, counts, cutoff)
-
-    return list(papers_by_key.values()), dict(counts)
+    return ingest_mail.parse_mbox(mbox_path, since_days=since_days, paper_factory=Paper)
 
 
 def parse_eml_dir(eml_dir: Path, since_days: int | None = None) -> tuple[list[Paper], dict[str, int]]:
-    cutoff = None
-    if since_days is not None:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
-
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-    for eml_path in sorted(eml_dir.glob("*.eml")):
-        with eml_path.open("rb") as f:
-            message = message_from_binary_file(f)
-        collect_papers_from_message(message, papers_by_key, counts, cutoff)
-    counts["eml_files"] = len(list(eml_dir.glob("*.eml")))
-    return list(papers_by_key.values()), dict(counts)
+    return ingest_mail.parse_eml_dir(eml_dir, since_days=since_days, paper_factory=Paper)
 
 
 def file_seen_date(path: Path) -> str:
@@ -1103,27 +761,7 @@ def parse_bibtex_fields(body: str) -> dict[str, str]:
 
 
 def parse_bibtex_entries(text: str) -> list[dict[str, str]]:
-    entries: list[dict[str, str]] = []
-    pos = 0
-    while True:
-        at = text.find("@", pos)
-        if at == -1:
-            break
-        match = re.match(r"@([A-Za-z]+)\s*([\{\(])", text[at:])
-        if not match:
-            pos = at + 1
-            continue
-        entry_type = match.group(1).lower()
-        opener = match.group(2)
-        closer = "}" if opener == "{" else ")"
-        body_start = at + match.end()
-        body, next_pos = read_balanced_value(text, body_start - 1, opener, closer)
-        if entry_type not in {"comment", "preamble", "string"}:
-            fields = parse_bibtex_fields(body)
-            fields["_type"] = entry_type
-            entries.append(fields)
-        pos = max(next_pos, at + 1)
-    return entries
+    return ingest_bibtex.parse_bibtex_entries(text)
 
 
 def coerce_list(value: Any) -> list[str]:
@@ -1295,661 +933,143 @@ def merge_bibliography_paper(papers_by_key: dict[str, Paper], paper: Paper) -> N
 
 
 def paper_from_bibtex_entry(fields: dict[str, str], source_path: Path) -> Paper | None:
-    title = first_value(fields, ["title"])
-    if not title:
-        return None
-    authors = split_authors(first_value(fields, ["author", "editor"]))
-    source = first_value(fields, ["journal", "journaltitle", "booktitle", "publisher", "school", "institution"])
-    year = year_from_fields(fields, ["year", "date"])
-    doi = first_value(fields, ["doi"])
-    url = first_value(fields, ["url", "link"]) or doi_url(doi)
-    keywords = split_keywords(first_value(fields, ["keywords", "keyword"]))
-    abstract = first_value(fields, ["abstract", "annote", "note"])
-    snippet = abstract or ("Keywords: " + ", ".join(keywords) if keywords else "Imported from BibTeX.")
-    seen_date = file_seen_date(source_path)
-    metadata = {
-        "bibtex": {
-            "entry_type": fields.get("_type", ""),
-            "key": fields.get("_key", ""),
-            "doi": doi,
-            "year": year,
-            "source": source,
-            "authors": authors,
-            "keywords": keywords,
-        }
-    }
-    return Paper(
-        id=stable_id(title),
-        title=title,
-        authors_source=bibliography_authors_source(authors, source, year),
-        snippet=snippet,
-        url=url,
-        scholar_url="",
-        first_seen=seen_date,
-        last_seen=seen_date,
-        alerts=[source_path.name, "BibTeX import"],
-        occurrences=1,
-        metadata=metadata,
-    )
+    return ingest_bibtex.paper_from_bibtex_entry(fields, source_path, paper_factory=Paper)
 
 
 def parse_bibtex_source(bibtex_path: Path) -> tuple[list[Paper], dict[str, int]]:
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-    for path in bibliography_paths(bibtex_path, ".bib"):
-        counts["bibliography_files"] += 1
-        text = path.read_text(encoding="utf-8", errors="replace")
-        entries = parse_bibtex_entries(text)
-        counts["bibliography_entries"] += len(entries)
-        for entry in entries:
-            paper = paper_from_bibtex_entry(entry, path)
-            if paper is None:
-                counts["bibliography_skipped_no_title"] += 1
-                continue
-            merge_bibliography_paper(papers_by_key, paper)
-    counts["bibliography_unique_papers"] = len(papers_by_key)
-    return list(papers_by_key.values()), dict(counts)
+    papers, counts = ingest_bibtex.parse_bibtex_source(bibtex_path, paper_factory=Paper)
+    return papers, counts
 
 
 def parse_ris_entries(text: str) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    current: dict[str, Any] = {}
-    last_tag = ""
-    for raw_line in text.splitlines():
-        if not raw_line.strip():
-            continue
-        tag_match = re.match(r"^([A-Z0-9]{2})\s{2}-\s?(.*)$", raw_line)
-        if tag_match:
-            tag = tag_match.group(1)
-            value = clean_bibliography_value(tag_match.group(2))
-            if tag == "TY":
-                current = {"TY": value}
-            elif tag == "ER":
-                if current:
-                    entries.append(current)
-                current = {}
-            elif current:
-                existing = current.get(tag)
-                if existing is None:
-                    current[tag] = value
-                elif isinstance(existing, list):
-                    existing.append(value)
-                else:
-                    current[tag] = [existing, value]
-            last_tag = tag
-        elif current and last_tag:
-            continuation = clean_bibliography_value(raw_line)
-            existing = current.get(last_tag)
-            if isinstance(existing, list) and existing:
-                existing[-1] = " ".join([existing[-1], continuation]).strip()
-            elif isinstance(existing, str):
-                current[last_tag] = " ".join([existing, continuation]).strip()
-    if current:
-        entries.append(current)
-    return entries
+    return ingest_ris.parse_ris_entries(text)
 
 
 def paper_from_ris_entry(fields: dict[str, Any], source_path: Path) -> Paper | None:
-    title = first_value(fields, ["TI", "T1", "CT"])
-    if not title:
-        return None
-    authors = coerce_list(fields.get("AU") or fields.get("A1") or fields.get("A2"))
-    source = first_value(fields, ["JO", "JF", "JA", "T2", "PB"])
-    year = year_from_fields(fields, ["PY", "Y1", "DA"])
-    doi = first_value(fields, ["DO"])
-    url = first_value(fields, ["UR", "L1", "LK"]) or doi_url(doi)
-    keywords = split_keywords(fields.get("KW"))
-    abstract = first_value(fields, ["AB", "N2"])
-    snippet = abstract or ("Keywords: " + ", ".join(keywords) if keywords else "Imported from RIS.")
-    seen_date = file_seen_date(source_path)
-    metadata = {
-        "ris": {
-            "type": first_value(fields, ["TY"]),
-            "doi": doi,
-            "year": year,
-            "source": source,
-            "authors": authors,
-            "keywords": keywords,
-        }
-    }
-    return Paper(
-        id=stable_id(title),
-        title=title,
-        authors_source=bibliography_authors_source(authors, source, year),
-        snippet=snippet,
-        url=url,
-        scholar_url="",
-        first_seen=seen_date,
-        last_seen=seen_date,
-        alerts=[source_path.name, "RIS import"],
-        occurrences=1,
-        metadata=metadata,
-    )
+    return ingest_ris.paper_from_ris_entry(fields, source_path, paper_factory=Paper)
 
 
 def parse_ris_source(ris_path: Path) -> tuple[list[Paper], dict[str, int]]:
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-    for path in bibliography_paths(ris_path, ".ris"):
-        counts["bibliography_files"] += 1
-        text = path.read_text(encoding="utf-8", errors="replace")
-        entries = parse_ris_entries(text)
-        counts["bibliography_entries"] += len(entries)
-        for entry in entries:
-            paper = paper_from_ris_entry(entry, path)
-            if paper is None:
-                counts["bibliography_skipped_no_title"] += 1
-                continue
-            merge_bibliography_paper(papers_by_key, paper)
-    counts["bibliography_unique_papers"] = len(papers_by_key)
-    return list(papers_by_key.values()), dict(counts)
+    papers, counts = ingest_ris.parse_ris_source(ris_path, paper_factory=Paper)
+    return papers, counts
 
 
 def local_name(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
+    return ingest_rss.local_name(tag)
 
 
-def child_text(element: ET.Element, name: str) -> str:
-    for child in list(element):
-        if local_name(child.tag) == name:
-            return clean_html("".join(child.itertext()))
-    return ""
+def child_text(element: Any, name: str) -> str:
+    return ingest_rss.child_text(element, name)
 
 
-def children_named(element: ET.Element, name: str) -> list[ET.Element]:
-    return [child for child in list(element) if local_name(child.tag) == name]
+def children_named(element: Any, name: str) -> list[Any]:
+    return ingest_rss.children_named(element, name)
 
 
 def feed_date(value: str) -> str:
-    value = value.strip()
-    if not value:
-        return datetime.now().date().isoformat()
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return parsed.date().isoformat()
-    except ValueError:
-        pass
-    parsed_email_date = parse_message_date(value)
-    if parsed_email_date:
-        return parsed_email_date.date().isoformat()
-    match = re.search(r"\b(18|19|20|21)\d{2}-\d{2}-\d{2}\b", value)
-    if match:
-        return match.group(0)
-    return datetime.now().date().isoformat()
+    return ingest_rss.feed_date(value)
 
 
 def is_url(value: str) -> bool:
-    return urlparse(value).scheme in {"http", "https"}
+    return ingest_rss.is_url(value)
 
 
 def read_feed_text(source: str, timeout: int) -> str:
-    source = source.strip()
-    if is_url(source):
-        request = Request(source, headers={"User-Agent": f"ScholarAlertReader/{__version__}"})
-        with urlopen(request, timeout=timeout) as response:
-            charset = response.headers.get_content_charset() or "utf-8"
-            return response.read().decode(charset, errors="replace")
-    return Path(source).expanduser().read_text(encoding="utf-8", errors="replace")
+    return ingest_rss.read_feed_text(source, timeout)
 
 
 def rss_sources(source: str) -> list[str]:
-    source = source.strip()
-    if not source:
-        raise SystemExit("RSS/Atom source is empty.")
-    path = Path(source).expanduser()
-    if path.exists():
-        if path.is_dir():
-            files = sorted(
-                item
-                for item in path.iterdir()
-                if item.is_file() and item.suffix.lower() in {".xml", ".rss", ".atom"}
-            )
-            if not files:
-                raise SystemExit(f"No .xml/.rss/.atom feed files found in directory: {path}")
-            return [str(item) for item in files]
-        if path.suffix.lower() in {".txt", ".list"}:
-            lines: list[str] = []
-            for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-                line = raw_line.strip()
-                if not line or line.lstrip().startswith("#"):
-                    continue
-                line_path = Path(line).expanduser()
-                if not is_url(line) and not line_path.is_absolute():
-                    line = str(path.parent / line_path)
-                lines.append(line)
-            if not lines:
-                raise SystemExit(f"No feed URLs or paths found in: {path}")
-            return lines
-        return [str(path)]
-    return split_csv(source) or [source]
+    return ingest_rss.rss_sources(source)
 
 
-def atom_link(entry: ET.Element) -> str:
-    fallback = ""
-    for link in children_named(entry, "link"):
-        href = link.attrib.get("href", "").strip()
-        rel = link.attrib.get("rel", "alternate")
-        if href and rel == "alternate":
-            return href
-        if href and not fallback:
-            fallback = href
-    return fallback or child_text(entry, "id")
+def atom_link(entry: Any) -> str:
+    return ingest_rss.atom_link(entry)
 
 
-def feed_authors(entry: ET.Element) -> list[str]:
-    authors: list[str] = []
-    for author in children_named(entry, "author"):
-        name = child_text(author, "name") or clean_html("".join(author.itertext()))
-        if name and name not in authors:
-            authors.append(name)
-    creator = child_text(entry, "creator")
-    if creator:
-        for part in re.split(r"\s*;\s*|\s*,\s*", creator):
-            if part and part not in authors:
-                authors.append(part)
-    return authors
+def feed_authors(entry: Any) -> list[str]:
+    return ingest_rss.feed_authors(entry)
 
 
-def paper_from_atom_entry(entry: ET.Element, feed_title: str, source_name: str) -> Paper | None:
-    title = child_text(entry, "title")
-    if not title:
-        return None
-    authors = feed_authors(entry)
-    summary = child_text(entry, "summary") or child_text(entry, "content")
-    published = child_text(entry, "published") or child_text(entry, "updated")
-    date = feed_date(published)
-    url = atom_link(entry)
-    categories = [
-        category.attrib.get("term", "").strip()
-        for category in children_named(entry, "category")
-        if category.attrib.get("term", "").strip()
-    ]
-    arxiv_id = ""
-    if "arxiv.org" in url:
-        arxiv_id = re.sub(r"^https?://arxiv\.org/(abs|pdf)/", "", url).replace(".pdf", "")
-    source = feed_title or source_name
-    metadata_key = "arxiv" if arxiv_id else "feed"
-    metadata = {
-        metadata_key: {
-            "id": arxiv_id or child_text(entry, "id"),
-            "published": published,
-            "updated": child_text(entry, "updated"),
-            "source": source,
-            "categories": categories,
-            "authors": authors,
-        }
-    }
-    return Paper(
-        id=stable_id(title),
-        title=title,
-        authors_source=bibliography_authors_source(authors, source, date[:4]),
-        snippet=summary or "Imported from Atom/RSS feed.",
-        url=url,
-        scholar_url="",
-        first_seen=date,
-        last_seen=date,
-        alerts=[source, "Atom/RSS import"],
-        occurrences=1,
-        metadata=metadata,
+def paper_from_atom_entry(entry: Any, feed_title: str, source_name: str) -> Paper | None:
+    return ingest_rss.paper_from_atom_entry(
+        entry, feed_title, source_name, paper_factory=Paper
     )
 
 
-def paper_from_rss_item(item: ET.Element, feed_title: str, source_name: str) -> Paper | None:
-    title = child_text(item, "title")
-    if not title:
-        return None
-    link = child_text(item, "link") or child_text(item, "guid")
-    summary = child_text(item, "description") or child_text(item, "summary") or child_text(item, "encoded")
-    published = child_text(item, "pubDate") or child_text(item, "date") or child_text(item, "updated")
-    date = feed_date(published)
-    authors = coerce_list(child_text(item, "author") or child_text(item, "creator"))
-    categories = [clean_html("".join(category.itertext())) for category in children_named(item, "category")]
-    source = feed_title or source_name
-    metadata = {
-        "feed": {
-            "id": child_text(item, "guid") or link,
-            "published": published,
-            "source": source,
-            "categories": [category for category in categories if category],
-            "authors": authors,
-        }
-    }
-    return Paper(
-        id=stable_id(title),
-        title=title,
-        authors_source=bibliography_authors_source(authors, source, date[:4]),
-        snippet=summary or "Imported from RSS feed.",
-        url=link,
-        scholar_url="",
-        first_seen=date,
-        last_seen=date,
-        alerts=[source, "RSS import"],
-        occurrences=1,
-        metadata=metadata,
+def paper_from_rss_item(item: Any, feed_title: str, source_name: str) -> Paper | None:
+    return ingest_rss.paper_from_rss_item(
+        item, feed_title, source_name, paper_factory=Paper
     )
 
 
 def parse_feed_xml(text: str, source_name: str) -> tuple[list[Paper], dict[str, int]]:
-    try:
-        root = ET.fromstring(text)
-    except ET.ParseError as exc:
-        raise SystemExit(f"Cannot parse RSS/Atom feed {source_name}: {exc}") from exc
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-    root_name = local_name(root.tag).lower()
-    if root_name == "feed":
-        feed_title = child_text(root, "title") or source_name
-        entries = children_named(root, "entry")
-        counts["feed_entries"] = len(entries)
-        for entry in entries:
-            paper = paper_from_atom_entry(entry, feed_title, source_name)
-            if paper is None:
-                counts["feed_skipped_no_title"] += 1
-                continue
-            merge_bibliography_paper(papers_by_key, paper)
-    else:
-        channel = next((child for child in children_named(root, "channel")), root)
-        feed_title = child_text(channel, "title") or source_name
-        items = children_named(channel, "item") or [item for item in root.iter() if local_name(item.tag) == "item"]
-        counts["feed_entries"] = len(items)
-        for item in items:
-            paper = paper_from_rss_item(item, feed_title, source_name)
-            if paper is None:
-                counts["feed_skipped_no_title"] += 1
-                continue
-            merge_bibliography_paper(papers_by_key, paper)
-    counts["feed_unique_papers"] = len(papers_by_key)
-    return list(papers_by_key.values()), dict(counts)
+    papers, counts = ingest_rss.parse_feed_xml(text, source_name, paper_factory=Paper)
+    return papers, counts
 
 
 def parse_rss_source(source: str, timeout: int = 20, limit: int = 0) -> tuple[list[Paper], dict[str, int]]:
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-    for feed_source in rss_sources(source):
-        counts["feed_sources"] += 1
-        text = read_feed_text(feed_source, timeout)
-        papers, feed_counts = parse_feed_xml(text, feed_source)
-        counts.update(feed_counts)
-        for paper in papers:
-            merge_bibliography_paper(papers_by_key, paper)
-    papers = list(papers_by_key.values())
-    papers.sort(key=lambda paper: (paper.last_seen, paper.title.lower()), reverse=True)
-    if limit > 0:
-        papers = papers[:limit]
-    counts["feed_unique_papers"] = len(papers_by_key)
-    counts["feed_returned_papers"] = len(papers)
-    return papers, dict(counts)
+    papers, counts = ingest_rss.parse_rss_source(source, timeout=timeout, limit=limit, paper_factory=Paper)
+    return papers, counts
 
 
 def parse_html_attrs(tag: str) -> dict[str, str]:
-    attrs: dict[str, str] = {}
-    for match in re.finditer(r"([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", tag):
-        key = match.group(1).lower()
-        value = match.group(2).strip().strip("\"'")
-        attrs[key] = html.unescape(value)
-    return attrs
+    return ingest_web.parse_html_attrs(tag)
 
 
 def web_meta_fields(page_html: str) -> dict[str, list[str]]:
-    fields: dict[str, list[str]] = {}
-    for tag in re.findall(r"<meta\b[^>]*>", page_html, flags=re.IGNORECASE | re.DOTALL):
-        attrs = parse_html_attrs(tag)
-        key = (attrs.get("name") or attrs.get("property") or attrs.get("itemprop") or "").strip().lower()
-        content = attrs.get("content", "").strip()
-        if key and content:
-            fields.setdefault(key, []).append(content)
-    title_match = re.search(r"<title\b[^>]*>(.*?)</title>", page_html, flags=re.IGNORECASE | re.DOTALL)
-    if title_match:
-        title = clean_html(title_match.group(1))
-        if title:
-            fields.setdefault("html:title", []).append(title)
-    return fields
+    return ingest_web.web_meta_fields(page_html)
 
 
 def first_web_value(fields: dict[str, list[str]], names: list[str]) -> str:
-    for name in names:
-        values = fields.get(name.lower(), [])
-        for value in values:
-            cleaned = clean_html(str(value))
-            if cleaned:
-                return cleaned
-    return ""
+    return ingest_web.first_web_value(fields, names)
 
 
 def web_values(fields: dict[str, list[str]], names: list[str]) -> list[str]:
-    values: list[str] = []
-    for name in names:
-        for value in fields.get(name.lower(), []):
-            cleaned = clean_html(str(value))
-            if cleaned and cleaned not in values:
-                values.append(cleaned)
-    return values
+    return ingest_web.web_values(fields, names)
 
 
 def jsonld_items(value: Any) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
-    if isinstance(value, dict):
-        graph = value.get("@graph")
-        if isinstance(graph, list):
-            for item in graph:
-                items.extend(jsonld_items(item))
-        item_type = value.get("@type", "")
-        types = item_type if isinstance(item_type, list) else [item_type]
-        normalized = {str(item).lower() for item in types}
-        if normalized & {"scholarlyarticle", "article", "report", "techarticle"}:
-            items.append(value)
-    elif isinstance(value, list):
-        for item in value:
-            items.extend(jsonld_items(item))
-    return items
+    return ingest_web.jsonld_items(value)
 
 
 def jsonld_authors(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        value = [value] if value else []
-    authors: list[str] = []
-    for item in value:
-        if isinstance(item, dict):
-            name = clean_html(str(item.get("name", "")))
-        else:
-            name = clean_html(str(item))
-        if name and name not in authors:
-            authors.append(name)
-    return authors
+    return ingest_web.jsonld_authors(value)
 
 
 def jsonld_source(value: dict[str, Any]) -> str:
-    for key in ["isPartOf", "publisher", "sourceOrganization"]:
-        item = value.get(key)
-        if isinstance(item, dict):
-            name = clean_html(str(item.get("name", "")))
-            if name:
-                return name
-        elif isinstance(item, str) and item.strip():
-            return clean_html(item)
-    return ""
+    return ingest_web.jsonld_source(value)
 
 
 def jsonld_text_values(value: Any) -> list[str]:
-    values: list[str] = []
-    if isinstance(value, list):
-        for item in value:
-            values.extend(jsonld_text_values(item))
-    elif isinstance(value, dict):
-        for key in ["value", "name", "@id", "url"]:
-            item = value.get(key)
-            if item:
-                values.extend(jsonld_text_values(item))
-                break
-    elif value:
-        text = clean_html(str(value))
-        if text:
-            values.append(text)
-    return values
+    return ingest_web.jsonld_text_values(value)
 
 
 def jsonld_to_web_fields(item: dict[str, Any]) -> dict[str, list[str]]:
-    fields: dict[str, list[str]] = {}
-    mapping = {
-        "citation_title": ["headline", "name"],
-        "citation_abstract": ["abstract", "description"],
-        "citation_publication_date": ["datePublished", "dateCreated", "dateModified"],
-        "citation_public_url": ["url", "mainEntityOfPage"],
-        "citation_doi": ["doi", "identifier"],
-    }
-    for target, keys in mapping.items():
-        for key in keys:
-            values = jsonld_text_values(item.get(key))
-            if values:
-                fields.setdefault(target, []).extend(values)
-                break
-    for author in jsonld_authors(item.get("author") or item.get("creator")):
-        fields.setdefault("citation_author", []).append(author)
-    source = jsonld_source(item)
-    if source:
-        fields.setdefault("citation_journal_title", []).append(source)
-    for key in ["encoding", "associatedMedia"]:
-        value = item.get(key)
-        values = value if isinstance(value, list) else [value] if value else []
-        for entry in values:
-            if not isinstance(entry, dict):
-                continue
-            content_url = clean_html(str(entry.get("contentUrl") or entry.get("url") or ""))
-            encoding_format = str(entry.get("encodingFormat") or entry.get("fileFormat") or "").lower()
-            if content_url and ("pdf" in encoding_format or content_url.lower().split("?")[0].endswith(".pdf")):
-                fields.setdefault("citation_pdf_url", []).append(content_url)
-    return fields
+    return ingest_web.jsonld_to_web_fields(item)
 
 
 def paper_from_web_fields(fields: dict[str, list[str]], source_name: str) -> Paper | None:
-    title = first_web_value(fields, ["citation_title", "dc.title", "dcterms.title", "og:title", "twitter:title", "html:title"])
-    if not title:
-        return None
-    authors = web_values(fields, ["citation_author", "dc.creator", "dcterms.creator", "author"])
-    source = first_web_value(fields, ["citation_journal_title", "citation_conference_title", "dc.source", "og:site_name"])
-    date_value = first_web_value(fields, ["citation_publication_date", "citation_date", "dc.date", "dcterms.date", "article:published_time"])
-    date = feed_date(date_value)
-    doi = normalize_doi(first_web_value(fields, ["citation_doi", "dc.identifier", "doi"]))
-    url = first_web_value(fields, ["citation_public_url", "citation_fulltext_html_url", "og:url", "twitter:url"]) or doi_url(doi) or source_name
-    pdf_url = first_web_value(fields, ["citation_pdf_url", "citation_fulltext_pdf_url", "dc.format.pdf"])
-    snippet = first_web_value(fields, ["citation_abstract", "dc.description", "dcterms.description", "description", "og:description", "twitter:description"])
-    keywords = web_values(fields, ["citation_keywords", "keywords", "dc.subject", "article:tag"])
-    if not snippet and keywords:
-        snippet = "Keywords: " + ", ".join(keywords)
-    metadata = {
-        "web": {
-            "source": source_name,
-            "doi": doi,
-            "published": date_value,
-            "authors": authors,
-            "keywords": keywords,
-            "pdf_url": pdf_url,
-        }
-    }
-    return Paper(
-        id=stable_id(title),
-        title=title,
-        authors_source=bibliography_authors_source(authors, source or source_name, date[:4]),
-        snippet=snippet or "Imported from webpage metadata.",
-        url=url,
-        scholar_url="",
-        first_seen=date,
-        last_seen=date,
-        alerts=[source or source_name, "Web metadata import"],
-        occurrences=1,
-        metadata=metadata,
-    )
+    return ingest_web.paper_from_web_fields(fields, source_name, paper_factory=Paper)
 
 
 def parse_web_page(page_html: str, source_name: str) -> tuple[list[Paper], dict[str, int]]:
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-    meta_fields = web_meta_fields(page_html)
-    jsonld_count = 0
-    for raw_script in re.findall(
-        r"<script\b[^>]*type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
-        page_html,
-        flags=re.IGNORECASE | re.DOTALL,
-    ):
-        raw_json = html.unescape(raw_script).strip()
-        if not raw_json:
-            continue
-        try:
-            parsed = json.loads(raw_json)
-        except json.JSONDecodeError:
-            counts["web_jsonld_parse_errors"] += 1
-            continue
-        for item in jsonld_items(parsed):
-            jsonld_count += 1
-            paper = paper_from_web_fields({**meta_fields, **jsonld_to_web_fields(item)}, source_name)
-            if paper is None:
-                counts["web_skipped_no_title"] += 1
-                continue
-            merge_bibliography_paper(papers_by_key, paper)
-    if not papers_by_key:
-        paper = paper_from_web_fields(meta_fields, source_name)
-        if paper:
-            merge_bibliography_paper(papers_by_key, paper)
-        else:
-            counts["web_skipped_no_title"] += 1
-    counts["web_jsonld_items"] = jsonld_count
-    counts["web_unique_papers"] = len(papers_by_key)
-    return list(papers_by_key.values()), dict(counts)
+    papers, counts = ingest_web.parse_web_page(
+        page_html, source_name, paper_factory=Paper
+    )
+    return papers, counts
 
 
 def read_web_text(source: str, timeout: int) -> str:
-    return read_feed_text(source, timeout)
+    return ingest_web.read_web_text(source, timeout)
 
 
 def web_sources(source: str) -> list[str]:
-    source = source.strip()
-    if not source:
-        raise SystemExit("Web source is empty.")
-    path = Path(source).expanduser()
-    if path.exists():
-        if path.is_dir():
-            files = sorted(
-                item
-                for item in path.iterdir()
-                if item.is_file() and item.suffix.lower() in {".html", ".htm"}
-            )
-            if not files:
-                raise SystemExit(f"No .html/.htm files found in directory: {path}")
-            return [str(item) for item in files]
-        if path.suffix.lower() in {".txt", ".list"}:
-            lines: list[str] = []
-            for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-                line = raw_line.strip()
-                if not line or line.lstrip().startswith("#"):
-                    continue
-                line_path = Path(line).expanduser()
-                if not is_url(line) and not line_path.is_absolute():
-                    line = str(path.parent / line_path)
-                lines.append(line)
-            if not lines:
-                raise SystemExit(f"No webpage URLs or paths found in: {path}")
-            return lines
-        return [str(path)]
-    return split_csv(source) or [source]
+    return ingest_web.web_sources(source)
 
 
 def parse_web_source(source: str, timeout: int = 20, limit: int = 0) -> tuple[list[Paper], dict[str, int]]:
-    papers_by_key: dict[str, Paper] = {}
-    counts = Counter()
-    for web_source in web_sources(source):
-        counts["web_sources"] += 1
-        text = read_web_text(web_source, timeout)
-        papers, page_counts = parse_web_page(text, web_source)
-        counts.update(page_counts)
-        for paper in papers:
-            merge_bibliography_paper(papers_by_key, paper)
-    papers = list(papers_by_key.values())
-    papers.sort(key=lambda paper: (paper.last_seen, paper.title.lower()), reverse=True)
-    if limit > 0:
-        papers = papers[:limit]
-    counts["web_unique_papers"] = len(papers_by_key)
-    counts["web_returned_papers"] = len(papers)
-    return papers, dict(counts)
+    papers, counts = ingest_web.parse_web_source(source, timeout=timeout, limit=limit, paper_factory=Paper)
+    return papers, counts
 
 
 def arxiv_api_url(query: str, limit: int, sort_by: str = "submittedDate", sort_order: str = "descending") -> str:
@@ -1964,10 +1084,7 @@ def arxiv_api_url(query: str, limit: int, sort_by: str = "submittedDate", sort_o
 
 
 def parse_arxiv_source(query: str, limit: int = 50, timeout: int = 20) -> tuple[list[Paper], dict[str, int]]:
-    url = arxiv_api_url(query, limit)
-    papers, counts = parse_rss_source(url, timeout=timeout, limit=limit)
-    counts["arxiv_query"] = query
-    counts["arxiv_api_url"] = url
+    papers, counts = ingest_arxiv.parse_arxiv_source(query, limit=limit, timeout=timeout, paper_factory=Paper)
     return papers, counts
 
 
@@ -3189,21 +2306,11 @@ def write_deep_read_queue(path: Path, papers: list[Paper], profile: dict[str, An
 
 
 def kb_settings(profile: dict[str, Any]) -> dict[str, Any]:
-    configured = profile.get("knowledge_base", {})
-    return {
-        "foundation_tiers": configured.get("foundation_tiers", ["Must read", "Skim"]),
-        "interested_tiers": configured.get("interested_tiers", ["Must read"]),
-        "interested_limit": int(configured.get("interested_limit", 50)),
-        "foundation_limit_per_direction": int(configured.get("foundation_limit_per_direction", 40)),
-        "write_archive_index": bool(configured.get("write_archive_index", False)),
-    }
+    return library_store.kb_settings(profile)
 
 
 def paper_directions(paper: Paper) -> list[str]:
-    directions = [tag for tag in paper.tags if tag not in {"adaptive", "boost", "feedback", "watchlist"}]
-    if not directions:
-        directions = ["uncategorized"]
-    return sorted(set(directions))
+    return library_store.paper_directions(paper)
 
 
 def paper_md_line(paper: Paper, kb_dir: Path | None = None) -> str:
@@ -3225,65 +2332,19 @@ def retained_for_foundation(papers: list[Paper], profile: dict[str, Any]) -> lis
 
 
 def paper_from_dict(data: dict[str, Any]) -> Paper:
-    fields = {field_name for field_name in Paper.__dataclass_fields__}
-    kwargs = {key: value for key, value in data.items() if key in fields}
-    return Paper(**kwargs)
+    return library_store.paper_from_dict(data, Paper)
 
 
 def load_paper_library(kb_dir: Path) -> list[Paper]:
-    path = kb_dir / "library.json"
-    if not path.exists():
-        return []
-    try:
-        data = load_json(path)
-    except Exception:
-        return []
-    papers = []
-    for item in data:
-        try:
-            papers.append(paper_from_dict(item))
-        except Exception:
-            continue
-    return papers
+    return library_store.load_paper_library(kb_dir, Paper, load_json)
 
 
 def merge_papers(existing: list[Paper], additions: list[Paper]) -> list[Paper]:
-    by_id = {paper.id: paper for paper in existing}
-    for incoming in additions:
-        current = by_id.get(incoming.id)
-        if current is None:
-            by_id[incoming.id] = incoming
-            continue
-
-        for alert in incoming.alerts:
-            if alert not in current.alerts:
-                current.alerts.append(alert)
-        current.occurrences = max(current.occurrences, incoming.occurrences)
-
-        dates = [d for d in [current.first_seen, current.last_seen, incoming.first_seen, incoming.last_seen] if d]
-        if dates:
-            current.first_seen = min(dates)
-            current.last_seen = max(dates)
-
-        if incoming.score >= current.score:
-            current.title = incoming.title
-            current.authors_source = incoming.authors_source
-            current.snippet = incoming.snippet
-            current.url = incoming.url
-            current.scholar_url = incoming.scholar_url
-            current.score = incoming.score
-            current.tier = incoming.tier
-
-        current.matched_terms = sorted(set(current.matched_terms) | set(incoming.matched_terms), key=lambda t: t.lower())
-        current.tags = sorted(set(current.tags) | set(incoming.tags))
-        current.reasons = list(dict.fromkeys(current.reasons + incoming.reasons))
-        current.is_new = current.is_new or incoming.is_new
-
-    return sorted(by_id.values(), key=lambda p: (-p.score, p.title.lower()))
+    return library_store.merge_papers(existing, additions)
 
 
 def save_paper_library(kb_dir: Path, papers: list[Paper]) -> None:
-    save_json(kb_dir / "library.json", [asdict(paper) for paper in papers])
+    library_store.save_paper_library(kb_dir, papers, save_json, asdict)
 
 
 def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], summary: dict[str, Any]) -> None:
@@ -3330,7 +2391,12 @@ def write_kb_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any], s
     if settings["write_archive_index"]:
         lines.append("- [archive_index.md](archive_index.md)")
     kb_dir.mkdir(parents=True, exist_ok=True)
-    (kb_dir / "index.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    markdown = "\n".join(lines).rstrip() + "\n"
+    (kb_dir / "index.md").write_text(markdown, encoding="utf-8")
+    (kb_dir / "index.html").write_text(
+        markdown_to_basic_html(markdown, "Scholar Alert Knowledge Base"),
+        encoding="utf-8",
+    )
 
 
 def kb_feedback_markdown_lines(
@@ -3640,6 +2706,41 @@ def write_kb_daily_additions(kb_dir: Path, papers: list[Paper], profile: dict[st
     (kb_dir / "daily_additions.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
+def write_kb_search_index(
+    kb_dir: Path,
+    papers: list[Paper],
+    feedback: dict[str, Any] | None = None,
+) -> None:
+    if feedback is None:
+        feedback = load_feedback(default_feedback_file(kb_dir))
+    feedback_papers = feedback.get("papers", {}) if isinstance(feedback, dict) else {}
+    search_records: list[dict[str, Any]] = []
+    for paper in sorted(papers, key=lambda item: (-item.score, item.title.lower())):
+        record = feedback_papers.get(paper.id, {}) if isinstance(feedback_papers, dict) else {}
+        if not isinstance(record, dict):
+            record = {}
+        search_records.append(
+            {
+                "id": paper.id,
+                "title": paper.title,
+                "tier": paper.tier,
+                "score": paper.score,
+                "url": paper.url,
+                "authors_source": paper.authors_source,
+                "snippet": paper.snippet,
+                "tags": list(paper.tags),
+                "matched_terms": list(paper.matched_terms),
+                "first_seen": paper.first_seen,
+                "last_seen": paper.last_seen,
+                "directions": paper_directions(paper),
+                "feedback_status": str(record.get("status", "neutral") or "neutral"),
+                "reading_status": str(record.get("reading_status", "unread") or "unread"),
+                "labels": coerce_list(record.get("labels")),
+            }
+        )
+    save_json(kb_dir / "search_index.json", search_records)
+
+
 def write_kb_archive_index(kb_dir: Path, papers: list[Paper], profile: dict[str, Any]) -> None:
     if not kb_settings(profile)["write_archive_index"]:
         return
@@ -3837,6 +2938,7 @@ def write_knowledge_base(kb_dir: Path, papers: list[Paper], profile: dict[str, A
         write_kb_paper_pages(kb_dir, library, feedback)
         write_kb_direction_pages(kb_dir, library, profile, feedback)
         write_weekly_review(kb_dir, library, profile)
+        write_kb_search_index(kb_dir, library, feedback)
     if summary.get("mode") == "daily":
         write_kb_daily_additions(kb_dir, papers, profile)
     write_kb_archive_index(kb_dir, papers, profile)
@@ -7370,6 +6472,7 @@ def apply_feedback_to_knowledge_base(
     write_kb_paper_pages(kb_dir, library, feedback)
     write_kb_direction_pages(kb_dir, library, profile, feedback)
     write_weekly_review(kb_dir, library, profile)
+    write_kb_search_index(kb_dir, library, feedback)
     write_run_snapshot(kb_dir, reranked, summary)
     return len(additions)
 

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>arXiv geophysics demo</title>
+  <id>https://arxiv.org/api/demo</id>
+  <updated>2026-05-28T09:00:00Z</updated>
+  <entry>
+    <title>Seismic phase picking with foundation models</title>
+    <id>http://arxiv.org/abs/2605.00001v1</id>
+    <updated>2026-05-28T09:00:00Z</updated>
+    <published>2026-05-28T09:00:00Z</published>
+    <author><name>Demo Author</name></author>
+    <author><name>Example Collaborator</name></author>
+    <category term="eess.SP"/>
+    <category term="cs.LG"/>
+    <link href="https://arxiv.org/abs/2605.00001"/>
+    <summary>Demo record for arXiv parsing and metadata extraction tests.</summary>
+  </entry>
+</feed>
