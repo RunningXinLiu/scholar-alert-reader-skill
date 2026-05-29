@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.1.0-alpha - 2026-05-29
+
+- Mark this repository as ready for alpha demonstration and early user testing.
+- Validate the standalone RSS demo path end to end with bundled sample data.
+- Confirm local lightweight library generation with digest, knowledge base index, search index, and per-paper notes.
+- Surface explainable scoring artifacts in user-facing outputs, including score breakdown visibility in digest and paper notes.
+- Keep Obsidian/Zotero as optional downstream handoff integrations.
+- Keep deep-read/workup/map/advice in the optional experimental layer, separate from the core standalone path.
+
 ## v0.2.88 - 2026-05-28
 
 - Refresh GitHub README positioning for the current multi-source, evidence-aware, local research-memory workflow.
