@@ -29,6 +29,11 @@
     {"term": "education", "weight": 4},
     {"term": "course", "weight": 3}
   ],
+  "semantic_queries": [
+    {"term": "machine learning for dense seismic array monitoring", "weight": 5, "tags": ["semantic", "monitoring", "ml"]},
+    {"term": "uncertainty-aware earthquake location and catalog building", "weight": 5, "tags": ["semantic", "uncertainty", "catalog"]},
+    {"term": "joint inversion of ambient noise and surface waves for crustal structure", "weight": 5, "tags": ["semantic", "imaging", "inversion"]}
+  ],
   "adaptive_ranking": {
     "enabled": true,
     "positive_weight": 4,

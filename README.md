@@ -34,8 +34,6 @@ These tools are sinks only; they are not required for core triage.
 
 > GitHub sometimes renders repository images through `raw.githubusercontent.com`, which can be blocked or slow on some networks. The README therefore uses native Mermaid/text for the main overview. Downloadable PNG/GIF assets are still included under [docs/assets](docs/assets) and [docs/screenshots](docs/screenshots).
 
-## Start Here
-
 Scholar Alert Reader works as a normal local Python CLI. Codex is the most guided entry point, but it is not required.
 
 If you are a Codex user, install the skill and then talk to Codex in plain language:
@@ -96,6 +94,7 @@ RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
 ```
 
 The `rss_import.sh` run performs ingest + rank + digest + lightweight local library update.
+The initialized demo project already contains `examples/sample_feed.atom`, so this path does not require Gmail OAuth, private mailbox exports, or private bibliography data.
 
 Inspect outputs:
 
@@ -105,6 +104,13 @@ open knowledge_base/index.html
 python3 -m json.tool knowledge_base/search_index.json | sed -n '1,80p'
 ls knowledge_base/papers | head
 ```
+
+First expected outputs:
+
+- `reader_out/rss/digest.html`: today’s ranked reading digest.
+- `knowledge_base/index.html`: lightweight local paper-library homepage.
+- `knowledge_base/search_index.json`: machine-readable records for filtering/search.
+- `knowledge_base/papers/*.md`: one per-paper note with metadata and score rationale.
 
 If you are not on macOS, replace `open` with your platform equivalent (`xdg-open`, `start`, etc.).
 
