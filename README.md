@@ -80,6 +80,34 @@ Optional/experimental follow-up prompts:
 
 The skill works without Obsidian or Zotero. Those are optional upgrades for people who want a larger personal knowledge system.
 
+## 3-Minute Standalone Demo
+
+Run a local end-to-end demo without Gmail, Obsidian, or Zotero:
+
+```bash
+git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
+cd scholar-alert-reader-skill
+python3 -m scholar_alert_reader init-project \
+  --project-dir ~/scholar_alerts_demo \
+  --profile-template seismic-imaging
+
+cd ~/scholar_alerts_demo
+RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
+```
+
+The `rss_import.sh` run performs ingest + rank + digest + lightweight local library update.
+
+Inspect outputs:
+
+```bash
+open reader_out/rss/digest.html
+open knowledge_base/index.html
+python3 -m json.tool knowledge_base/search_index.json | sed -n '1,80p'
+ls knowledge_base/papers | head
+```
+
+If you are not on macOS, replace `open` with your platform equivalent (`xdg-open`, `start`, etc.).
+
 ## Use Without Codex
 
 You can run the core tool from any terminal or from any coding agent that can access local files and execute shell commands.
@@ -216,6 +244,20 @@ More explicit boundaries are documented in:
 
 ## Architecture
 
+### Current Architecture
+
+```text
+ingest/* 
+  -> ranking.scorer
+  -> ranking.format
+  -> library.store + library.render
+  -> digest / search_index / exports
+```
+
+Core path above is standalone and required.
+
+`copilot` (`deep-read`, `workup`, `map`, `advice`, etc.) is optional/experimental and not part of the core dependency path.
+
 ```mermaid
 flowchart TD
   S["Sources"]
@@ -345,7 +387,7 @@ git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git \
   ~/.codex/skills/scholar-alert-reader
 ```
 
-After that, Codex can read `SKILL.md` and guide the user through setup, source checks, Gmail OAuth, daily runs, feedback, deep reads, and optional Obsidian/Zotero exports.
+After that, Codex can read `SKILL.md` and guide the user through setup, source checks, Gmail OAuth, daily runs, feedback, and optional Obsidian/Zotero exports. Optional experimental copilot reports are covered later in this README.
 
 ## Gmail API Setup
 
@@ -487,6 +529,11 @@ The template is only the starting point. Use `./profile_wizard.sh` to add your o
 
 You can still edit `profiles/research_profile.json` directly when you want full control over adaptive ranking settings, tier thresholds, and temporary boost terms.
 
+If you want a plain editable starter outside generated projects, copy:
+
+- `examples/research_profile.example.json`
+- `examples/research_profile.seismology.json`
+
 After editing or after a few days of feedback, run:
 
 ```bash
@@ -624,7 +671,7 @@ python3 scripts/scholar_reader.py serve \
 
 The UI includes buttons for `Interested`, `Archive`, `Deep read`, `Full review`, `Workup`, `Review pack`, reading status, citation/method labels, `Background only`, `Not relevant`, and `Save note`. Paper cards show the current feedback state, reading status, labels, more/less-like-this signals, and saved personal notes. Generated reports appear as links on the paper card after the action completes.
 
-## Literature Copilot
+## Optional / Experimental: Literature Copilot
 
 Analyze one selected paper against your retained foundation/interested library:
 

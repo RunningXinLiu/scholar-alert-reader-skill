@@ -1,0 +1,61 @@
+{
+  "name": "Seismology local triage starter",
+  "language": "en",
+  "research_questions": [
+    "Which newly discovered papers are directly useful for my current seismology projects?",
+    "Which papers should move into must-read this week?"
+  ],
+  "focus_terms": [
+    {"term": "ambient noise tomography", "weight": 7, "tags": ["imaging"]},
+    {"term": "surface wave tomography", "weight": 7, "tags": ["imaging"]},
+    {"term": "earthquake relocation", "weight": 6, "tags": ["catalog"]},
+    {"term": "induced seismicity", "weight": 7, "tags": ["hazard"]},
+    {"term": "seismic monitoring", "weight": 5, "tags": ["monitoring"]}
+  ],
+  "methods": [
+    {"term": "full waveform inversion", "weight": 6},
+    {"term": "receiver function", "weight": 5},
+    {"term": "phase picking", "weight": 5},
+    {"term": "earthquake association", "weight": 5}
+  ],
+  "regions": [
+    {"term": "Sichuan Basin", "weight": 6},
+    {"term": "Tibet", "weight": 5},
+    {"term": "Taiwan", "weight": 4},
+    {"term": "North China", "weight": 4}
+  ],
+  "exclude_terms": [
+    {"term": "medical imaging", "weight": 6},
+    {"term": "education", "weight": 4},
+    {"term": "course", "weight": 3}
+  ],
+  "adaptive_ranking": {
+    "enabled": true,
+    "positive_weight": 4,
+    "negative_weight": 5,
+    "min_overlap": 3,
+    "max_seed_papers": 40,
+    "seed_tiers": ["Must read"]
+  },
+  "tier_thresholds": {
+    "must_read": 18,
+    "skim": 6
+  },
+  "limits": {
+    "must_read": 10,
+    "skim": 18,
+    "deep_read": 6
+  },
+  "knowledge_base": {
+    "foundation_tiers": ["Must read", "Skim"],
+    "interested_tiers": ["Must read"],
+    "interested_limit": 60,
+    "foundation_limit_per_direction": 45,
+    "write_archive_index": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "default_time": "09:00",
+    "default_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  }
+}
