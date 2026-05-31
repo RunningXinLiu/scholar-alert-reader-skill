@@ -123,21 +123,31 @@ If you are not on macOS, replace `open` with your platform equivalent (`xdg-open
 
 ## Visual Preview
 
-![Scholar Alert Reader Logo](docs/assets/logo.png)
+GitHub inline images are served through `raw.githubusercontent.com`, which is blocked on some networks. The README therefore uses a GitHub-rendered Mermaid preview here and provides direct clickable asset links below.
 
-![Scholar Alert Reader Social Card](docs/assets/social-card.en.png)
+```mermaid
+flowchart LR
+    sources["Sources<br/>Gmail · Mail.app · mbox<br/>BibTeX/RIS · RSS/arXiv · web"]
+    review["Review Workspace<br/>batch decisions · notes<br/>reading status · reports"]
+    library["Local paper library<br/>foundation · interested<br/>search index · paper notes"]
+    exports["Optional handoff<br/>Obsidian clean notes<br/>Zotero BibTeX/RIS"]
+    feedback["Feedback loop<br/>interested/archive<br/>more/less like this"]
 
-![Workflow Demo](docs/assets/workflow.en.gif)
+    sources --> review --> library --> exports
+    review --> feedback --> review
+```
 
-![Architecture Diagram](docs/assets/architecture-showcase.en.png)
+Open the generated product images directly:
 
-![Daily Digest](docs/screenshots/01-daily-digest.png)
-
-![Review Workspace](docs/screenshots/02-feedback-triage.png)
-
-![Foundation and Interested Library](docs/screenshots/03-foundation-interested.png)
-
-![Clean Obsidian and Zotero Handoff](docs/screenshots/06-obsidian-zotero.png)
+| Preview | Link |
+|---|---|
+| Social card | [social-card.en.png](docs/assets/social-card.en.png) |
+| Workflow GIF | [workflow.en.gif](docs/assets/workflow.en.gif) |
+| Architecture diagram | [architecture-showcase.en.png](docs/assets/architecture-showcase.en.png) |
+| Daily digest | [01-daily-digest.png](docs/screenshots/01-daily-digest.png) |
+| Review Workspace | [02-feedback-triage.png](docs/screenshots/02-feedback-triage.png) |
+| Foundation and Interested Library | [03-foundation-interested.png](docs/screenshots/03-foundation-interested.png) |
+| Clean Obsidian and Zotero Handoff | [06-obsidian-zotero.png](docs/screenshots/06-obsidian-zotero.png) |
 
 ## Manual Setup Without Codex Or Another AI Agent
 
