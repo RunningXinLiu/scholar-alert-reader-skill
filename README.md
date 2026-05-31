@@ -123,7 +123,9 @@ If you are not on macOS, replace `open` with your platform equivalent (`xdg-open
 
 ## Visual Preview
 
-GitHub inline images are served through `raw.githubusercontent.com`, which is blocked on some networks. The README therefore uses a GitHub-rendered Mermaid preview here and provides direct clickable asset links below.
+This README uses GitHub-native Mermaid previews so the project homepage still renders on networks where GitHub's raw image host is blocked.
+
+### Core Flow
 
 ```mermaid
 flowchart LR
@@ -137,17 +139,51 @@ flowchart LR
     review --> feedback --> review
 ```
 
-Open the generated product images directly:
+### Daily Review Loop
 
-| Preview | Link |
-|---|---|
-| Social card | [social-card.en.png](docs/assets/social-card.en.png) |
-| Workflow GIF | [workflow.en.gif](docs/assets/workflow.en.gif) |
-| Architecture diagram | [architecture-showcase.en.png](docs/assets/architecture-showcase.en.png) |
-| Daily digest | [01-daily-digest.png](docs/screenshots/01-daily-digest.png) |
-| Review Workspace | [02-feedback-triage.png](docs/screenshots/02-feedback-triage.png) |
-| Foundation and Interested Library | [03-foundation-interested.png](docs/screenshots/03-foundation-interested.png) |
-| Clean Obsidian and Zotero Handoff | [06-obsidian-zotero.png](docs/screenshots/06-obsidian-zotero.png) |
+```mermaid
+flowchart TD
+    run["Run reader<br/>Gmail / RSS / arXiv / BibTeX"]
+    digest["Digest<br/>Must read · Skim · Archive"]
+    workspace["Review Workspace<br/>batch-save feedback and notes"]
+    foundation["Foundation<br/>retained local paper library"]
+    next["Next run<br/>ranking adapts to feedback"]
+
+    run --> digest --> workspace --> foundation --> next --> run
+```
+
+### Review Workspace Model
+
+```mermaid
+flowchart LR
+    card["Paper card<br/>title · venue · abstract<br/>score breakdown · evidence"]
+    decision["Decision<br/>Interested / Neutral / Archive"]
+    priority["Priority<br/>Auto / Must read / Skim / Archive"]
+    state["Reading state<br/>unread · reading · read<br/>must-cite · not-relevant"]
+    note["Personal note<br/>append / replace / clear"]
+    save["Save selected changes<br/>one batch write"]
+
+    card --> decision --> save
+    card --> priority --> save
+    card --> state --> save
+    card --> note --> save
+```
+
+### Obsidian And Zotero Boundary
+
+```mermaid
+flowchart LR
+    workspace["Scholar Alert Reader workspace<br/>digest · dashboard · search_index<br/>foundation · analysis · reports"]
+    clean["Obsidian clean export<br/>selected paper notes only<br/>no automatic wikilinks"]
+    zotero["Zotero export<br/>Must-read BibTeX/RIS<br/>filtered public tags"]
+    private["Private local state<br/>tokens · raw mailbox · feedback<br/>never commit"]
+
+    workspace --> clean
+    workspace --> zotero
+    workspace -. keep local .-> private
+```
+
+Raster marketing assets are still checked into the repo under `docs/assets/` and `docs/screenshots/` for social sharing and local viewing. If your GitHub session cannot display those files, clone the repo and open them locally.
 
 ## Manual Setup Without Codex Or Another AI Agent
 
@@ -215,28 +251,28 @@ For credential leaks, raw mailbox exposure, or other security-sensitive problems
 
 ## Screenshots
 
-Sanitized demo screenshots are included for product previews and sharing. Inline previews are shown above, and direct links are listed below for fallback and sharing.
+Sanitized demo screenshots are included for product previews and sharing. GitHub serves repository images through its raw image host, so some networks cannot display them on the website. Clone the repo or browse the folders locally if the file preview is blocked.
 
-| Area | Asset |
+| Area | Local file |
 |---|---|
-| Daily digest with evidence badges | [01-daily-digest.png](docs/screenshots/01-daily-digest.png) |
-| Review Workspace for batch feedback and notes | [02-feedback-triage.png](docs/screenshots/02-feedback-triage.png) |
-| Foundation and interested library | [03-foundation-interested.png](docs/screenshots/03-foundation-interested.png) |
-| Evidence-aware selected-paper workflow | [04-deep-read-copilot.png](docs/screenshots/04-deep-read-copilot.png) |
-| Research map and advice | [05-research-map-advice.png](docs/screenshots/05-research-map-advice.png) |
-| Clean Obsidian and Zotero handoff | [06-obsidian-zotero.png](docs/screenshots/06-obsidian-zotero.png) |
+| Daily digest with evidence badges | `docs/screenshots/01-daily-digest.png` |
+| Review Workspace for batch feedback and notes | `docs/screenshots/02-feedback-triage.png` |
+| Foundation and interested library | `docs/screenshots/03-foundation-interested.png` |
+| Evidence-aware selected-paper workflow | `docs/screenshots/04-deep-read-copilot.png` |
+| Research map and advice | `docs/screenshots/05-research-map-advice.png` |
+| Clean Obsidian and Zotero handoff | `docs/screenshots/06-obsidian-zotero.png` |
 
 ## Visual Assets
 
-| Purpose | English | Chinese |
+| Purpose | English file | Chinese file |
 |---|---|---|
-| Social card | [social-card.en.png](docs/assets/social-card.en.png) | [social-card.zh.png](docs/assets/social-card.zh.png) |
-| Workflow GIF | [workflow.en.gif](docs/assets/workflow.en.gif) | [workflow.zh.gif](docs/assets/workflow.zh.gif) |
-| Architecture diagram | [architecture-showcase.en.png](docs/assets/architecture-showcase.en.png) | [architecture-showcase.zh.png](docs/assets/architecture-showcase.zh.png) |
-| Obsidian mode decision | [obsidian-mode-decision.en.png](docs/assets/obsidian-mode-decision.en.png) | [obsidian-mode-decision.zh.png](docs/assets/obsidian-mode-decision.zh.png) |
-| Obsidian directory boundary | [obsidian-boundary.en.png](docs/assets/obsidian-boundary.en.png) | [obsidian-boundary.zh.png](docs/assets/obsidian-boundary.zh.png) |
-| Obsidian migration flow | [obsidian-migration.en.png](docs/assets/obsidian-migration.en.png) | [obsidian-migration.zh.png](docs/assets/obsidian-migration.zh.png) |
-| Logo | [logo.png](docs/assets/logo.png) | [logo.png](docs/assets/logo.png) |
+| Social card | `docs/assets/social-card.en.png` | `docs/assets/social-card.zh.png` |
+| Workflow GIF | `docs/assets/workflow.en.gif` | `docs/assets/workflow.zh.gif` |
+| Architecture diagram | `docs/assets/architecture-showcase.en.png` | `docs/assets/architecture-showcase.zh.png` |
+| Obsidian mode decision | `docs/assets/obsidian-mode-decision.en.png` | `docs/assets/obsidian-mode-decision.zh.png` |
+| Obsidian directory boundary | `docs/assets/obsidian-boundary.en.png` | `docs/assets/obsidian-boundary.zh.png` |
+| Obsidian migration flow | `docs/assets/obsidian-migration.en.png` | `docs/assets/obsidian-migration.zh.png` |
+| Logo | `docs/assets/logo.png` | `docs/assets/logo.png` |
 
 ## What It Does
 
