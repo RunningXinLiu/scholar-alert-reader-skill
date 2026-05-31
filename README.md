@@ -125,13 +125,19 @@ If you are not on macOS, replace `open` with your platform equivalent (`xdg-open
 
 ![Scholar Alert Reader Logo](docs/assets/logo.png)
 
+![Scholar Alert Reader Social Card](docs/assets/social-card.en.png)
+
 ![Workflow Demo](docs/assets/workflow.en.gif)
+
+![Architecture Diagram](docs/assets/architecture-showcase.en.png)
 
 ![Daily Digest](docs/screenshots/01-daily-digest.png)
 
-![Feedback Triage UI](docs/screenshots/02-feedback-triage.png)
+![Review Workspace](docs/screenshots/02-feedback-triage.png)
 
 ![Foundation and Interested Library](docs/screenshots/03-foundation-interested.png)
+
+![Clean Obsidian and Zotero Handoff](docs/screenshots/06-obsidian-zotero.png)
 
 ## Manual Setup Without Codex Or Another AI Agent
 
@@ -204,11 +210,11 @@ Sanitized demo screenshots are included for product previews and sharing. Inline
 | Area | Asset |
 |---|---|
 | Daily digest with evidence badges | [01-daily-digest.png](docs/screenshots/01-daily-digest.png) |
-| Feedback triage UI | [02-feedback-triage.png](docs/screenshots/02-feedback-triage.png) |
+| Review Workspace for batch feedback and notes | [02-feedback-triage.png](docs/screenshots/02-feedback-triage.png) |
 | Foundation and interested library | [03-foundation-interested.png](docs/screenshots/03-foundation-interested.png) |
 | Evidence-aware selected-paper workflow | [04-deep-read-copilot.png](docs/screenshots/04-deep-read-copilot.png) |
 | Research map and advice | [05-research-map-advice.png](docs/screenshots/05-research-map-advice.png) |
-| Obsidian and Zotero handoff | [06-obsidian-zotero.png](docs/screenshots/06-obsidian-zotero.png) |
+| Clean Obsidian and Zotero handoff | [06-obsidian-zotero.png](docs/screenshots/06-obsidian-zotero.png) |
 
 ## Visual Assets
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .export import best_authors, best_doi, best_journal, best_year
+from .export_filters import public_export_tags, public_export_terms
 from .library.status import (
     feedback_note,
     feedback_note_summary,
@@ -1464,8 +1465,8 @@ def render_obsidian_paper(
         f"reading_status: {status}",
         f"labels: {yaml_list(labels)}",
         f"personal_note: {yaml_scalar(note)}",
-        f"tags: {yaml_list([str(tag) for tag in record.get('tags', [])])}",
-        f"matched_terms: {yaml_list([str(term) for term in record.get('matched_terms', [])])}",
+        f"tags: {yaml_list(public_export_tags(record.get('tags', [])))}",
+        f"matched_terms: {yaml_list(public_export_terms(record.get('matched_terms', [])))}",
         f"year: {yaml_scalar(year)}",
         f"journal: {yaml_scalar(journal)}",
         f"doi: {yaml_scalar(doi)}",

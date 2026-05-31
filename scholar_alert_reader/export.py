@@ -6,6 +6,8 @@ import json
 import re
 from typing import Any
 
+from .export_filters import public_export_keywords, public_export_terms
+
 
 def clean_text(value: Any) -> str:
     return " ".join(str(value or "").replace("\n", " ").split())
@@ -99,6 +101,7 @@ def render_bibtex(records: list[dict[str, Any]]) -> str:
     entries: list[str] = []
     for record in records:
         key = cite_key(record, keys)
+        keywords = public_export_keywords(record.get("matched_terms", []), record.get("tags", []))
         fields = {
             "title": clean_text(record.get("title")),
             "author": " and ".join(best_authors(record)),
@@ -106,11 +109,7 @@ def render_bibtex(records: list[dict[str, Any]]) -> str:
             "journal": best_journal(record),
             "doi": best_doi(record),
             "url": clean_text(record.get("url")),
-            "keywords": ", ".join(
-                clean_text(value)
-                for value in list(record.get("matched_terms", [])) + list(record.get("tags", []))
-                if clean_text(value)
-            ),
+            "keywords": ", ".join(keywords),
             "abstract": clean_text(record.get("snippet")),
         }
         lines = [f"@article{{{key},"]
@@ -143,7 +142,7 @@ def render_ris(records: list[dict[str, Any]]) -> str:
         snippet = clean_text(record.get("snippet"))
         if snippet:
             lines.append(f"AB  - {snippet}")
-        keywords = [clean_text(value) for value in list(record.get("matched_terms", [])) + list(record.get("tags", [])) if clean_text(value)]
+        keywords = public_export_keywords(record.get("matched_terms", []), record.get("tags", []))
         for keyword in keywords[:20]:
             lines.append(f"KW  - {keyword}")
         lines.append("ER  -")
@@ -172,7 +171,7 @@ def render_markdown(records: list[dict[str, Any]]) -> str:
                 f"- Year: {year}",
                 f"- Source: {journal or clean_text(record.get('authors_source'))}",
                 f"- DOI: {doi}",
-                f"- Matched: {', '.join(record.get('matched_terms', []))}",
+                f"- Matched: {', '.join(public_export_terms(record.get('matched_terms', [])))}",
                 "",
                 clean_text(record.get("snippet")),
                 "",

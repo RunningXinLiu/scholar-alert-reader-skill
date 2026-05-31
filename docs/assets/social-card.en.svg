@@ -17,14 +17,14 @@
 <path d="M146 333c42-20 75-16 102 10 27-26 60-30 102-10" fill="none" stroke="#93c5fd" stroke-width="16" stroke-linecap="round"/>
 </g>
 <text x="230" y="180" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">Scholar Alert Reader</text>
-<text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="26">Turn alerts, web feeds, BibTeX/RIS, and arXiv</text>
-<text x="136" y="272" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="26">into a ranked reading queue and research memory.</text>
+<text x="136" y="235" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="26">Turn Gmail, Scholar Alerts, feeds, BibTeX/RIS, and arXiv</text>
+<text x="136" y="272" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="26">into a batch-review reading queue and local paper library.</text>
 <g font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24">
   <rect x="138" y="318" width="174" height="68" rx="18" fill="#dbeafe"/><text x="174" y="361" fill="#1d4ed8">Sources</text>
-  <rect x="340" y="318" width="190" height="68" rx="18" fill="#dcfce7"/><text x="372" y="361" fill="#047857">Profile rank</text>
+  <rect x="340" y="318" width="190" height="68" rx="18" fill="#dcfce7"/><text x="372" y="361" fill="#047857">Batch review</text>
   <rect x="560" y="318" width="168" height="68" rx="18" fill="#ede9fe"/><text x="598" y="361" fill="#6d28d9">Evidence</text>
-  <rect x="760" y="318" width="288" height="68" rx="18" fill="#fef3c7"/><text x="790" y="361" fill="#92400e">Zotero + Obsidian</text>
+  <rect x="760" y="318" width="312" height="68" rx="18" fill="#fef3c7"/><text x="790" y="361" fill="#92400e">Clean Obsidian + Zotero</text>
 </g>
-<text x="138" y="456" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="750">Daily/manual digests · Evidence-aware · Local-first</text>
+<text x="138" y="456" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="750">Daily/manual digests · Explainable ranking · Local-first</text>
 <text x="138" y="506" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="650">Created by Xin Liu · RunningXinLiu</text>
 </svg>

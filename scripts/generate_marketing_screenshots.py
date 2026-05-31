@@ -6,13 +6,22 @@ from __future__ import annotations
 import shutil
 import subprocess
 import tempfile
+from functools import lru_cache
 from pathlib import Path
+from typing import Callable
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCREENSHOT_DIR = ROOT / "docs" / "screenshots"
 WIDTH = 1440
 HEIGHT = 960
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:  # pragma: no cover - optional local marketing dependency
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 
 
 def chrome_path() -> str | None:
@@ -244,38 +253,54 @@ def digest() -> str:
 
 def feedback_ui() -> str:
     return page(
-        "Feedback Triage UI",
-        "Mark papers as interested, archive noise, and tune future ranking",
+        "Review Workspace",
+        "Batch-save decisions, notes, reading status, and report requests",
         """
 <main class="main">
-  <div class="toolbar">
-    <div class="input">Search title, alert, term, source</div>
-    <div class="input">All tiers</div>
+  <div class="toolbar" style="grid-template-columns: 1fr 170px 170px">
+    <div class="input">Search title, venue, abstract, term, source</div>
+    <div class="input">Active queue</div>
+    <div class="input">Must read</div>
   </div>
-  <div class="grid" style="margin-top:20px">
-    <article class="paper featured">
-      <h3>Crustal discontinuities from receiver functions and ambient noise</h3>
-      <div class="badges"><span class="badge">id p7a42</span><span class="badge must">Must read</span><span class="badge">score 44</span></div>
-      <p class="muted">Geophysical Journal International, 2026</p>
-      <p>Combines receiver functions with surface-wave constraints to image lithospheric structure.</p>
-      <div class="button-row">
-        <span class="button primary">Interested + more like this</span>
-        <span class="button danger">Archive + less like this</span>
-        <span class="button">Deep read</span>
-        <span class="button">Must cite</span>
+  <div style="margin-top:20px">
+    <article class="paper featured" style="margin-bottom:16px">
+      <h3>Total generalized variation regularization closes the gap between neural-field and classical tomography</h3>
+      <div class="badges"><span class="badge">id 868e160</span><span class="badge must">Must read</span><span class="badge">score 61</span><span class="badge deep">metadata-enriched</span></div>
+      <p class="muted">Computers &amp; Geosciences, 2026 · open paper · source workspace</p>
+      <p>Full abstract is shown when available; Scholar snippets are marked when the source itself ends with an ellipsis.</p>
+      <div class="three" style="gap:12px; margin-top:14px">
+        <div>
+          <h3>Decision</h3>
+          <div class="input">Interested</div>
+          <p class="tiny">Keep/archive decision.</p>
+        </div>
+        <div>
+          <h3>Priority</h3>
+          <div class="input">Must read</div>
+          <p class="tiny">Manual tier override.</p>
+        </div>
+        <div>
+          <h3>Reading status</h3>
+          <div class="input">Reading</div>
+          <p class="tiny">Progress state.</p>
+        </div>
       </div>
-    </article>
-    <article class="paper">
-      <h3>Regional stress inversion from a global earthquake catalog</h3>
-        <div class="badges"><span class="badge skim">Skim</span><span class="badge">score 24</span><span class="badge">PDF-link-ready</span></div>
-      <p class="muted">Solid candidate for background reading.</p>
-      <div class="button-row">
-        <span class="button">More like this</span><span class="button">Less like this</span><span class="button">Reading</span><span class="button">Read</span>
+      <div class="panel" style="margin-top:12px; padding:12px">
+        <h3>Learning signal</h3>
+        <div class="button-row"><span class="button primary">More like this</span><span class="button">Less like this</span><span class="button">Clear signal</span></div>
       </div>
+      <div class="panel" style="margin-top:12px; padding:12px">
+        <h3>Generate report on save</h3>
+        <div class="button-row"><span class="button">Deep read</span><span class="button primary">Full review</span><span class="button">Workup</span><span class="button">Review pack</span></div>
+      </div>
+      <div class="input" style="margin-top:12px; height:56px">Personal note: useful regularizer comparison for neural-field inversion.</div>
     </article>
   </div>
-  <div class="callout" style="margin-top:12px">
-    Saved feedback updates <b>feedback.json</b>, refreshes the retained library, and changes the next daily ranking. Evidence badges prevent metadata-only triage from being mistaken for full-text review.
+  <div class="callout">
+    Click many cards, then press <b>Save selected changes</b>. Saved feedback updates <b>feedback.json</b>, refreshes the retained library, and changes the next daily ranking.
+  </div>
+  <div class="button-row" style="justify-content:flex-end; margin-top:14px">
+    <span class="button">Clear pending changes</span><span class="button primary">Save selected changes</span>
   </div>
 </main>
 """,
@@ -387,31 +412,34 @@ def research_map() -> str:
 
 def integrations() -> str:
     return page(
-        "Obsidian and Zotero Handoff",
-        "Optional exports turn the Codex skill into a broader academic knowledge system",
+        "Clean Obsidian and Zotero Handoff",
+        "Keep the machine workspace local; export only selected notes and citation files",
         """
 <main class="main grid">
   <section class="panel">
-    <h2>Obsidian export</h2>
+    <h2>Obsidian clean export</h2>
     <ul class="tree" style="margin-top:0">
       <li class="active">01_Literatures/10_Scholar_Alert_Reader</li>
-      <li>00_Dashboard / Library Index.md</li>
-      <li>01_Papers / p7a42.md</li>
-      <li>02_Maps / Research Map.md</li>
-      <li>03_Reading / Reading Status.md</li>
-      <li>04_Answers / receiver-function-qna.md</li>
-      <li>06_Deep_Reads / p7a42_deep_read.md</li>
+      <li class="active">01_Papers / selected-paper.md</li>
+      <li>type: paper</li>
+      <li>generated: true</li>
+      <li>source_tool: scholar-alert-reader</li>
+      <li>obsidian_import: clean</li>
+      <li>No automatic [[wikilinks]]</li>
     </ul>
+    <div class="callout" style="margin-top:16px">Dashboard, search index, runs, analysis reports, and full workspace files stay outside the Obsidian graph by default.</div>
   </section>
   <section class="panel">
-    <h2>Zotero-ready files</h2>
+    <h2>Zotero-ready Must-read files</h2>
     <div class="code">@article{{p7a42,
-  title = {{Crustal discontinuities from receiver functions}},
+  title = {{Neural-field travel-time tomography}},
   author = {{A. Researcher and B. Collaborator}},
   year = {{2026}},
-  doi = {{10.0000/demo}}
+  journal = {{Computers &amp; Geosciences}},
+  keywords = {{tomography, uncertainty, method}}
 }}</div>
-    <div class="badges" style="margin-top:14px"><span class="badge">library.bib</span><span class="badge">library.ris</span><span class="badge">markdown notes</span></div>
+    <div class="badges" style="margin-top:14px"><span class="badge">scholar_alert_reader.bib</span><span class="badge">scholar_alert_reader.ris</span><span class="badge">filtered tags</span></div>
+    <p class="muted" style="margin-top:14px">Internal learning signals such as similar:, user:, feedback, and semantic are hidden from downstream tags.</p>
   </section>
 </main>
 """,
@@ -420,11 +448,11 @@ def integrations() -> str:
 
 SCREENSHOTS = [
     ("01-daily-digest", "Daily digest dashboard", digest),
-    ("02-feedback-triage", "Feedback UI for selecting interested papers", feedback_ui),
+    ("02-feedback-triage", "Review Workspace for batch feedback and notes", feedback_ui),
     ("03-foundation-interested", "Foundation and interested knowledge base", foundation_interested),
     ("04-deep-read-copilot", "Evidence-aware selected-paper review workflow", deep_read),
     ("05-research-map-advice", "Research map and advice", research_map),
-    ("06-obsidian-zotero", "Obsidian and Zotero handoff", integrations),
+    ("06-obsidian-zotero", "Clean Obsidian and Zotero handoff", integrations),
 ]
 
 
@@ -441,30 +469,318 @@ def write_index() -> None:
     ]
     for slug, caption, _ in SCREENSHOTS:
         lines.append(f"| {caption} | [{slug}.png]({slug}.png) |")
-    (SCREENSHOT_DIR / "README.md").write_text("\n".join(lines), encoding="utf-8")
+    (SCREENSHOT_DIR / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def render_with_chrome(html_file: Path, out_file: Path, chrome: str) -> None:
-    subprocess.run(
-        [
+    with tempfile.TemporaryDirectory() as profile:
+        base_args = [
             chrome,
-            "--headless=new",
             "--disable-gpu",
             "--hide-scrollbars",
             "--no-first-run",
             "--no-default-browser-check",
+            "--disable-dev-shm-usage",
+            f"--user-data-dir={profile}",
             f"--window-size={WIDTH},{HEIGHT}",
             f"--screenshot={out_file}",
             html_file.as_uri(),
+        ]
+        last_error: subprocess.CalledProcessError | None = None
+        for headless_flag in ["--headless=new", "--headless"]:
+            try:
+                subprocess.run(
+                    [base_args[0], headless_flag, *base_args[1:]],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                return
+            except subprocess.CalledProcessError as exc:
+                last_error = exc
+        if last_error:
+            raise last_error
+
+
+@lru_cache(maxsize=None)
+def pil_font(size: int, bold: bool = False) -> object:
+    if ImageFont is None:
+        raise RuntimeError("Pillow is not available")
+    candidates = [
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Helvetica Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Helvetica.ttf",
+        "/Library/Fonts/Arial Bold.ttf" if bold else "/Library/Fonts/Arial.ttf",
+    ]
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return ImageFont.truetype(candidate, size=size)
+    return ImageFont.load_default(size=size)
+
+
+def draw_text(
+    draw: object,
+    xy: tuple[int, int],
+    text_value: str,
+    size: int,
+    fill: str,
+    bold: bool = False,
+) -> None:
+    draw.text(xy, text_value, font=pil_font(size, bold=bold), fill=fill)
+
+
+def text_size(draw: object, text_value: str, size: int, bold: bool = False) -> tuple[int, int]:
+    bbox = draw.textbbox((0, 0), text_value, font=pil_font(size, bold=bold))
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+def wrap_text(draw: object, text_value: str, max_width: int, size: int, bold: bool = False) -> list[str]:
+    words = text_value.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if not current or text_size(draw, candidate, size, bold=bold)[0] <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+def rounded(draw: object, xy: tuple[int, int, int, int], radius: int, fill: str, outline: str | None = None, width: int = 1) -> None:
+    draw.rounded_rectangle(xy, radius=radius, fill=fill, outline=outline, width=width)
+
+
+def pill(draw: object, x: int, y: int, label: str, fill: str = "#eef2f7", fg: str = "#334155") -> int:
+    w, h = text_size(draw, label, 17, bold=True)
+    width = w + 26
+    rounded(draw, (x, y, x + width, y + 34), 17, fill)
+    draw_text(draw, (x + 13, y + 8), label, 17, fg, bold=True)
+    return width
+
+
+def browser_canvas(title: str, subtitle: str) -> tuple[object, object]:
+    if Image is None or ImageDraw is None:
+        raise RuntimeError("Pillow is not available")
+    img = Image.new("RGB", (WIDTH, HEIGHT), "#f6f8fb")
+    draw = ImageDraw.Draw(img)
+    rounded(draw, (80, 44, 1360, 862), 18, "#ffffff", "#cfd8e3")
+    draw.rectangle((80, 94, 1360, 220), fill="#ffffff", outline="#d8e0ea")
+    rounded(draw, (171, 56, 1342, 84), 14, "#ffffff")
+    for x, color in [(99, "#ff5f57"), (119, "#ffbd2e"), (139, "#28c840")]:
+        draw.ellipse((x, 64, x + 12, 76), fill=color)
+    draw_text(draw, (186, 63), "localhost / Scholar Alert Reader", 14, "#475569")
+    draw_text(draw, (115, 132), title, 36, "#111827", bold=True)
+    draw_text(draw, (115, 179), subtitle, 19, "#526684")
+    return img, draw
+
+
+def draw_card(draw: object, x: int, y: int, w: int, h: int, title: str, body: list[str], accent: str | None = None) -> None:
+    rounded(draw, (x, y, x + w, y + h), 12, "#ffffff", "#d8e0ea")
+    if accent:
+        draw.rounded_rectangle((x, y, x + 6, y + h), radius=6, fill=accent)
+    draw_text(draw, (x + 18, y + 18), title, 22, "#111827", bold=True)
+    yy = y + 58
+    for line in body:
+        for wrapped in wrap_text(draw, line, w - 36, 19):
+            draw_text(draw, (x + 18, yy), wrapped, 19, "#475569")
+            yy += 28
+        yy += 5
+
+
+def draw_pillow_digest(out_file: Path) -> None:
+    img, draw = browser_canvas("Daily Literature Digest", "Ranked papers with evidence levels, source metadata, and next-reading priority")
+    x, y = 115, 246
+    for label, color, fg in [
+        ("Papers 18", "#eef2f7", "#334155"),
+        ("Must read 4", "#d1fae5", "#047857"),
+        ("Skim 7", "#dbeafe", "#1d4ed8"),
+        ("Archive 7", "#fef3c7", "#92400e"),
+        ("Gmail + RSS + arXiv", "#ede9fe", "#6d28d9"),
+    ]:
+        x += pill(draw, x, y, label, color, fg) + 10
+    draw_card(
+        draw,
+        115,
+        315,
+        590,
+        220,
+        "Receiver function imaging beneath the eastern Tibetan Plateau",
+        [
+            "Earth and Planetary Science Letters, 2026",
+            "Must read · score 42 · metadata-enriched",
+            "Constrains crustal anisotropy and Moho complexity using dense temporary arrays.",
         ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        accent="#10b981",
     )
+    draw_card(
+        draw,
+        735,
+        315,
+        590,
+        220,
+        "Ambient noise tomography of the Taiwan collision zone",
+        [
+            "Journal of Geophysical Research, 2026",
+            "Must read · score 38 · PDF-link-ready",
+            "Useful for joint inversion and uncertainty-aware velocity models.",
+        ],
+    )
+    draw_card(
+        draw,
+        115,
+        570,
+        590,
+        185,
+        "Why selected",
+        [
+            "Topic fit + method fit + domain/region fit are shown separately.",
+            "Evidence badges make metadata-only triage visibly different from full-text-backed analysis.",
+        ],
+    )
+    draw_card(
+        draw,
+        735,
+        570,
+        590,
+        185,
+        "Daily behavior",
+        [
+            "Foundation remembers what has already been seen.",
+            "Daily digest focuses on new/unread candidates after the first run.",
+        ],
+    )
+    img.save(out_file)
+
+
+def draw_pillow_review(out_file: Path) -> None:
+    img, draw = browser_canvas("Review Workspace", "Batch-save decisions, notes, reading status, and report requests")
+    pill(draw, 115, 248, "Active queue", "#dbeafe", "#1d4ed8")
+    pill(draw, 250, 248, "Must read", "#d1fae5", "#047857")
+    pill(draw, 370, 248, "Search title / venue / abstract", "#eef2f7", "#334155")
+    draw_card(
+        draw,
+        115,
+        310,
+        1210,
+        345,
+        "Total generalized variation regularization closes the gap between neural-field and classical tomography",
+        [
+            "Computers & Geosciences, 2026 · Open paper · Source workspace",
+            "Full abstract is shown when available; truncated Scholar snippets are labeled as source-limited.",
+            "Decision: Interested     Priority: Must read     Reading status: Reading",
+            "Learning signal: More like this     Report on save: Full review",
+            "Personal note: useful regularizer comparison for neural-field inversion.",
+        ],
+        accent="#0f766e",
+    )
+    for x, label, fill, fg in [
+        (150, "Interested", "#d1fae5", "#047857"),
+        (285, "Must read", "#dbeafe", "#1d4ed8"),
+        (410, "More like this", "#ecfeff", "#0f766e"),
+        (570, "Full review", "#ede9fe", "#6d28d9"),
+        (710, "Fetch abstract", "#fef3c7", "#92400e"),
+    ]:
+        pill(draw, x, 565, label, fill, fg)
+    rounded(draw, (858, 704, 1070, 756), 9, "#ffffff", "#d8e0ea")
+    draw_text(draw, (880, 720), "Clear pending", 19, "#334155", bold=True)
+    rounded(draw, (1090, 704, 1325, 756), 9, "#0f766e")
+    draw_text(draw, (1124, 720), "Save changes", 19, "#ffffff", bold=True)
+    rounded(draw, (115, 690, 800, 790), 12, "#ecfeff", "#bae6fd")
+    draw_text(draw, (140, 715), "One save writes feedback.json, refreshes the retained library,", 20, "#0f172a")
+    draw_text(draw, (140, 746), "and changes the next ranking run.", 20, "#0f172a")
+    img.save(out_file)
+
+
+def draw_pillow_library(out_file: Path) -> None:
+    img, draw = browser_canvas("Foundation and Interested Library", "Retained papers become a cumulative, queryable research memory")
+    rounded(draw, (115, 250, 400, 770), 12, "#0f172a")
+    for i, item in enumerate(["foundation.md", "interested.md", "daily_additions.md", "papers/*.md", "directions/*.md", "weekly_review.md"]):
+        draw_text(draw, (145, 300 + i * 58), item, 21, "#ffffff" if i < 2 else "#cbd5e1", bold=i < 2)
+    draw_card(draw, 430, 250, 895, 160, "Interested queue", ["58 selected notes · 23 interested · 38 Must read", "The queue is small enough to review and export."])
+    draw_card(draw, 430, 435, 895, 160, "Foundation by direction", ["AI seismology, tomography, phase picking, dense arrays, induced seismicity.", "Archive-tier papers stay out unless explicitly marked interested."])
+    draw_card(draw, 430, 620, 895, 150, "Local-first library", ["index.html, search_index.json, per-paper Markdown notes, and score breakdowns remain in the tool workspace."])
+    img.save(out_file)
+
+
+def draw_pillow_evidence(out_file: Path) -> None:
+    img, draw = browser_canvas("Evidence and Review Workflow", "Inspect what a selected-paper report can support before citing it")
+    draw_card(draw, 115, 255, 590, 210, "Selected paper", ["Neural-field travel-time tomography", "Must read · full-text-ready · method bridge", "Related to regularization, inversion, and uncertainty tracking."], accent="#6d28d9")
+    draw_card(draw, 735, 255, 590, 210, "Evidence boundary", ["Can support: reading plan, section coverage, workup, review pack.", "Cannot replace checking the original paper for final citation claims."])
+    for x, big, small in [(150, "1", "local text cache"), (470, "8", "figure/table captions"), (790, "5", "foundation links")]:
+        rounded(draw, (x, 510, x + 255, 635), 12, "#ffffff", "#d8e0ea")
+        draw_text(draw, (x + 30, 535), big, 48, "#111827", bold=True)
+        draw_text(draw, (x + 82, 555), small, 22, "#64748b")
+    rounded(draw, (115, 690, 1325, 785), 12, "#0f172a")
+    draw_text(draw, (145, 715), "./evidence_reader.sh --paper-id 868e160", 21, "#e5e7eb")
+    draw_text(draw, (145, 748), "./review_workflow.sh --paper-id 868e160 --open", 21, "#e5e7eb")
+    img.save(out_file)
+
+
+def draw_pillow_map(out_file: Path) -> None:
+    img, draw = browser_canvas("Research Map and Advice", "Cluster retained papers, expose gaps, and turn alerts into research strategy")
+    rounded(draw, (115, 250, 765, 760), 14, "#ffffff", "#d8e0ea")
+    nodes = [
+        (190, 430, "Receiver functions", "#dbeafe", "#1d4ed8"),
+        (490, 330, "Ambient noise", "#d1fae5", "#047857"),
+        (510, 520, "Joint inversion", "#ede9fe", "#6d28d9"),
+        (350, 650, "DAS monitoring", "#fef3c7", "#92400e"),
+    ]
+    for a, b in [(0, 1), (1, 2), (0, 2), (2, 3)]:
+        x1, y1, *_ = nodes[a]
+        x2, y2, *_ = nodes[b]
+        draw.line((x1 + 70, y1 + 18, x2 + 70, y2 + 18), fill="#94a3b8", width=3)
+    for x, y, label, fill, fg in nodes:
+        rounded(draw, (x, y, x + 190, y + 48), 24, fill, "#d8e0ea")
+        draw_text(draw, (x + 18, y + 13), label, 18, fg, bold=True)
+    draw_card(draw, 795, 250, 530, 510, "Advice", ["Opportunity: connect receiver-function discontinuity constraints with ambient-noise velocity models.", "Gap: few retained papers quantify uncertainty consistently across methods.", "Next alerts: joint inversion uncertainty, crustal anisotropy, dense array monitoring."])
+    img.save(out_file)
+
+
+def draw_pillow_integrations(out_file: Path) -> None:
+    img, draw = browser_canvas("Clean Obsidian and Zotero Handoff", "Keep the machine workspace local; export only selected notes and citation files")
+    draw_card(draw, 115, 250, 590, 430, "Obsidian clean export", ["01_Literatures/10_Scholar_Alert_Reader", "01_Papers / selected-paper.md", "type: paper · generated: true", "source_tool: scholar-alert-reader", "obsidian_import: clean", "No automatic wikilinks"], accent="#0f766e")
+    rounded(draw, (735, 250, 1325, 505), 12, "#ffffff", "#d8e0ea")
+    draw_text(draw, (760, 280), "Zotero-ready Must-read files", 28, "#111827", bold=True)
+    rounded(draw, (760, 325, 1300, 455), 10, "#0f172a")
+    for i, line in enumerate(["@article{tomography2026,", "  title = {Neural-field travel-time tomography},", "  journal = {Computers & Geosciences},", "  keywords = {tomography, uncertainty, method}", "}"]):
+        draw_text(draw, (782, 345 + i * 22), line, 17, "#e5e7eb")
+    pill(draw, 760, 475, "scholar_alert_reader.bib")
+    pill(draw, 980, 475, "scholar_alert_reader.ris")
+    rounded(draw, (735, 555, 1325, 680), 12, "#ecfeff", "#bae6fd")
+    draw_text(draw, (760, 585), "Internal learning signals are hidden from downstream tags:", 22, "#0f172a", bold=True)
+    draw_text(draw, (760, 625), "similar:, user:, feedback, semantic, watchlist", 21, "#475569")
+    img.save(out_file)
+
+
+PILLOW_BUILDERS: dict[str, Callable[[Path], None]] = {
+    "01-daily-digest": draw_pillow_digest,
+    "02-feedback-triage": draw_pillow_review,
+    "03-foundation-interested": draw_pillow_library,
+    "04-deep-read-copilot": draw_pillow_evidence,
+    "05-research-map-advice": draw_pillow_map,
+    "06-obsidian-zotero": draw_pillow_integrations,
+}
+
+
+def render_with_pillow(slug: str, out_file: Path) -> bool:
+    if Image is None:
+        return False
+    PILLOW_BUILDERS[slug](out_file)
+    return True
 
 
 def main() -> int:
     SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    if Image is not None:
+        for slug, _, _ in SCREENSHOTS:
+            render_with_pillow(slug, SCREENSHOT_DIR / f"{slug}.png")
+        write_index()
+        print(f"Generated screenshots in {SCREENSHOT_DIR}")
+        return 0
+
     chrome = chrome_path()
     if not chrome:
         raise SystemExit("Google Chrome or Chromium is required to render screenshots.")
