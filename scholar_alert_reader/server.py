@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, urlparse
 
+DEFAULT_WORKSPACE_CARD_LIMIT = 160
+
 
 @dataclass
 class ServerConfig:
@@ -433,18 +435,94 @@ def scholar_source_line_html(paper: Any) -> str:
     )
 
 
-def abstract_snippet_html(paper: Any) -> str:
+def _metadata_abstract_candidates(paper: Any) -> list[tuple[str, str]]:
+    metadata = getattr(paper, "metadata", {}) or {}
+    if not isinstance(metadata, dict):
+        return []
+    candidates: list[tuple[str, str]] = []
+    for provider, label in [
+        ("openalex", "OpenAlex abstract"),
+        ("crossref", "Crossref abstract"),
+        ("web", "webpage abstract"),
+        ("bibtex", "BibTeX abstract"),
+        ("ris", "RIS abstract"),
+        ("arxiv", "arXiv abstract"),
+        ("feed", "feed abstract"),
+    ]:
+        item = metadata.get(provider)
+        if not isinstance(item, dict):
+            continue
+        for key in ["abstract", "citation_abstract", "description", "summary"]:
+            value = str(item.get(key, "") or "").strip()
+            if value:
+                candidates.append((label, value))
+                break
+    return candidates
+
+
+def best_abstract_or_snippet(paper: Any) -> tuple[str, str, str]:
     snippet = str(getattr(paper, "snippet", "") or "").strip()
-    if not snippet:
-        return '<div class="snippet-block missing"><strong>Abstract / snippet</strong><p>No abstract or alert snippet is available.</p></div>'
-    label = "Abstract / snippet"
     source_truncated = snippet.endswith("…") or snippet.endswith("...")
+    for label, abstract in _metadata_abstract_candidates(paper):
+        if len(abstract) > max(len(snippet) + 80, 300) or source_truncated:
+            provider = label.split()[0]
+            hint = f"Showing an enriched public metadata abstract from {provider}; the Scholar Alert snippet may be shorter or truncated."
+            return "Abstract", abstract, hint
+    if not snippet:
+        return "Abstract / snippet", "", "No abstract or alert snippet is available."
     hint = (
-        '<div class="snippet-hint">The source record already ends with an ellipsis; the UI is showing all text available from the alert/source item.</div>'
+        "The source record already ends with an ellipsis; the UI is showing all text available from the alert/source item."
         if source_truncated
-        else '<div class="snippet-hint">Showing the full abstract/snippet text available in this source record.</div>'
+        else "Showing the full abstract/snippet text available in this source record."
     )
-    return f'<div class="snippet-block"><strong>{html.escape(label)}</strong><p>{html.escape(snippet)}</p>{hint}</div>'
+    return "Abstract / snippet", snippet, hint
+
+
+def _render_latex_fragment(fragment: str) -> str:
+    text = " ".join(fragment.strip().split())
+    replacements = {
+        r"\leq": "≤",
+        r"\geq": "≥",
+        r"\times": "×",
+        r"\pm": "±",
+        r"\alpha": "α",
+        r"\beta": "β",
+        r"\gamma": "γ",
+        r"\delta": "δ",
+        r"\lambda": "λ",
+        r"\mu": "μ",
+        r"\sigma": "σ",
+    }
+    for raw, rendered in replacements.items():
+        text = text.replace(raw, rendered)
+    rendered = html.escape(text)
+    rendered = re.sub(r"\^\{([^{}]+)\}", r"<sup>\1</sup>", rendered)
+    rendered = re.sub(r"\^([A-Za-z0-9.+\-]+)", r"<sup>\1</sup>", rendered)
+    rendered = re.sub(r"_\{([^{}]+)\}", r"<sub>\1</sub>", rendered)
+    rendered = re.sub(r"_([A-Za-z0-9.+\-]+)", r"<sub>\1</sub>", rendered)
+    return f'<span class="math-inline">{rendered}</span>'
+
+
+def render_academic_inline_text(value: str) -> str:
+    text = html.unescape(str(value or "").strip())
+    if not text:
+        return ""
+    parts: list[str] = []
+    index = 0
+    for match in re.finditer(r"\$([^$\n]{1,160})\$", text):
+        parts.append(html.escape(text[index : match.start()]))
+        parts.append(_render_latex_fragment(match.group(1)))
+        index = match.end()
+    parts.append(html.escape(text[index:]))
+    return "".join(parts)
+
+
+def abstract_snippet_html(paper: Any) -> str:
+    label, text, hint = best_abstract_or_snippet(paper)
+    if not text:
+        return f'<div class="snippet-block missing"><strong>{html.escape(label)}</strong><p>{html.escape(hint)}</p></div>'
+    rendered_text = render_academic_inline_text(text)
+    return f'<div class="snippet-block"><strong>{html.escape(label)}</strong><p>{rendered_text}</p><div class="snippet-hint">{html.escape(hint)}</div></div>'
 
 
 def paper_metadata_summary(paper: Any) -> str:
@@ -812,6 +890,41 @@ def filter_papers_for_view(papers: list[Any], view: str, feedback: dict[str, Any
     ]
 
 
+def workspace_limit_from_query(query: dict[str, list[str]]) -> int | None:
+    raw = (query.get("limit") or [""])[0].strip().lower()
+    if raw in {"all", "full", "none", "0"}:
+        return None
+    if raw.isdigit():
+        limit = int(raw)
+        return limit if limit > 0 else None
+    return DEFAULT_WORKSPACE_CARD_LIMIT
+
+
+def limit_workspace_papers(papers: list[Any], view: str, limit: int | None) -> tuple[list[Any], str]:
+    if limit is None or view == "all" or len(papers) <= limit:
+        return papers, ""
+    if view == "active":
+        must_read = [paper for paper in papers if str(getattr(paper, "tier", "")) == "Must read"]
+        others = [paper for paper in papers if str(getattr(paper, "tier", "")) != "Must read"]
+        selected = must_read + others[: max(limit - len(must_read), 0)]
+        if not selected:
+            selected = papers[:limit]
+        elif len(selected) < min(limit, len(papers)):
+            selected_ids = {str(getattr(paper, "id", "")) for paper in selected}
+            for paper in papers:
+                if str(getattr(paper, "id", "")) not in selected_ids:
+                    selected.append(paper)
+                if len(selected) >= limit:
+                    break
+    else:
+        selected = papers[:limit]
+    notice = (
+        f"Showing a lighter review batch ({len(selected)} of {len(papers)} cards in this view) so feedback controls stay responsive. "
+        'Use <a href="/?view=all#all-papers">Load all cards</a> for the complete set.'
+    )
+    return selected, notice
+
+
 def render_grouped_cards(card_rows: list[tuple[str, str]], tier_counts: dict[str, int]) -> str:
     if not card_rows:
         return (
@@ -873,6 +986,7 @@ def render_page(
     focused_paper: Any | None = None,
     all_papers: list[Any] | None = None,
     view: str = "active",
+    limit_notice_html: str = "",
 ) -> str:
     all_papers = all_papers or papers
     card_rows: list[tuple[str, str]] = []
@@ -935,6 +1049,7 @@ def render_page(
                         '<div class="review-controls">',
                         f'<input type="hidden" name="paper_id" value="{html.escape(paper.id, quote=True)}">',
                         f'<input type="hidden" class="report-action" name="report_action__{html.escape(paper.id, quote=True)}" value="">',
+                        f'<input type="hidden" class="metadata-action" name="metadata_action__{html.escape(paper.id, quote=True)}" value="">',
                         '<div class="review-grid">',
                         review_select(
                             f"decision__{paper.id}",
@@ -989,6 +1104,11 @@ def render_page(
                         '<button type="button" class="action-chip" data-set-report="review_pack" value="review_pack">Review pack</button>',
                         '<button type="button" class="action-chip clear-action" data-set-report="" value="">Clear report</button>',
                         "</div></div>",
+                        '<div class="review-field metadata-field"><span>Improve metadata on save</span>',
+                        '<div class="action-row">',
+                        '<button type="button" class="action-chip" data-set-metadata="abstract" value="abstract">Fetch abstract</button>',
+                        '<button type="button" class="action-chip clear-action" data-set-metadata="" value="">Clear metadata action</button>',
+                        "</div><span class=\"control-help\">Looks up public OpenAlex/Crossref metadata for this paper only. It may take a few seconds.</span></div>",
                         '<label class="note-input"><span>Personal note</span>'
                         + '<div class="note-tools">'
                         + f'<select class="review-select note-mode" name="note_mode__{html.escape(paper.id, quote=True)}">'
@@ -1384,6 +1504,14 @@ def render_page(
               white-space: pre-wrap;
               overflow-wrap: anywhere;
             }
+            .math-inline {
+              font-family: ui-serif, Georgia, "Times New Roman", serif;
+              white-space: nowrap;
+            }
+            .math-inline sup,
+            .math-inline sub {
+              line-height: 0;
+            }
             .snippet-hint {
               margin-top: 6px;
               color: var(--muted);
@@ -1447,7 +1575,8 @@ def render_page(
               font-size: 12px;
             }
             .learning-field,
-            .report-field {
+            .report-field,
+            .metadata-field {
               border: 1px solid var(--line);
               border-radius: 8px;
               padding: 10px;
@@ -1525,7 +1654,8 @@ def render_page(
               font: inherit;
             }
             button:hover { border-color: var(--accent); color: var(--accent); }
-            .action-chip.selected-report {
+            .action-chip.selected-report,
+            .action-chip.selected-metadata {
               border-color: var(--accent);
               background: #d9f4ef;
               color: #0f5f59;
@@ -1571,6 +1701,7 @@ def render_page(
             f'<div class="message">{message_html}</div>'
             if message_html
             else f'<div class="message">{html.escape(message)}</div>' if message else "",
+            f'<div class="message limit-notice">{limit_notice_html}</div>' if limit_notice_html else "",
             overview,
             "</header>",
             "<main>",
@@ -1671,9 +1802,11 @@ def render_page(
               const note = card.querySelector('.paper-note');
               const noteMode = card.querySelector('.note-mode');
               const report = card.querySelector('.report-action');
+              const metadata = card.querySelector('.metadata-action');
               const selects = card.querySelectorAll('.review-select');
               const checks = card.querySelectorAll('.review-checkbox input');
               if (report && report.value) return true;
+              if (metadata && metadata.value) return true;
               if (note && note.value.trim()) return true;
               if (noteMode && noteMode.value === 'clear') return true;
               for (const item of selects) {
@@ -1697,50 +1830,65 @@ def render_page(
               const text = changed.size === 0 ? 'No pending changes' : `${changed.size} pending change${changed.size === 1 ? '' : 's'}`;
               document.querySelectorAll('.pending-count').forEach(el => { el.textContent = text; });
             }
-            document.querySelectorAll('.action-chip[data-set-report]').forEach(button => {
-              button.addEventListener('click', () => {
+            if (batchForm) {
+              batchForm.addEventListener('click', event => {
+                const rawTarget = event.target;
+                const target = rawTarget && rawTarget.closest ? rawTarget : rawTarget?.parentElement;
+                const button = target?.closest('.action-chip[data-set-report]');
+                if (!button || !batchForm.contains(button)) return;
                 const card = button.closest('.paper');
+                if (!card) return;
                 const actionInput = card.querySelector('.report-action');
+                if (!actionInput) return;
                 actionInput.value = button.dataset.setReport || '';
                 card.querySelectorAll('.action-chip[data-set-report]').forEach(item => item.classList.remove('selected-report'));
                 if (actionInput.value) button.classList.add('selected-report');
                 markCardDirty(card);
                 updatePendingCount();
+                return;
               });
-            });
-            document.querySelectorAll('.review-select').forEach(input => {
-              input.addEventListener('change', () => {
-                markCardDirty(input.closest('.paper'));
-                updatePendingCount();
-              });
-            });
-            document.querySelectorAll('.review-checkbox input').forEach(input => {
-              input.addEventListener('change', () => {
-                const card = input.closest('.paper');
-                if (input.checked && input.closest('.signal-more')) {
-                  card.querySelectorAll('.signal-less input, .signal-clear input').forEach(item => { item.checked = false; });
-                } else if (input.checked && input.closest('.signal-less')) {
-                  card.querySelectorAll('.signal-more input, .signal-clear input').forEach(item => { item.checked = false; });
-                } else if (input.checked && input.closest('.signal-clear')) {
-                  card.querySelectorAll('.signal-more input, .signal-less input').forEach(item => { item.checked = false; });
-                }
+              batchForm.addEventListener('click', event => {
+                const rawTarget = event.target;
+                const target = rawTarget && rawTarget.closest ? rawTarget : rawTarget?.parentElement;
+                const button = target?.closest('.action-chip[data-set-metadata]');
+                if (!button || !batchForm.contains(button)) return;
+                const card = button.closest('.paper');
+                if (!card) return;
+                const actionInput = card.querySelector('.metadata-action');
+                if (!actionInput) return;
+                actionInput.value = button.dataset.setMetadata || '';
+                card.querySelectorAll('.action-chip[data-set-metadata]').forEach(item => item.classList.remove('selected-metadata'));
+                if (actionInput.value) button.classList.add('selected-metadata');
                 markCardDirty(card);
                 updatePendingCount();
               });
-            });
-            document.querySelectorAll('.paper-note').forEach(note => {
-              note.addEventListener('input', () => {
-                markCardDirty(note.closest('.paper'));
+              batchForm.addEventListener('change', event => {
+                const target = event.target;
+                if (!target || !target.closest) return;
+                const card = target.closest('.paper');
+                if (!card) return;
+                if (target.matches('.review-checkbox input')) {
+                  if (target.checked && target.closest('.signal-more')) {
+                    card.querySelectorAll('.signal-less input, .signal-clear input').forEach(item => { item.checked = false; });
+                  } else if (target.checked && target.closest('.signal-less')) {
+                    card.querySelectorAll('.signal-more input, .signal-clear input').forEach(item => { item.checked = false; });
+                  } else if (target.checked && target.closest('.signal-clear')) {
+                    card.querySelectorAll('.signal-more input, .signal-less input').forEach(item => { item.checked = false; });
+                  }
+                  markCardDirty(card);
+                  updatePendingCount();
+                } else if (target.matches('.review-select')) {
+                  markCardDirty(card);
+                  updatePendingCount();
+                }
+              });
+              batchForm.addEventListener('input', event => {
+                const target = event.target;
+                if (!target || !target.matches) return;
+                if (!target.matches('.paper-note')) return;
+                markCardDirty(target.closest('.paper'));
                 updatePendingCount();
               });
-            });
-            document.querySelectorAll('.note-mode').forEach(mode => {
-              mode.addEventListener('change', () => {
-                markCardDirty(mode.closest('.paper'));
-                updatePendingCount();
-              });
-            });
-            if (batchForm) {
               batchForm.addEventListener('submit', event => {
                 let changed = false;
                 for (const card of cards) {
@@ -1756,7 +1904,7 @@ def render_page(
                 }
                 const warnings = refreshAllCombinationWarnings();
                 if (warnings.length) {
-                  const uniqueWarnings = [...new Set(warnings)].slice(0, 5).join('\n');
+                  const uniqueWarnings = [...new Set(warnings)].slice(0, 5).join('\\n');
                   if (!confirm(`Some feedback combinations are unusual:\n\n${uniqueWarnings}\n\nSave anyway?`)) {
                     event.preventDefault();
                   }
@@ -1833,6 +1981,29 @@ def make_handler(config: ServerConfig):
                 )
                 return [("review pack", review_pack_report)]
             return []
+
+        def enrich_selected_metadata(self, paper: Any) -> tuple[bool, bool, dict[str, int]]:
+            from . import enrich as enrich_module
+
+            record = core.asdict(paper)
+            before = dict(getattr(paper, "metadata", {}) or {})
+            updated, counts = enrich_module.enrich_record(
+                record,
+                {"openalex", "crossref"},
+                email=None,
+                user_agent="scholar-alert-reader/0.2 review-workspace",
+                timeout=6,
+            )
+            metadata = updated.get("metadata") if isinstance(updated.get("metadata"), dict) else {}
+            if metadata != before:
+                paper.metadata = metadata
+            has_abstract = False
+            for provider in ["openalex", "crossref"]:
+                item = metadata.get(provider)
+                if isinstance(item, dict) and str(item.get("abstract", "") or "").strip():
+                    has_abstract = True
+                    break
+            return metadata != before, has_abstract, counts
 
         def apply_feedback_choice(self, feedback: dict[str, Any], paper: Any, action: str, user_note: str, note_mode: str = "") -> bool:
             if not action and not user_note.strip() and note_mode != "clear":
@@ -2034,7 +2205,7 @@ def make_handler(config: ServerConfig):
                     body = core.markdown_to_basic_html(content, f"Scholar Alert: {local_path.stem}").encode("utf-8")
                 self.send_html(body)
                 return
-            if parsed.path != "/":
+            if parsed.path not in {"/", "/feedback-batch"}:
                 if parsed.path == "/paper":
                     query = parse_qs(parsed.query)
                     paper_id = (query.get("id") or [""])[0]
@@ -2062,7 +2233,15 @@ def make_handler(config: ServerConfig):
             all_papers = core.load_papers_json(config.papers_json)
             feedback = core.load_feedback(core.default_feedback_file(config.kb_dir))
             papers = filter_papers_for_view(all_papers, view, feedback)
-            body = render_page(papers, config, feedback=feedback, all_papers=all_papers, view=view).encode("utf-8")
+            papers, limit_notice = limit_workspace_papers(papers, view, workspace_limit_from_query(query))
+            body = render_page(
+                papers,
+                config,
+                feedback=feedback,
+                all_papers=all_papers,
+                view=view,
+                limit_notice_html=limit_notice,
+            ).encode("utf-8")
             self.send_html(body)
 
         def do_POST(self) -> None:
@@ -2100,6 +2279,9 @@ def make_handler(config: ServerConfig):
                 feedback = core.load_feedback(core.default_feedback_file(config.kb_dir))
                 selected = [paper for paper in all_papers if paper.id == paper_id] if paper_id else []
                 papers = selected or filter_papers_for_view(all_papers, view, feedback)
+                limit_notice = ""
+                if not selected:
+                    papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT)
                 answer_link = f'<a href="/answer?name={quote(output.name, safe="")}">{html.escape(output.name)}</a>'
                 body = render_page(
                     papers,
@@ -2113,6 +2295,7 @@ def make_handler(config: ServerConfig):
                     focused_paper=selected[0] if selected else None,
                     all_papers=selected or all_papers,
                     view="focused" if selected else view,
+                    limit_notice_html=limit_notice,
                 ).encode("utf-8")
                 self.send_html(body)
                 return
@@ -2127,6 +2310,7 @@ def make_handler(config: ServerConfig):
                 feedback = core.load_feedback(feedback_file)
                 changed: list[Any] = []
                 review_actions: list[tuple[str, str]] = []
+                metadata_requests: list[Any] = []
                 combination_warnings: list[str] = []
                 seen_ids: set[str] = set()
                 for paper_id in form.get("paper_id", []):
@@ -2143,6 +2327,7 @@ def make_handler(config: ServerConfig):
                     signal_less = bool(form.get(f"signal_less__{paper_id}"))
                     signal_clear = bool(form.get(f"signal_clear__{paper_id}"))
                     report_action = (form.get(f"report_action__{paper_id}") or [""])[0].strip()
+                    metadata_action = (form.get(f"metadata_action__{paper_id}") or [""])[0].strip()
                     note_mode = (form.get(f"note_mode__{paper_id}") or [""])[0].strip()
                     user_note = (form.get(f"note__{paper_id}") or [""])[0].strip()
                     combination_warnings.extend(
@@ -2170,6 +2355,27 @@ def make_handler(config: ServerConfig):
                         changed.append(paper)
                         if report_action in {"deep", "review_workflow", "workup", "review_pack"}:
                             review_actions.append((paper.id, report_action))
+                    if metadata_action == "abstract":
+                        metadata_requests.append(paper)
+                metadata_checked = 0
+                metadata_updated = 0
+                metadata_abstracts = 0
+                metadata_errors: list[str] = []
+                for paper in metadata_requests:
+                    metadata_checked += 1
+                    try:
+                        updated, has_abstract, _counts = self.enrich_selected_metadata(paper)
+                    except Exception as exc:  # pragma: no cover - defensive UI boundary for network/API surprises.
+                        metadata_errors.append(f"{paper.id}: {exc}")
+                        continue
+                    if updated:
+                        metadata_updated += 1
+                    if has_abstract:
+                        metadata_abstracts += 1
+                if metadata_updated:
+                    core.save_json(config.papers_json, [core.asdict(paper) for paper in all_papers])
+                    core.merge_record_metadata_into_library(config.kb_dir, [core.asdict(paper) for paper in metadata_requests], profile)
+
                 if changed:
                     core.save_feedback(feedback_file, feedback)
                     core.apply_feedback_to_knowledge_base(
@@ -2191,22 +2397,41 @@ def make_handler(config: ServerConfig):
                         for label, artifact in self.run_review_artifact(action, paper_id, feedback_file):
                             review_artifacts.append((paper_id, label, artifact))
                     message = f"Saved {len(changed)} selected change{'s' if len(changed) != 1 else ''}."
-                    if refreshed.get("reading_plan_html"):
-                        message += f"; reading plan: {refreshed['reading_plan_html']}"
-                    if refreshed.get("dashboard_html"):
-                        message += f"; dashboard: {refreshed['dashboard_html']}"
-                    if combination_warnings:
-                        message += f"; unusual combinations noted: {len(combination_warnings)}"
-                    for paper_id, label, artifact in review_artifacts:
-                        message += f"; {paper_id} {label}: {artifact}"
                 else:
-                    message = "No selected actions or notes to save."
+                    refreshed = {}
+                    review_artifacts = []
+                    message = "Saved metadata request." if metadata_checked else "No selected actions or notes to save."
+                if metadata_checked:
+                    message += (
+                        f"; public metadata checked: {metadata_checked}, updated: {metadata_updated}, "
+                        f"abstracts available: {metadata_abstracts}"
+                    )
+                if metadata_errors:
+                    message += f"; metadata lookup errors: {len(metadata_errors)}"
+                if refreshed.get("reading_plan_html"):
+                    message += f"; reading plan: {refreshed['reading_plan_html']}"
+                if refreshed.get("dashboard_html"):
+                    message += f"; dashboard: {refreshed['dashboard_html']}"
+                if combination_warnings:
+                    message += f"; unusual combinations noted: {len(combination_warnings)}"
+                for paper_id, label, artifact in review_artifacts:
+                    message += f"; {paper_id} {label}: {artifact}"
                 all_papers = core.load_papers_json(config.papers_json)
                 papers = filter_papers_for_view(all_papers, view, feedback)
-                for paper in changed:
+                papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT)
+                featured_papers = [*changed, *metadata_requests]
+                for paper in featured_papers:
                     if not any(getattr(item, "id", "") == getattr(paper, "id", "") for item in papers):
                         papers = [paper] + papers
-                body = render_page(papers, config, message, feedback=feedback, all_papers=all_papers, view=view).encode("utf-8")
+                body = render_page(
+                    papers,
+                    config,
+                    message,
+                    feedback=feedback,
+                    all_papers=all_papers,
+                    view=view,
+                    limit_notice_html=limit_notice,
+                ).encode("utf-8")
                 self.send_html(body)
                 return
             if self.path != "/feedback":
@@ -2369,6 +2594,7 @@ def make_handler(config: ServerConfig):
 
             all_papers = core.load_papers_json(config.papers_json)
             papers = filter_papers_for_view(all_papers, view, feedback)
+            papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT)
             if selected and not any(getattr(paper, "id", "") == paper_id for paper in papers):
                 papers = selected + papers
             message = f"Saved feedback for {paper_id}: {action}"
@@ -2384,7 +2610,15 @@ def make_handler(config: ServerConfig):
                 message += f"; workup report: {workup_report}"
             if review_pack_report:
                 message += f"; review pack: {review_pack_report}"
-            body = render_page(papers, config, message, feedback=feedback, all_papers=all_papers, view=view).encode("utf-8")
+            body = render_page(
+                papers,
+                config,
+                message,
+                feedback=feedback,
+                all_papers=all_papers,
+                view=view,
+                limit_notice_html=limit_notice,
+            ).encode("utf-8")
             self.send_html(body)
 
     return FeedbackHandler

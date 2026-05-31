@@ -12,6 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -21,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 
 from scholar_alert_reader import __version__
 from scholar_alert_reader import core
-from scholar_alert_reader.enrich import title_similarity
+from scholar_alert_reader.enrich import clean_abstract_text, openalex_abstract_text, title_similarity
 from scholar_alert_reader.export import export_records
 from scholar_alert_reader.semantic import semantic_rerank_records
 from scholar_alert_reader.weekly import render_weekly_review
@@ -1901,6 +1902,52 @@ ER  -
         )
         self.assertLess(title_similarity("ambient noise tomography", "deep learning for images"), 0.2)
 
+    def test_enriched_abstract_is_preferred_over_truncated_alert_snippet(self) -> None:
+        from scholar_alert_reader.server import abstract_snippet_html
+
+        reconstructed = openalex_abstract_text(
+            {
+                "This": [0],
+                "paper": [1],
+                "presents": [2],
+                "a": [3],
+                "complete": [4],
+                "abstract.": [5],
+            }
+        )
+        self.assertEqual(reconstructed, "This paper presents a complete abstract.")
+        self.assertEqual(clean_abstract_text("<jats:p>A full abstract &amp; summary.</jats:p>"), "A full abstract & summary.")
+        paper = argparse.Namespace(
+            snippet="Short Scholar Alert snippet that ends with an ellipsis ...",
+            metadata={"openalex": {"abstract": " ".join(["This enriched public abstract is intentionally longer."] * 12)}},
+        )
+        html_body = abstract_snippet_html(paper)
+        self.assertIn("<strong>Abstract</strong>", html_body)
+        self.assertIn("enriched public metadata abstract from OpenAlex", html_body)
+        self.assertIn("This enriched public abstract", html_body)
+        self.assertNotIn("Short Scholar Alert snippet", html_body)
+
+    def test_abstract_renderer_handles_entities_latex_and_escapes_html(self) -> None:
+        from scholar_alert_reader.server import abstract_snippet_html
+
+        paper = argparse.Namespace(
+            snippet="Short Scholar Alert snippet ...",
+            metadata={
+                "openalex": {
+                    "abstract": (
+                        "MIMIR-TGV$^2$ improves $L^2$ smoothing with p&lt;0.0001. "
+                        "<script>alert('bad')</script>"
+                    )
+                }
+            },
+        )
+        html_body = abstract_snippet_html(paper)
+        self.assertIn('TGV<span class="math-inline"><sup>2</sup></span>', html_body)
+        self.assertIn('<span class="math-inline">L<sup>2</sup></span>', html_body)
+        self.assertIn("p&lt;0.0001", html_body)
+        self.assertIn("&lt;script&gt;alert", html_body)
+        self.assertNotIn("<script>alert", html_body)
+
     def test_doctor_command_writes_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -3156,6 +3203,9 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertIn("Clear saved note", initial_body)
                 self.assertIn("Learning signal", initial_body)
                 self.assertIn("Generate report on save", initial_body)
+                self.assertIn("Improve metadata on save", initial_body)
+                self.assertIn("Fetch abstract", initial_body)
+                self.assertIn('name="metadata_action__p1"', initial_body)
                 self.assertIn("combo-warning", initial_body)
                 self.assertIn("Interested + Less like this", initial_body)
                 self.assertIn('action="/ask"', initial_body)
@@ -3473,6 +3523,11 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 self.assertNotIn("Low-priority archive-only paper", body)
                 self.assertIn('/?view=archive#archive', body)
 
+                with urllib.request.urlopen(f"{base_url}/feedback-batch", timeout=5) as response:
+                    batch_get_body = response.read().decode("utf-8")
+                self.assertIn("Scholar Alert Review Workspace", batch_get_body)
+                self.assertIn("Ambient noise tomography", batch_get_body)
+
                 with urllib.request.urlopen(f"{base_url}/?view=archive", timeout=5) as response:
                     archive_body = response.read().decode("utf-8")
                 self.assertIn("Archive review", archive_body)
@@ -3564,6 +3619,121 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 with urllib.request.urlopen(warning_request, timeout=5) as response:
                     warning_response = response.read().decode("utf-8")
                 self.assertIn("unusual combinations noted: 1", warning_response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+
+    def test_review_workspace_caps_large_default_batch(self) -> None:
+        from scholar_alert_reader.server import DEFAULT_WORKSPACE_CARD_LIMIT, ServerConfig, make_handler
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "reader"
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = root / "knowledge_base"
+            kb.mkdir()
+            papers_json = root / "reader_out" / "foundation" / "papers.json"
+            papers_json.parent.mkdir(parents=True)
+            papers = []
+            must = sample_paper()
+            must.update({"id": "must-1", "title": "Must-read foundation model paper", "tier": "Must read", "score": 30})
+            papers.append(must)
+            for index in range(DEFAULT_WORKSPACE_CARD_LIMIT + 40):
+                paper = sample_paper()
+                paper.update(
+                    {
+                        "id": f"skim-{index}",
+                        "title": f"Skim paper {index}",
+                        "url": f"https://example.org/skim-{index}",
+                        "tier": "Skim",
+                        "score": 10,
+                    }
+                )
+                papers.append(paper)
+            papers_json.write_text(json.dumps(papers), encoding="utf-8")
+            config = ServerConfig(profile_path=profile, kb_dir=kb, papers_json=papers_json)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(config))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                base_url = f"http://127.0.0.1:{server.server_port}"
+                with urllib.request.urlopen(base_url, timeout=5) as response:
+                    body = response.read().decode("utf-8")
+                self.assertIn("Showing a lighter review batch", body)
+                self.assertIn(f"Showing: {DEFAULT_WORKSPACE_CARD_LIMIT} of {len(papers)}", body)
+                self.assertIn("Must-read foundation model paper", body)
+                self.assertIn("Skim paper 0", body)
+                self.assertNotIn(f"Skim paper {DEFAULT_WORKSPACE_CARD_LIMIT + 39}", body)
+
+                with urllib.request.urlopen(f"{base_url}/?view=all", timeout=5) as response:
+                    full_body = response.read().decode("utf-8")
+                self.assertNotIn("Showing a lighter review batch", full_body)
+                self.assertIn(f"Skim paper {DEFAULT_WORKSPACE_CARD_LIMIT + 39}", full_body)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+
+    def test_review_workspace_fetch_abstract_metadata_action(self) -> None:
+        from scholar_alert_reader.server import ServerConfig, make_handler
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "reader"
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = root / "knowledge_base"
+            kb.mkdir()
+            papers_json = root / "reader_out" / "daily" / "papers.json"
+            papers_json.parent.mkdir(parents=True)
+            paper = sample_paper()
+            paper["snippet"] = "Short Scholar Alert snippet ..."
+            paper["metadata"] = {}
+            papers_json.write_text(json.dumps([paper]), encoding="utf-8")
+
+            def fake_enrich_record(record, providers, email, user_agent, timeout):
+                updated = dict(record)
+                metadata = dict(updated.get("metadata") or {})
+                metadata["openalex"] = {
+                    "source": "Journal of Useful Abstracts",
+                    "publication_year": 2026,
+                    "abstract": " ".join(["This public abstract is complete enough for review."] * 16),
+                }
+                updated["metadata"] = metadata
+                return updated, {"openalex": 1, "crossref": 0, "errors": 0}
+
+            config = ServerConfig(profile_path=profile, kb_dir=kb, papers_json=papers_json)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(config))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                base_url = f"http://127.0.0.1:{server.server_port}"
+                body = urllib.parse.urlencode(
+                    {
+                        "view": "active",
+                        "paper_id": ["p1"],
+                        "metadata_action__p1": "abstract",
+                    },
+                    doseq=True,
+                ).encode("utf-8")
+                request = urllib.request.Request(
+                    f"{base_url}/feedback-batch",
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with mock.patch("scholar_alert_reader.enrich.enrich_record", side_effect=fake_enrich_record):
+                    with urllib.request.urlopen(request, timeout=5) as response:
+                        response_body = response.read().decode("utf-8")
+                self.assertIn("Saved metadata request", response_body)
+                self.assertIn("public metadata checked: 1, updated: 1, abstracts available: 1", response_body)
+                self.assertIn("<strong>Abstract</strong>", response_body)
+                self.assertIn("This public abstract is complete enough for review", response_body)
+                self.assertIn("enriched public metadata abstract from OpenAlex", response_body)
+                stored = json.loads(papers_json.read_text(encoding="utf-8"))
+                self.assertIn("abstract", stored[0]["metadata"]["openalex"])
             finally:
                 server.shutdown()
                 server.server_close()

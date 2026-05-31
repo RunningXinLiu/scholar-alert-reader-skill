@@ -6,9 +6,11 @@ for selected papers, not the whole alert stream.
 
 from __future__ import annotations
 
+import re
 import json
 import time
 from dataclasses import dataclass
+from html import unescape
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus, urlencode
@@ -45,6 +47,34 @@ def title_similarity(left: str, right: str) -> float:
     return len(left_terms & right_terms) / len(left_terms | right_terms)
 
 
+def clean_abstract_text(value: Any) -> str:
+    text = unescape(str(value or "")).strip()
+    if not text:
+        return ""
+    text = re.sub(r"<[^>]+>", " ", text)
+    return " ".join(text.split())
+
+
+def openalex_abstract_text(index: Any) -> str:
+    if not isinstance(index, dict):
+        return ""
+    positions: dict[int, str] = {}
+    for word, offsets in index.items():
+        if not isinstance(offsets, list):
+            continue
+        clean_word = str(word).strip()
+        if not clean_word:
+            continue
+        for offset in offsets:
+            try:
+                positions[int(offset)] = clean_word
+            except (TypeError, ValueError):
+                continue
+    if not positions:
+        return ""
+    return clean_abstract_text(" ".join(positions[index] for index in sorted(positions)))
+
+
 def openalex_lookup(title: str, email: str | None, user_agent: str) -> dict[str, Any] | None:
     params = {"search": title, "per-page": "3"}
     if email:
@@ -70,10 +100,12 @@ def openalex_lookup(title: str, email: str | None, user_agent: str) -> dict[str,
     locations = best.get("locations") or []
     primary_location = best.get("primary_location") or (locations[0] if locations else {})
     source = (primary_location.get("source") or {}) if isinstance(primary_location, dict) else {}
+    abstract = openalex_abstract_text(best.get("abstract_inverted_index"))
     return {
         "id": best.get("id"),
         "doi": best.get("doi"),
         "title": best.get("title"),
+        "abstract": abstract,
         "publication_year": best.get("publication_year"),
         "cited_by_count": best.get("cited_by_count"),
         "type": best.get("type"),
@@ -107,6 +139,7 @@ def crossref_lookup(title: str, email: str | None, user_agent: str) -> dict[str,
     return {
         "doi": best.get("DOI"),
         "title": " ".join(best.get("title") or []),
+        "abstract": clean_abstract_text(best.get("abstract")),
         "container_title": container[0] if container else None,
         "publisher": best.get("publisher"),
         "published": best.get("published-print") or best.get("published-online") or best.get("created"),
