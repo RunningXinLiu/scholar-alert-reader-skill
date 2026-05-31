@@ -191,9 +191,9 @@ Sanitized demo screenshots are included for product previews and sharing. Inline
 | Social card | [social-card.en.png](docs/assets/social-card.en.png) | [social-card.zh.png](docs/assets/social-card.zh.png) |
 | Workflow GIF | [workflow.en.gif](docs/assets/workflow.en.gif) | [workflow.zh.gif](docs/assets/workflow.zh.gif) |
 | Architecture diagram | [architecture-showcase.en.png](docs/assets/architecture-showcase.en.png) | [architecture-showcase.zh.png](docs/assets/architecture-showcase.zh.png) |
-| Obsidian mode decision | [obsidian-mode-decision.en.svg](docs/assets/obsidian-mode-decision.en.svg) | [obsidian-mode-decision.zh.svg](docs/assets/obsidian-mode-decision.zh.svg) |
-| Obsidian directory boundary | [obsidian-boundary.en.svg](docs/assets/obsidian-boundary.en.svg) | [obsidian-boundary.zh.svg](docs/assets/obsidian-boundary.zh.svg) |
-| Obsidian migration flow | [obsidian-migration.en.svg](docs/assets/obsidian-migration.en.svg) | [obsidian-migration.zh.svg](docs/assets/obsidian-migration.zh.svg) |
+| Obsidian mode decision | [obsidian-mode-decision.en.png](docs/assets/obsidian-mode-decision.en.png) | [obsidian-mode-decision.zh.png](docs/assets/obsidian-mode-decision.zh.png) |
+| Obsidian directory boundary | [obsidian-boundary.en.png](docs/assets/obsidian-boundary.en.png) | [obsidian-boundary.zh.png](docs/assets/obsidian-boundary.zh.png) |
+| Obsidian migration flow | [obsidian-migration.en.png](docs/assets/obsidian-migration.en.png) | [obsidian-migration.zh.png](docs/assets/obsidian-migration.zh.png) |
 | Logo | [logo.png](docs/assets/logo.png) | [logo.png](docs/assets/logo.png) |
 
 ## What It Does

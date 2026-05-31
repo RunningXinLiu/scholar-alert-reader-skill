@@ -9,11 +9,11 @@ This guide defines a safe operating model:
 
 ## Visual Quick Reference
 
-![Mode Decision](assets/obsidian-mode-decision.en.svg)
+![Mode Decision](assets/obsidian-mode-decision.en.png)
 
-![Directory Boundary](assets/obsidian-boundary.en.svg)
+![Directory Boundary](assets/obsidian-boundary.en.png)
 
-![Migration Flow](assets/obsidian-migration.en.svg)
+![Migration Flow](assets/obsidian-migration.en.png)
 
 ## Mode Decision
 

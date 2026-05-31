@@ -9,11 +9,11 @@
 
 ## 图示速览
 
-![模式选择图](assets/obsidian-mode-decision.zh.svg)
+![模式选择图](assets/obsidian-mode-decision.zh.png)
 
-![目录边界图](assets/obsidian-boundary.zh.svg)
+![目录边界图](assets/obsidian-boundary.zh.png)
 
-![迁移流程图](assets/obsidian-migration.zh.svg)
+![迁移流程图](assets/obsidian-migration.zh.png)
 
 ## 模式选择图
 
