@@ -1922,25 +1922,27 @@ def project_dir_from_output(path: Path) -> Path | None:
     return None
 
 
-def feedback_commands(path: Path, summary: dict[str, Any]) -> list[str]:
+def run_relative_path(project_dir: Path, target: Path) -> str:
+    try:
+        return str(target.resolve().relative_to(project_dir.resolve()))
+    except ValueError:
+        return str(target)
+
+
+def review_workspace_command(path: Path, summary: dict[str, Any]) -> list[str]:
     papers_json = path.parent.resolve() / "papers.json"
     project_dir = project_dir_from_output(path)
     if project_dir and (project_dir / "serve_reader.sh").exists() and (project_dir / "feedback_reader.sh").exists():
-        serve_prefix = f"PAPERS_JSON={shlex.quote(str(papers_json))} {shlex.quote(str(project_dir / 'serve_reader.sh'))}"
-        feedback_prefix = f"PAPERS_JSON={shlex.quote(str(papers_json))} {shlex.quote(str(project_dir / 'feedback_reader.sh'))}"
+        return [
+            f"cd {shlex.quote(str(project_dir))}",
+            f"PAPERS_JSON={shlex.quote(run_relative_path(project_dir, papers_json))} ./serve_reader.sh",
+        ]
     else:
         profile_arg = shlex.quote(str(summary.get("profile", "<profile.json>")))
         kb_arg = shlex.quote(str(summary.get("knowledge_base_dir", "knowledge_base")))
         script_arg = shlex.quote(str(skill_wrapper_path()))
         papers_arg = shlex.quote(str(papers_json))
-        serve_prefix = f"python3 {script_arg} serve --profile {profile_arg} --papers-json {papers_arg} --kb-dir {kb_arg} --open"
-        feedback_prefix = f"python3 {script_arg} feedback --profile {profile_arg} --papers-json {papers_arg}"
-
-    return [
-        serve_prefix,
-        f"{feedback_prefix} --paper-id <ID> --mark interested --more-like-this",
-        f"{feedback_prefix} --paper-id <ID> --mark archive --less-like-this",
-    ]
+        return [f"python3 {script_arg} serve --profile {profile_arg} --papers-json {papers_arg} --kb-dir {kb_arg} --open"]
 
 
 def summary_kb_dir(summary: dict[str, Any]) -> Path | None:
@@ -1960,7 +1962,7 @@ def recent_review_command(path: Path) -> str | None:
 def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summary: dict[str, Any]) -> None:
     lim = limits(profile)
     tier_counts = counts_by_tier(papers)
-    commands = feedback_commands(path, summary)
+    review_commands = review_workspace_command(path, summary)
     kb_dir = summary_kb_dir(summary)
     lines: list[str] = [
         "# Scholar Alert 文献分诊",
@@ -1972,12 +1974,14 @@ def write_digest(path: Path, papers: list[Paper], profile: dict[str, Any], summa
         f"- Source items: {source_item_count(summary)}",
         f"- Feedback file: {summary.get('feedback_file', '')}",
         "",
-        "## 反馈入口",
+        "## Review Workspace",
         "",
-        "Use the `ID` shown under each paper to tune future runs:",
+        "Start the local workspace server, then open it in the browser to mark `Interested`, `Archive`, `More like this`, reading status, and notes. Feedback refreshes the local foundation/interested library and tunes future ranking.",
+        "",
+        "A static `digest.html` file cannot start the local server by itself, so keep this command running while you review papers.",
         "",
         "```bash",
-        *commands,
+        *review_commands,
         "```",
         "",
     ]
@@ -2164,6 +2168,23 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
           border-radius: 8px;
           background: #fbfdff;
         }
+        .workspace-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          margin: 10px 0 4px;
+          border: 1px solid var(--accent);
+          border-radius: 8px;
+          background: var(--accent);
+          color: #fff;
+          padding: 8px 12px;
+          font-weight: 600;
+        }
+        .workspace-button:hover {
+          color: #fff;
+          text-decoration: none;
+          filter: brightness(0.95);
+        }
         code {
           display: block;
           overflow-x: auto;
@@ -2200,13 +2221,16 @@ def write_html_digest(path: Path, papers: list[Paper], profile: dict[str, Any], 
             parts.append(f'<div class="question">{html.escape(str(question))}</div>')
         parts.append("</section>")
 
-    commands = feedback_commands(path, summary)
+    review_commands = review_workspace_command(path, summary)
     parts.extend(
         [
             '<section class="feedback-help">',
-            "<strong>反馈入口</strong>",
-            '<div class="meta">Use a paper ID from the badges below to tune future runs.</div>',
-            *(f"<code>{html.escape(command)}</code>" for command in commands),
+            "<strong>Review Workspace</strong>",
+            '<div class="meta">Use the local workspace for Interested, Archive, More like this, reading status, and notes. Feedback refreshes Foundation, Interested, and Reading Plan outputs.</div>',
+            '<div class="meta">Step 1: start the workspace server in Terminal and keep it running:</div>',
+            *(f"<code>{html.escape(command)}</code>" for command in review_commands),
+            '<div class="meta">Step 2: open the running workspace. A static digest file cannot start the local server by itself.</div>',
+            '<a class="workspace-button" href="http://127.0.0.1:8765/" target="_blank" rel="noreferrer">Open running workspace</a>',
             "</section>",
         ]
     )
@@ -2526,7 +2550,17 @@ def write_kb_interested(
     if feedback is None:
         feedback = load_feedback(default_feedback_file(kb_dir))
     tiers = set(settings["interested_tiers"])
-    kept = [paper for paper in papers if paper.tier in tiers][: settings["interested_limit"]]
+    feedback_papers = feedback.get("papers", {}) if isinstance(feedback.get("papers", {}), dict) else {}
+    kept = [
+        paper
+        for paper in papers
+        if paper.tier in tiers
+        or (
+            isinstance(feedback_papers.get(paper.id), dict)
+            and feedback_papers.get(paper.id, {}).get("status") == "interested"
+            and paper_feedback_status(feedback, paper.id) != "archive"
+        )
+    ][: settings["interested_limit"]]
     lines = [
         "# Interested Queue",
         "",
@@ -3947,7 +3981,7 @@ def source_recommendation_lines(project_dir: Path, env_values: dict[str, str]) -
             lines.append(f"- Ready source: {source['name']}. Next: {source['action']}")
         lines.extend(
             [
-                "- After the first real run, open `DASHBOARD.html` and use `./serve_reader.sh` to mark interested/archive papers.",
+                "- After the first real run, open the Review Workspace with `./serve_reader.sh`; use `DASHBOARD.html` and `digest.html` as static reference pages.",
                 "",
             ]
         )
@@ -3956,7 +3990,7 @@ def source_recommendation_lines(project_dir: Path, env_values: dict[str, str]) -
         [
             "No real source looks locally ready yet. Use the shortest path that matches your workflow:",
             "",
-            "- Try the product with bundled sample data first: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
+            "- Try the product with bundled sample data first: `./demo_reader.sh`, then open the Review Workspace with `PAPERS_JSON=reader_out/demo/papers.json ./serve_reader.sh`.",
             "- For an offline foundation build, export Scholar Alert mail to `INBOX.mbox`, then run `./source_check.sh --source mbox --live`.",
             "- For web monitoring without Gmail, put feed URLs in `feeds.txt` or set `ARXIV_QUERY` in `reader.env`.",
             "- For daily Gmail automation, create a Desktop OAuth client and run `auth-gmail` once.",
@@ -4034,10 +4068,10 @@ def render_project_guide(
         *source_recommendation_lines(project_dir, env_values),
         "## First Run",
         "",
-        "Open `DASHBOARD.html` first after each run. It is the project home page for the latest digest, reading plan, review queue, retained library, and setup reports.",
+        "Open the Review Workspace first after each run with `./serve_reader.sh`. `DASHBOARD.html` and `digest.html` are static reference pages for links, diagnostics, and sharing/export.",
         "",
         "0. Verify the install with bundled sample data: `./self_test.sh`.",
-        "1. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `reader_out/demo/digest.html`.",
+        "1. Try the demo without Gmail, Obsidian, or Zotero: `./demo_reader.sh`, then open `PAPERS_JSON=reader_out/demo/papers.json ./serve_reader.sh`.",
         "   - To test every bundled non-private source path, run `./demo_sources.sh`.",
         "2. Read the product boundary and best workflow with `./capabilities.sh`.",
         "3. Configure your local defaults once with `./setup_wizard.sh`, or non-interactively with `./setup_reader.sh --source auto --profile-template ai-seismology`.",
@@ -4054,7 +4088,7 @@ def render_project_guide(
         "   - Structured web sources: place webpage URLs or saved HTML paths in `web_sources.txt` and run `./web_import.sh`, feed URLs in `feeds.txt` and run `./rss_import.sh`, or set `ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh`.",
         "6. Build the baseline with `MODE=foundation ./run_reader.sh`.",
         "7. Run daily triage with `./run_reader.sh`.",
-        "8. Open `reader_out/daily/digest.html` or run `./serve_reader.sh` for feedback.",
+        "8. Open the Review Workspace with `./serve_reader.sh`. If daily has no new papers, it falls back to Foundation automatically; use `./review_recent.sh` and `./serve_recent.sh` to inspect recent already-seen alerts without changing Foundation.",
         "",
         *source_onboarding_lines(project_dir, env_values),
         "## Persistent Configuration",
@@ -4070,7 +4104,7 @@ def render_project_guide(
         "- `./privacy_check.sh`: scan the project for files that should not be published or attached to issues.",
         "- `./profile_wizard.sh`: refine your research profile without editing JSON by hand.",
         "- `./profile_doctor.sh`: check whether the active profile is too broad, too sparse, or missing feedback signals.",
-        "- `./serve_reader.sh`: mark interested/archive and tune future ranking.",
+        "- `./serve_reader.sh`: open the Review Workspace to mark interested/archive, adjust reading status, and tune future ranking.",
         "- `./explain_ranking.sh --paper-id <ID>`: explain why one paper was ranked where it was.",
         "- `./ranking_eval.sh`: evaluate ranking quality against interested/archive feedback labels.",
         "- `./embedding_check.sh`: check whether optional local embedding reranking dependencies and model loading are ready.",
@@ -4087,8 +4121,8 @@ def render_project_guide(
         "",
         "- `./zotero_export.sh`: writes BibTeX/RIS to `knowledge_base/zotero/` for Zotero import.",
         "- `./zotero_sync.sh`: reads a Better BibTeX/BibTeX export back into `library.json` so citation keys and local PDF paths are retained.",
-        "- `./sync_obsidian_vault.sh`: writes generated Markdown into an Obsidian literature folder.",
-        "- Keep user-authored Obsidian notes outside the generated export folder so reruns never overwrite your writing.",
+        "- `./sync_obsidian_vault.sh`: writes clean selected paper notes into a dedicated Obsidian literature inbox by default.",
+        "- Keep user-authored Obsidian notes, topic synthesis, and writing drafts outside the generated export folder.",
         "",
         "## Current Setup Status",
         "",
@@ -4372,13 +4406,19 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
         f"- Profile: `{profile_name}`",
         f"- Project: `{project_dir}`",
         "",
-        "## Open First",
+        "## Open First: Review Workspace",
+        "",
+        "- Start the interactive Review Workspace: `./serve_reader.sh`.",
+        "- It opens the current daily papers when available and falls back to Foundation if daily is empty.",
+        "- To inspect recent already-seen alert papers without changing Foundation: `./review_recent.sh`, then `./serve_recent.sh`.",
+        "",
+        "Static reports:",
         "",
         f"- {dashboard_link('Latest digest HTML', out_dir / 'digest.html', base_dir)}",
         f"- {dashboard_link('Reading plan HTML', kb_dir / 'reading_plan.html', base_dir)}",
         f"- {dashboard_link('Review queue HTML', analysis_dir / 'review_queue.html', base_dir)}",
         f"- {dashboard_link('Analysis index HTML', analysis_dir / 'analysis_index.html', base_dir)}",
-        f"- {dashboard_link('Feedback UI source JSON', out_dir / 'papers.json', base_dir)}",
+        f"- {dashboard_link('Review Workspace source JSON', out_dir / 'papers.json', base_dir)}",
         "",
         "## Latest Run",
         "",
@@ -4448,7 +4488,6 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "",
             "## Profile Health",
             "",
-            f"- Profile doctor: {dashboard_link('profile_doctor.md', profile_doctor_path, base_dir)}",
             f"- Result: `{profile_doctor_result}`",
             f"- Detail: {profile_doctor_note}",
             "- Refresh: `./profile_doctor.sh`",
@@ -4477,7 +4516,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "",
             "Recommended flow:",
             "",
-            "1. Open the latest digest and mark obvious interested/archive papers in `./serve_reader.sh`.",
+            "1. Open the Review Workspace with `./serve_reader.sh` and mark obvious interested/archive papers.",
             "2. Open the reading plan to choose the next few IDs.",
             "3. If Zotero has local PDFs, run `./zotero_sync.sh` so review packs can include full-text briefs.",
             "4. Run `./explain_ranking.sh --paper-id ID` if a paper's tier or score needs explanation.",
@@ -4487,7 +4526,7 @@ def render_project_dashboard(project_dir: Path, profile_path: Path, kb_dir: Path
             "8. Run `./fetch_pdf.sh --paper-id ID --extract` when a paper has an explicit/open PDF URL but no local file.",
             "9. Run `./review_workflow.sh --paper-id ID --open` for a one-paper path from local full text to workup, review pack, and browser report.",
             "10. Run `./review_queue.sh --paper-id ID1,ID2` for batch review packs.",
-            "11. Sync to Obsidian/Zotero only after the retained library looks right.",
+            "11. Use the static digest as an archive/export, and sync to Obsidian/Zotero only after the retained library looks right.",
             "",
             "## Setup And Diagnostics",
             "",
@@ -4708,6 +4747,26 @@ fi
 if [[ "$run_status" -eq 0 && "${REFRESH_DASHBOARD:-1}" == "1" ]]; then
   "${SKILL_CMD[@]}" dashboard --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --out-dir "$OUT_DIR" >/dev/null || true
 fi
+if [[ "$run_status" -eq 0 && "${OPEN_REVIEW_WORKSPACE:-1}" == "1" && -t 1 ]]; then
+  REVIEW_PAPERS_JSON="$OUT_DIR/papers.json"
+  REVIEW_PAPER_COUNT=0
+  if [[ -f "$REVIEW_PAPERS_JSON" ]]; then
+    REVIEW_PAPER_COUNT="$("$PYTHON_BIN" - "$REVIEW_PAPERS_JSON" <<'PY'
+import json, sys
+try:
+    data = json.load(open(sys.argv[1], encoding="utf-8"))
+    print(len(data) if isinstance(data, list) else 0)
+except Exception:
+    print(0)
+PY
+)"
+  fi
+  if [[ "$REVIEW_PAPER_COUNT" == "0" && -f "$PROJECT_DIR/reader_out/foundation/papers.json" ]]; then
+    REVIEW_PAPERS_JSON="$PROJECT_DIR/reader_out/foundation/papers.json"
+  fi
+  PAPERS_JSON="$REVIEW_PAPERS_JSON" "$PROJECT_DIR/serve_reader.sh" >/tmp/scholar-alert-reader-workspace.log 2>&1 &
+  echo "Review workspace: http://127.0.0.1:${PORT:-8765}/"
+fi
 exit "$run_status"
 """
     write_executable(project_dir / "run_reader.sh", run_reader)
@@ -4742,7 +4801,26 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "profile_wizard.sh": 'exec "${SKILL_CMD[@]}" profile-wizard --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" "$@"\n',
         "profile_doctor.sh": 'exec "${SKILL_CMD[@]}" profile-doctor --project-dir "$PROJECT_DIR" --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
         "feedback_reader.sh": 'exec "${SKILL_CMD[@]}" feedback --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" "$@"\n',
-        "serve_reader.sh": 'exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/daily/papers.json}" --port "${PORT:-8765}" --open "$@"\n',
+        "serve_reader.sh": """if [[ -z "${PAPERS_JSON:-}" ]]; then
+  PAPERS_JSON="$PROJECT_DIR/reader_out/daily/papers.json"
+  PAPER_COUNT=0
+  if [[ -f "$PAPERS_JSON" ]]; then
+    PAPER_COUNT="$("$PYTHON_BIN" - "$PAPERS_JSON" <<'PY'
+import json, sys
+try:
+    data = json.load(open(sys.argv[1], encoding="utf-8"))
+    print(len(data) if isinstance(data, list) else 0)
+except Exception:
+    print(0)
+PY
+)"
+  fi
+  if [[ "$PAPER_COUNT" == "0" && -f "$PROJECT_DIR/reader_out/foundation/papers.json" ]]; then
+    PAPERS_JSON="$PROJECT_DIR/reader_out/foundation/papers.json"
+  fi
+fi
+exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "$PAPERS_JSON" --port "${PORT:-8765}" --open "$@"
+""",
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
         "serve_recent.sh": 'PAPERS_JSON="${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" exec "$PROJECT_DIR/serve_reader.sh" "$@"\n',
         "deep_read_paper.sh": 'exec "${SKILL_CMD[@]}" deep-read --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
@@ -4767,7 +4845,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
         "status_reader.sh": 'exec "${SKILL_CMD[@]}" status --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "compare_papers.sh": 'exec "${SKILL_CMD[@]}" compare --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" "$@"\n',
         "map_reader.sh": 'exec "${SKILL_CMD[@]}" map --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" "$@"\n',
-        "zotero_export.sh": 'exec "${SKILL_CMD[@]}" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --output-dir "${ZOTERO_OUTPUT_DIR:-$KB_DIR/zotero}" "$@"\n',
+        "zotero_export.sh": 'exec "${SKILL_CMD[@]}" zotero --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --output-dir "${ZOTERO_OUTPUT_DIR:-${ZOTERO_EXPORT_DIR:-$KB_DIR/zotero}}" "$@"\n',
         "zotero_sync.sh": 'exec "${SKILL_CMD[@]}" zotero-sync --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --bibtex "${ZOTERO_BIBTEX_PATH:-$PROJECT_DIR/zotero.bib}" "$@"\n',
         "obsidian_export.sh": 'exec "${SKILL_CMD[@]}" obsidian --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --vault-dir "${OBSIDIAN_EXPORT_DIR:-$KB_DIR/obsidian}" "$@"\n',
         "sync_obsidian_vault.sh": 'OBSIDIAN_LITERATURE_DIR="${OBSIDIAN_LITERATURE_DIR:-$HOME/Documents/Obsidian Vault/01_Literatures}"\nOBSIDIAN_EXPORT_DIR="${OBSIDIAN_EXPORT_DIR:-$OBSIDIAN_LITERATURE_DIR/10_Scholar_Alert_Reader}"\nexec "$PROJECT_DIR/obsidian_export.sh" --vault-dir "$OBSIDIAN_EXPORT_DIR" "$@"\n',
@@ -4917,13 +4995,13 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./serve_recent.sh",
                     "```",
                     "",
-                    "## Feedback UI",
+                    "## Review Workspace",
                     "",
                     "```bash",
                     "./serve_reader.sh",
                     "```",
                     "",
-                    "## Literature Copilot",
+                    "## Optional / Experimental Literature Copilot",
                     "",
                     "```bash",
                     "./deep_read_paper.sh --paper-id <ID>",
@@ -4952,6 +5030,7 @@ echo " - $PROJECT_DIR/reader_out/demo_sources/rss/digest.html"
                     "./zotero_export.sh",
                     "ZOTERO_BIBTEX_PATH=~/Downloads/My_Library.bib ./zotero_sync.sh",
                     "./sync_obsidian_vault.sh",
+                    "./obsidian_export.sh --obsidian-mode full  # explicit generated bundle",
                     "```",
                     "",
                     "## Useful commands",
@@ -5176,7 +5255,7 @@ def profile_wizard_report(
             "## Next Steps",
             "",
             "1. Run `./demo_reader.sh` or a real source import and inspect `digest.html`.",
-            "2. Mark several papers as `interested`, `archive`, `more-like-this`, or `less-like-this` in the feedback UI.",
+            "2. Mark several papers as `interested`, `archive`, `more-like-this`, or `less-like-this` in the Review Workspace.",
             "3. Run `./tune_profile.sh` after a few rounds to suggest profile updates from real feedback.",
             "4. Keep profile terms specific enough to rank your current project, not your entire field.",
             "",
@@ -5466,7 +5545,7 @@ def profile_doctor_findings(
     feedback_papers = feedback.get("papers", {}) if isinstance(feedback.get("papers", {}), dict) else {}
     feedback_terms = feedback.get("terms", []) if isinstance(feedback.get("terms", []), list) else []
     if not feedback_papers and not feedback_terms:
-        add("WARN", "No feedback history yet", "Ranking is still using the initial profile only.", "After a run, use the feedback UI to mark interested/archive and more-like-this/less-like-this.")
+        add("WARN", "No feedback history yet", "Ranking is still using the initial profile only.", "After a run, use the Review Workspace to mark interested/archive and more-like-this/less-like-this.")
     else:
         add("OK", "Feedback history present", f"{len(feedback_papers)} paper mark(s), {len(feedback_terms)} reusable term signal(s).")
 
@@ -5655,7 +5734,7 @@ def setup_wizard(args: argparse.Namespace) -> None:
     boost = args.boost or prompt_text("Temporary boost terms, comma-separated (blank to skip)", env_values.get("BOOST", ""), assume_default)
     obsidian_dir = args.obsidian_dir
     if obsidian_dir is None:
-        obsidian_dir = optional_path(prompt_text("Generated Obsidian export folder (blank to skip)", env_values.get("OBSIDIAN_EXPORT_DIR", ""), assume_default))
+        obsidian_dir = optional_path(prompt_text("Obsidian clean paper-note export folder (blank to skip)", env_values.get("OBSIDIAN_EXPORT_DIR", ""), assume_default))
     zotero_dir = args.zotero_dir
     if zotero_dir is None:
         zotero_dir = optional_path(prompt_text("Zotero export folder (blank to skip)", env_values.get("ZOTERO_OUTPUT_DIR", ""), assume_default))
@@ -6327,6 +6406,9 @@ def update_paper_feedback(
 def paper_feedback_status(feedback: dict[str, Any], paper_id: str) -> str:
     record = feedback.get("papers", {}).get(paper_id, {})
     if isinstance(record, dict):
+        priority_override = str(record.get("priority_override", "") or "").strip().lower().replace("-", "_")
+        if priority_override == "archive":
+            return "archive"
         return str(record.get("status", "neutral"))
     return "neutral"
 
@@ -6700,7 +6782,10 @@ def source_setup_guidance(
                 "- Fastest private-data-free check: `./demo_sources.sh`, then open the generated demo digests.",
             ]
         )
-    lines.append("- After a successful live check, run `./run_reader.sh`; open `reader_out/daily/digest.html` and `knowledge_base/reading_plan.html`.")
+    lines.append(
+        "- After a successful live check, run `./run_reader.sh`; open the Review Workspace with `./serve_reader.sh`. "
+        "Use `reader_out/daily/digest.html` and `knowledge_base/reading_plan.html` as static reference pages."
+    )
     return lines
 
 
@@ -9590,46 +9675,49 @@ def obsidian_export_command(args: argparse.Namespace) -> None:
         answers_dir = vault_dir / "04_Answers"
         comparisons_dir = vault_dir / "05_Comparisons"
         deep_reads_dir = vault_dir / "06_Deep_Reads"
-        managed_paths = [dashboard_dir, maps_dir, reading_dir, answers_dir, comparisons_dir, deep_reads_dir]
+        managed_dirs = [dashboard_dir, maps_dir, reading_dir, answers_dir, comparisons_dir, deep_reads_dir]
+        managed_files: list[Path] = []
         for directory in [dashboard_dir, maps_dir, reading_dir, answers_dir, comparisons_dir, deep_reads_dir]:
             directory.mkdir(parents=True, exist_ok=True)
-        (dashboard_dir / "Scholar Alert Dashboard.md").write_text(
-            render_obsidian_index(records, feedback=feedback), encoding="utf-8"
-        )
-        (maps_dir / "Research Map.md").write_text(
-            render_research_map(records, profile, feedback=feedback), encoding="utf-8"
-        )
-        (reading_dir / "Reading Status.md").write_text(
-            render_reading_status(records, feedback=feedback), encoding="utf-8"
-        )
+
+        def write_managed(path: Path, content: str) -> None:
+            path.write_text(content, encoding="utf-8")
+            managed_files.append(path)
+
+        write_managed(dashboard_dir / "Scholar Alert Dashboard.md", render_obsidian_index(records, feedback=feedback))
+        write_managed(maps_dir / "Research Map.md", render_research_map(records, profile, feedback=feedback))
+        write_managed(reading_dir / "Reading Status.md", render_reading_status(records, feedback=feedback))
         copied_answers = copy_markdown_outputs(kb_dir / "answers", answers_dir)
         copied_comparisons = copy_markdown_outputs(kb_dir / "comparisons", comparisons_dir)
         copied_deep_reads = copy_markdown_outputs(kb_dir / "analysis", deep_reads_dir)
-        (answers_dir / "Answer Index.md").write_text(
+        managed_files.extend(copied_answers)
+        managed_files.extend(copied_comparisons)
+        managed_files.extend(copied_deep_reads)
+        write_managed(
+            answers_dir / "Answer Index.md",
             render_obsidian_output_index(
                 "Library And Paper Answers",
                 "Generated answers from library-wide questions and selected-paper workspaces.",
                 copied_answers,
             ),
-            encoding="utf-8",
         )
-        (comparisons_dir / "Comparison Index.md").write_text(
+        write_managed(
+            comparisons_dir / "Comparison Index.md",
             render_obsidian_output_index(
                 "Paper Comparisons",
                 "Generated side-by-side paper comparisons.",
                 copied_comparisons,
             ),
-            encoding="utf-8",
         )
-        (deep_reads_dir / "Analysis Index.md").write_text(
+        write_managed(
+            deep_reads_dir / "Analysis Index.md",
             render_obsidian_output_index(
                 "Deep Reads And Review Reports",
                 "Generated deep reads, full-text briefs, workups, review workflows, review packs, and ranking reports.",
                 copied_deep_reads,
             ),
-            encoding="utf-8",
         )
-        manifest = write_obsidian_full_manifest(vault_dir, managed_paths)
+        manifest = write_obsidian_full_manifest(vault_dir, managed_files, managed_dirs=managed_dirs)
         print(f"Obsidian export mode: {mode}")
         print(f"Obsidian export: {vault_dir}")
         print(f"Paper notes: {len(records)}")
@@ -9660,12 +9748,13 @@ def copy_markdown_outputs(source_dir: Path, target_dir: Path) -> list[Path]:
     return copied
 
 
-def write_obsidian_full_manifest(vault_dir: Path, managed_paths: list[Path]) -> Path:
+def write_obsidian_full_manifest(vault_dir: Path, managed_paths: list[Path], managed_dirs: list[Path] | None = None) -> Path:
     manifest = vault_dir / OBSIDIAN_FULL_EXPORT_MANIFEST
     payload = {
         "marker": OBSIDIAN_FULL_EXPORT_MARKER,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "managed_paths": [str(path.relative_to(vault_dir)) for path in managed_paths],
+        "managed_dirs": [str(path.relative_to(vault_dir)) for path in managed_dirs or []],
     }
     save_json(manifest, payload)
     return manifest
@@ -9703,12 +9792,29 @@ def prune_obsidian_full_artifacts(vault_dir: Path) -> int:
             if rel is None:
                 continue
             target = vault_dir / rel
-            if target.is_dir():
-                shutil.rmtree(target)
-                removed += 1
-            elif target.exists():
+            if target.is_symlink() or target.is_file():
                 target.unlink()
                 removed += 1
+            elif target.is_dir():
+                try:
+                    target.rmdir()
+                    removed += 1
+                except OSError:
+                    continue
+
+    managed_dirs = data.get("managed_dirs", [])
+    if isinstance(managed_dirs, list):
+        for raw in sorted(managed_dirs, key=lambda value: len(Path(str(value or "")).parts), reverse=True):
+            rel = _safe_manifest_relative_path(raw)
+            if rel is None:
+                continue
+            target = vault_dir / rel
+            if target.is_dir() and not target.is_symlink():
+                try:
+                    target.rmdir()
+                    removed += 1
+                except OSError:
+                    continue
 
     if manifest.exists():
         manifest.unlink()
@@ -10162,7 +10268,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
     setup.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
     setup.add_argument("--auto-allow-mail-app", action="store_true", help="Allow auto source selection to fall back to Mail.app on macOS")
-    setup.add_argument("--obsidian-dir", type=Path, help="Generated Obsidian export folder")
+    setup.add_argument("--obsidian-dir", type=Path, help="Obsidian clean paper-note export folder")
     setup.add_argument("--zotero-dir", type=Path, help="Zotero BibTeX/RIS export folder")
     setup.add_argument("--schedule-time", help="Preferred wall-clock run time, e.g. 09:00")
     setup.add_argument("--schedule-days", help="Preferred schedule days, e.g. Monday,Wednesday,Friday or weekdays")
@@ -10207,7 +10313,7 @@ def build_parser() -> argparse.ArgumentParser:
     wizard.add_argument("--gmail-credentials", type=Path, default=DEFAULT_GMAIL_CREDENTIALS)
     wizard.add_argument("--gmail-token", type=Path, default=DEFAULT_GMAIL_TOKEN)
     wizard.add_argument("--auto-allow-mail-app", action="store_true", help="Allow auto source selection to fall back to Mail.app on macOS")
-    wizard.add_argument("--obsidian-dir", type=Path, help="Generated Obsidian export folder")
+    wizard.add_argument("--obsidian-dir", type=Path, help="Obsidian clean paper-note export folder")
     wizard.add_argument("--zotero-dir", type=Path, help="Zotero BibTeX/RIS export folder")
     wizard.add_argument("--schedule-time", help="Preferred wall-clock run time, e.g. 09:00")
     wizard.add_argument("--schedule-days", help="Preferred schedule days, e.g. Monday,Wednesday,Friday or weekdays")

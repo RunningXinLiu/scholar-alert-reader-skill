@@ -38,10 +38,25 @@ def best_year(record: dict[str, Any]) -> str:
     return match.group(0) if match else ""
 
 
+def journal_from_authors_source(value: Any) -> str:
+    source = clean_text(value)
+    if not source:
+        return ""
+    if " - " in source:
+        source = source.split(" - ", 1)[1].strip()
+    source = re.sub(r",?\s*\b(?:19|20)\d{2}\b\s*$", "", source).strip(" ,;")
+    return clean_text(source)
+
+
 def best_journal(record: dict[str, Any]) -> str:
     return clean_text(
         metadata(record, "openalex").get("source")
         or metadata(record, "crossref").get("container_title")
+        or metadata(record, "bibtex").get("journal")
+        or metadata(record, "ris").get("journal")
+        or metadata(record, "web").get("journal")
+        or metadata(record, "web").get("citation_journal_title")
+        or journal_from_authors_source(record.get("authors_source"))
         or ""
     )
 

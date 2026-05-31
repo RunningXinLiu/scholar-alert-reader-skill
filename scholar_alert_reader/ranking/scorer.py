@@ -317,15 +317,32 @@ def feedback_adjustment(
     if isinstance(paper_feedback, dict):
         status = paper_feedback.get("status")
         if status == "interested":
-            delta += 12
-            forced_tier = "Must read"
+            delta += 6
+            forced_tier = "Skim"
             tags.add("feedback")
-            reasons.append("用户反馈：这篇已标为 interested，强制进入重点阅读。")
+            reasons.append("用户反馈：这篇已标为 interested，至少进入保留阅读队列。")
         elif status == "archive":
             delta -= 100
             forced_tier = "Archive"
             tags.add("feedback")
             reasons.append("用户反馈：这篇已标为 archive，强制归档。")
+
+        priority_override = str(paper_feedback.get("priority_override", "") or "").strip().lower().replace("-", "_")
+        if priority_override == "must_read" and status != "archive":
+            delta += 12
+            forced_tier = "Must read"
+            tags.add("feedback")
+            reasons.append("用户反馈：priority override = Must read，强制进入重点阅读。")
+        elif priority_override == "skim" and status != "archive":
+            delta += 6
+            forced_tier = "Skim"
+            tags.add("feedback")
+            reasons.append("用户反馈：priority override = Skim，强制进入略读队列。")
+        elif priority_override == "archive":
+            delta -= 100
+            forced_tier = "Archive"
+            tags.add("feedback")
+            reasons.append("用户反馈：priority override = Archive，强制归档。")
 
         signals = paper_feedback.get("signals", {})
         if isinstance(signals, dict) and signals.get("more_like_this"):
@@ -701,6 +718,9 @@ def score_paper(
         score = max(score, must)
         tier = "Must read"
         enforced_tier = "Must read"
+    elif forced_tier == "Skim":
+        tier = "Skim"
+        enforced_tier = "Skim"
     elif forced_tier == "Archive":
         score = min(score, -20)
         tier = "Archive"

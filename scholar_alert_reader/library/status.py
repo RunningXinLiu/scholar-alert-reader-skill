@@ -32,6 +32,16 @@ def reading_status(record: dict[str, Any], feedback: dict[str, Any] | None) -> s
     return "unread"
 
 
+def priority_override(record: dict[str, Any], feedback: dict[str, Any] | None) -> str:
+    """Resolve an optional manual tier override from feedback."""
+
+    item = feedback_record(record, feedback)
+    value = str(item.get("priority_override", "") or "").strip().lower().replace("-", "_")
+    if value in {"must_read", "skim", "archive"}:
+        return value
+    return ""
+
+
 def reading_labels(record: dict[str, Any], feedback: dict[str, Any] | None) -> list[str]:
     item = feedback_record(record, feedback)
     labels = item.get("labels", [])
@@ -56,3 +66,50 @@ def feedback_note_summary(record: dict[str, Any], feedback: dict[str, Any] | Non
     if limit <= 0 or len(note) <= limit:
         return note
     return note[:limit].rstrip() + "..."
+
+
+def record_source_types(record: dict[str, Any]) -> list[str]:
+    """Resolve broad ingestion source types without exposing alert names as types."""
+
+    source_types: list[str] = []
+
+    def add(value: str) -> None:
+        value = value.strip().lower()
+        if value and value not in source_types:
+            source_types.append(value)
+
+    raw_source_types = record.get("source_types", [])
+    if isinstance(raw_source_types, list):
+        for source_type in raw_source_types:
+            add(str(source_type))
+
+    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    if isinstance(metadata, dict):
+        if "arxiv" in metadata:
+            add("arxiv")
+        if "feed" in metadata:
+            add("rss")
+        if "bibtex" in metadata:
+            add("bibtex")
+        if "ris" in metadata:
+            add("ris")
+        if "web" in metadata:
+            add("web")
+        if "zotero" in metadata:
+            add("zotero")
+
+    alerts = record.get("alerts", [])
+    if isinstance(alerts, list):
+        alert_text = " ".join(str(alert).lower() for alert in alerts)
+        if "atom/rss import" in alert_text or "rss import" in alert_text or "rss" in alert_text:
+            add("rss")
+        if "bibtex import" in alert_text:
+            add("bibtex")
+        if "ris import" in alert_text:
+            add("ris")
+        if "web metadata import" in alert_text:
+            add("web")
+        if not source_types:
+            add("google-scholar-alert")
+
+    return source_types

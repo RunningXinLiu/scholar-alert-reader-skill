@@ -4,7 +4,7 @@ Local, privacy-first literature triage and lightweight paper-library builder.
 
 This project converts multiple paper discovery sources into a deduped, ranked, and explainable reading queue, then stores outcomes in a local library.
 
-Version: `0.2.88`
+Version: `0.2.89`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
@@ -63,7 +63,7 @@ Good next prompts:
 - "Import this Zotero or publisher BibTeX/RIS export into the same triage flow."
 - "Import papers from this scholarly webpage or saved HTML list."
 - "Pull papers from this RSS feed or arXiv query and rank them against my profile."
-- "Open the feedback UI so I can mark interested papers."
+- "Open the Review Workspace so I can mark interested papers."
 - "Open my Scholar Alert dashboard so I can see the digest, reading plan, review queue, and setup status."
 - "Make a reading plan from my retained and recent papers."
 - "Export my retained library to Obsidian and Zotero."
@@ -96,7 +96,13 @@ RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
 The `rss_import.sh` run performs ingest + rank + digest + lightweight local library update.
 The initialized demo project already contains `examples/sample_feed.atom`, so this path does not require Gmail OAuth, private mailbox exports, or private bibliography data.
 
-Inspect outputs:
+Open the interactive Review Workspace first:
+
+```bash
+PAPERS_JSON=reader_out/rss/papers.json ./serve_reader.sh
+```
+
+Then inspect the static outputs:
 
 ```bash
 open reader_out/rss/digest.html
@@ -107,7 +113,8 @@ ls knowledge_base/papers | head
 
 First expected outputs:
 
-- `reader_out/rss/digest.html`: today’s ranked reading digest.
+- Review Workspace: browser UI for paper titles, source links, score explanations, feedback, notes, and reading status.
+- `reader_out/rss/digest.html`: static ranked reading digest for archive/export.
 - `knowledge_base/index.html`: lightweight local paper-library homepage.
 - `knowledge_base/search_index.json`: machine-readable records for filtering/search.
 - `knowledge_base/papers/*.md`: one per-paper note with metadata and score rationale.
@@ -126,17 +133,36 @@ If you are not on macOS, replace `open` with your platform equivalent (`xdg-open
 
 ![Foundation and Interested Library](docs/screenshots/03-foundation-interested.png)
 
-## Use Without Codex
+## Manual Setup Without Codex Or Another AI Agent
 
 You can run the core tool from any terminal or from any coding agent that can access local files and execute shell commands.
+
+Full no-AI guides:
+
+- [Manual setup without Codex or another AI agent](docs/manual_setup_no_ai.md)
+- [中文手动使用流程](docs/manual_setup_no_ai.zh.md)
+
+Minimal terminal path:
 
 ```bash
 git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
 cd scholar-alert-reader-skill
-python3 -m scholar_alert_reader quickstart --project-dir ~/scholar_alerts --open
+python3 scripts/scholar_reader.py init-project \
+  --project-dir ~/scholar_alerts \
+  --profile-template ai-seismology
 cd ~/scholar_alerts
-./setup_wizard.sh
+RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
+PAPERS_JSON=reader_out/rss/papers.json ./serve_reader.sh
 ```
+
+After the local Review Workspace is working, optional downstream handoff is just:
+
+```bash
+./sync_obsidian_vault.sh --obsidian-mode clean
+./zotero_export.sh
+```
+
+`sync_obsidian_vault.sh` writes selected paper notes into a dedicated Obsidian literature inbox by default. `zotero_export.sh` writes Zotero-ready BibTeX/RIS under `knowledge_base/zotero/`.
 
 Agent compatibility:
 
@@ -213,7 +239,7 @@ Sanitized demo screenshots are included for product previews and sharing. Inline
 - Adds an `evidence` command and generated `evidence_reader.sh` helper so users can inspect one paper's evidence status, local artifacts, boundaries, and next upgrade commands before treating a report as citation-ready.
 - Writes a local `DASHBOARD.html` home page that links the current digest, reading plan, review queue, analysis report index, source readiness summary, profile health, retained library, and setup diagnostics.
 - Explains zero-paper runs in `summary.json`, `digest.md/html`, terminal output, and the Dashboard, separating all-seen daily runs from empty sources and parser/source metadata problems.
-- Lets you mark papers as `interested`, `archive`, `more-like-this`, or `less-like-this`, save personal reading notes, open a one-paper workspace, and jump directly to reading-plan, dashboard, foundation/interested queues, reading status, and weekly review from local links.
+- Lets you edit paper feedback in batches across separate dimensions: decision (`Interested` / `Neutral` / `Archive`), priority override (`Auto` / `Must read` / `Skim` / `Archive`), learning signal (`More like this` / `Less like this`), reading status, report generation, and notes. Everything is written with one `Save selected changes` button.
 - Includes a bundled-data `self-test` so new users can verify the install without touching private email or note libraries.
 - Writes and opens a browser-friendly `START_HERE.html` onboarding guide alongside `START_HERE.md` with recommended next actions, a source setup matrix, and current readiness hints for Gmail, Mail.app, mbox, BibTeX/RIS, web metadata, RSS/Atom, and arXiv, including custom paths and direct web URLs from `reader.env`.
 - Includes `privacy-check` so users can scan local projects for files that should not be published before sharing issue attachments, screenshots, or zip archives.
@@ -334,7 +360,7 @@ scholar_alert_reader/
 ├── diagnostics.py # setup checks
 ├── enrich.py      # OpenAlex/Crossref enrichment
 ├── export.py      # BibTeX/RIS/Markdown/JSONL exporters
-├── server.py      # local browser feedback UI
+├── server.py      # local browser Review Workspace
 └── weekly.py      # weekly synthesis renderer
 ```
 
@@ -488,7 +514,7 @@ Try the built-in demo without Gmail, Obsidian, or Zotero:
 ./demo_reader.sh
 ./demo_sources.sh
 ./source_check.sh --source auto
-open reader_out/demo/digest.html
+PAPERS_JSON=reader_out/demo/papers.json ./serve_reader.sh
 ```
 
 `demo_sources.sh` runs sanitized examples for mbox, BibTeX, RIS, webpage metadata, and RSS into `reader_out/demo_sources/`.
@@ -581,13 +607,13 @@ Import from BibTeX or RIS without Gmail:
 ```bash
 cp ~/Downloads/my_papers.bib import.bib
 ./bibtex_import.sh
-open reader_out/bibtex/digest.html
+PAPERS_JSON=reader_out/bibtex/papers.json ./serve_reader.sh
 ```
 
 ```bash
 cp ~/Downloads/my_papers.ris import.ris
 ./ris_import.sh
-open reader_out/ris/digest.html
+PAPERS_JSON=reader_out/ris/papers.json ./serve_reader.sh
 ```
 
 You can also test the import route with sanitized examples:
@@ -601,33 +627,33 @@ Import from structured scholarly webpages, RSS/Atom, or arXiv:
 
 ```bash
 WEB_SOURCE=examples/sample_web_article.html ./web_import.sh
-open reader_out/web/digest.html
+PAPERS_JSON=reader_out/web/papers.json ./serve_reader.sh
 ```
 
 ```bash
 WEB_SOURCE=examples/web_sources.example.txt ./web_import.sh
-open reader_out/web/digest.html
+PAPERS_JSON=reader_out/web/papers.json ./serve_reader.sh
 ```
 
 The webpage importer reads common scholarly metadata from configured URLs or saved HTML files: citation meta tags, JSON-LD, Dublin Core, and OpenGraph. It is meant for article pages and saved search pages with structured metadata, not arbitrary full-site crawling.
 
 ```bash
 RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
-open reader_out/rss/digest.html
+PAPERS_JSON=reader_out/rss/papers.json ./serve_reader.sh
 ```
 
 ```bash
 ARXIV_QUERY='cat:physics.geo-ph AND all:tomography' ./arxiv_search.sh
-open reader_out/arxiv/digest.html
+PAPERS_JSON=reader_out/arxiv/papers.json ./serve_reader.sh
 ```
 
-Open the feedback UI:
+Open the Review Workspace:
 
 ```bash
 ./serve_reader.sh
 ```
 
-The browser UI can mark papers, show current feedback, reading-status, and evidence-level badges, save personal reading notes, filter by tier or reading status, open a focused one-paper workspace, ask paper-specific questions against the retained foundation/interested library, show existing selected-paper answers for that paper, open the generated answer index, generate `Deep read` / `Full review` / `Workup` / `Review pack` reports, and open generated markdown reports through local `/report?...` or `/answer?...` links. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
+The Review Workspace edits feedback in batches. Each paper card has separate controls for decision, priority override, learning signal, reading status, optional report generation, and personal notes. For example, a single save can record `Interested` + `Must read` + `More like this` + a note. Click `Save selected changes` once to write all pending edits. Saved notes are included in reading-status, deep-read, workup, knowledge-base paper pages, and Obsidian paper notes.
 
 Review recent alerts again without modifying the cumulative library:
 
@@ -683,7 +709,7 @@ python3 scripts/scholar_reader.py feedback \
 
 The command writes `knowledge_base/feedback.json` by default and immediately refreshes `foundation.md` / `interested.md` when the selected paper should enter or leave the retained library. Later `daily`, `foundation`, and `run` commands load that file automatically when they use the same `--kb-dir`; they also use retained/interested papers as adaptive ranking seeds. Use `--no-feedback` on a run to ignore saved feedback and adaptive seeds temporarily.
 
-Start the local feedback UI:
+Start the local Review Workspace:
 
 ```bash
 python3 scripts/scholar_reader.py serve \
@@ -693,7 +719,7 @@ python3 scripts/scholar_reader.py serve \
   --open
 ```
 
-The UI includes buttons for `Interested`, `Archive`, `Deep read`, `Full review`, `Workup`, `Review pack`, reading status, citation/method labels, `Background only`, `Not relevant`, and `Save note`. Paper cards show the current feedback state, reading status, labels, more/less-like-this signals, and saved personal notes. Generated reports appear as links on the paper card after the action completes.
+The Review Workspace separates feedback dimensions instead of forcing one action button to mean everything. Use `Decision` for `Interested` / `Archive`, `Priority` to pin `Must read` / `Skim` / `Archive` or return to `Auto`, `Learning signal` for more/less-like-this ranking feedback, `Reading status` for progress and citation labels, and `Generate report on save` for `Deep read` / `Full review` / `Workup` / `Review pack`. Notes are saved in the same batch.
 
 ## Optional / Experimental: Literature Copilot
 

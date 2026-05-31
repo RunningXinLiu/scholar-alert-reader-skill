@@ -133,7 +133,6 @@ def human_score_component_lines(paper: Any, include_zero: bool = False) -> list[
             line = f"- {label}: {value_text} (penalty)"
         else:
             line = f"- {label}: {value_text}"
-        line += f"; component: {name}"
 
         if matched_terms:
             noun = "term" if len(matched_terms) == 1 else "terms"

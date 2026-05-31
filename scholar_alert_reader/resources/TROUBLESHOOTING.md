@@ -61,7 +61,8 @@ SKILL_SCRIPT=/path/to/scholar-alert-reader-skill/scripts/scholar_reader.py ./sou
 
 ## `Papers in digest: 0`
 
-First open `reader_out/daily/digest.html` or `DASHBOARD.html` and read `No-paper diagnosis`.
+First open `DASHBOARD.html` or the Review Workspace with `./serve_reader.sh`, then read `No-paper diagnosis`.
+`digest.html` is a static archive/export; the Review Workspace is the best place to inspect and relabel papers.
 The same structured result is in `reader_out/daily/summary.json` under `empty_run_diagnosis`.
 
 Common causes:
@@ -76,6 +77,8 @@ Useful checks:
 
 ```bash
 ./source_check.sh --source auto --live
+./serve_reader.sh
+./review_recent.sh && ./serve_recent.sh
 MODE=run ONLY_NEW=0 NO_KB_UPDATE=1 ./run_reader.sh
 MODE=foundation ./run_reader.sh
 ```
@@ -87,6 +90,8 @@ reader_out/daily/summary.json
 reader_out/daily/digest.html
 DASHBOARD.html
 reader_out/daily/papers.json
+reader_out/foundation/papers.json
+reader_out/recent/papers.json
 profiles/seen_papers.json
 knowledge_base/feedback.json
 ```

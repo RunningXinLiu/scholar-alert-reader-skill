@@ -35,6 +35,18 @@ def _record(paper_id: str, title: str, tier: str, score: int) -> dict:
 
 
 class ObsidianExportModeTests(unittest.TestCase):
+    def test_journal_fallback_keeps_venues_that_start_with_year(self) -> None:
+        from scholar_alert_reader.export import best_journal
+        from scholar_alert_reader.server import publication_metadata
+
+        record = _record("p-conf", "Conference paper", "Must read", 20)
+        record["authors_source"] = "A Researcher - 2026 IEEE 8th International Conference on Seismology, 2026"
+        self.assertEqual(best_journal(record), "2026 IEEE 8th International Conference on Seismology")
+        self.assertIn(
+            ("Journal / venue", "2026 IEEE 8th International Conference on Seismology"),
+            publication_metadata(type("PaperLike", (), record)()),
+        )
+
     def test_clean_mode_exports_selected_notes_only_without_wikilinks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -78,7 +90,8 @@ class ObsidianExportModeTests(unittest.TestCase):
                 json.dumps(
                     {
                         "marker": core.OBSIDIAN_FULL_EXPORT_MARKER,
-                        "managed_paths": ["00_Dashboard", "search_index.json"],
+                        "managed_paths": ["00_Dashboard/Scholar Alert Dashboard.md", "search_index.json"],
+                        "managed_dirs": ["00_Dashboard"],
                     }
                 ),
                 encoding="utf-8",
@@ -118,6 +131,9 @@ class ObsidianExportModeTests(unittest.TestCase):
                 self.assertIn("reading_status:", note_text)
                 self.assertIn("tags:", note_text)
                 self.assertIn("source_types:", note_text)
+                self.assertIn('journal: "Journal"', note_text)
+                self.assertIn('year: "2026"', note_text)
+                self.assertIn('"rss"', note_text)
                 self.assertNotIn("[[", note_text)
 
             forbidden = [
@@ -187,7 +203,8 @@ class ObsidianExportModeTests(unittest.TestCase):
                 json.dumps(
                     {
                         "marker": core.OBSIDIAN_FULL_EXPORT_MARKER,
-                        "managed_paths": ["00_Dashboard"],
+                        "managed_paths": ["00_Dashboard/Scholar Alert Dashboard.md"],
+                        "managed_dirs": ["00_Dashboard"],
                     }
                 ),
                 encoding="utf-8",
@@ -211,6 +228,56 @@ class ObsidianExportModeTests(unittest.TestCase):
             self.assertTrue(papers_dir.exists())
             notes = sorted(papers_dir.glob("*.md"))
             self.assertEqual(len(notes), 2)
+
+    def test_clean_prune_preserves_user_files_in_previous_full_export_dirs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            kb_dir = root / "knowledge_base"
+            kb_dir.mkdir(parents=True, exist_ok=True)
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                (ROOT / "examples" / "research_profile.example.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            records = [_record("p-must", "Must read tomography paper", "Must read", 26)]
+            (kb_dir / "library.json").write_text(json.dumps(records), encoding="utf-8")
+            core.save_feedback(core.default_feedback_file(kb_dir), core.empty_feedback())
+
+            vault_dir = root / "obsidian"
+            dashboard_dir = vault_dir / "00_Dashboard"
+            dashboard_dir.mkdir(parents=True, exist_ok=True)
+            generated_dashboard = dashboard_dir / "Scholar Alert Dashboard.md"
+            generated_dashboard.write_text("# Generated dashboard", encoding="utf-8")
+            user_note = dashboard_dir / "My handwritten note.md"
+            user_note.write_text("# Keep this", encoding="utf-8")
+            manifest_path = vault_dir / core.OBSIDIAN_FULL_EXPORT_MANIFEST
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "marker": core.OBSIDIAN_FULL_EXPORT_MARKER,
+                        "managed_paths": ["00_Dashboard/Scholar Alert Dashboard.md"],
+                        "managed_dirs": ["00_Dashboard"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            args = argparse.Namespace(
+                profile=profile_path,
+                kb_dir=kb_dir,
+                feedback_file=None,
+                tiers="Must read,Skim",
+                limit=0,
+                vault_dir=vault_dir,
+                obsidian_mode="clean",
+                no_prune=False,
+            )
+            core.obsidian_export_command(args)
+
+            self.assertFalse(generated_dashboard.exists())
+            self.assertTrue(user_note.exists())
+            self.assertTrue(dashboard_dir.exists())
+            self.assertFalse(manifest_path.exists())
 
 
 if __name__ == "__main__":

@@ -102,9 +102,16 @@ class RankingScoringTests(unittest.TestCase):
         self.assertIn("exclusion_penalty", [c.name for c in result.components])
         self.assertLess(sum(c.value for c in result.components if c.name == "exclusion_penalty"), 0)
 
-    def test_feedback_interested_forces_must_read(self) -> None:
+    def test_feedback_interested_retains_as_skim_without_priority_override(self) -> None:
         paper = mk_paper(id="f2", title="Sparse monitoring of crust", snippet="")
         feedback = {"papers": {"f2": {"status": "interested"}}, "terms": [], "version": 1}
+        result = scorer.score_paper(paper, {}, None, feedback, [])
+        self.assertEqual(paper.tier, "Skim")
+        self.assertIn("feedback_similarity", [c.name for c in result.components])
+
+    def test_priority_override_forces_must_read(self) -> None:
+        paper = mk_paper(id="f2b", title="Sparse monitoring of crust", snippet="")
+        feedback = {"papers": {"f2b": {"status": "interested", "priority_override": "must_read"}}, "terms": [], "version": 1}
         result = scorer.score_paper(paper, {}, None, feedback, [])
         self.assertEqual(paper.tier, "Must read")
         self.assertIn("feedback_similarity", [c.name for c in result.components])
@@ -129,7 +136,7 @@ class RankingScoringTests(unittest.TestCase):
             "version": 1,
         }
         result = scorer.score_paper(paper, {}, None, feedback, [])
-        self.assertEqual(paper.tier, "Must read")
+        self.assertEqual(paper.tier, "Skim")
         component_names = {c.name for c in result.components}
         self.assertIn("feedback_similarity", component_names)
         self.assertTrue(
@@ -208,7 +215,7 @@ class RankingScoringTests(unittest.TestCase):
             "version": 1,
             "updated_at": "2026-01-01T00:00:00",
             "papers": {
-                "p4": {"status": "interested"},
+                "p4": {"status": "interested", "priority_override": "must_read"},
                 "seed": {
                     "status": "interested",
                     "title": "Ambient noise deep array",
@@ -254,14 +261,16 @@ class RankingScoringTests(unittest.TestCase):
 
         lines = ranking_format.human_score_component_lines(paper, include_zero=True)
 
-        topic_line = next((line for line in lines if "topical_relevance" in line), "")
-        penalty_line = next((line for line in lines if "exclusion_penalty" in line), "")
+        topic_line = next((line for line in lines if "Topic fit" in line), "")
+        penalty_line = next((line for line in lines if "Exclusion penalty" in line), "")
         self.assertTrue(topic_line, "Expected topical component line in readable output.")
         self.assertTrue(penalty_line, "Expected exclusion component line in readable output.")
         self.assertIn("Topic fit", topic_line)
+        self.assertNotIn("topical_relevance", topic_line)
         self.assertIn("ambient noise", topic_line)
         self.assertRegex(topic_line, r"\+\d")
         self.assertIn("Exclusion penalty", penalty_line)
+        self.assertNotIn("exclusion_penalty", penalty_line)
         self.assertIn("penalty", penalty_line.lower())
         self.assertIn("benchmark", penalty_line)
         self.assertRegex(penalty_line, r"-\d")

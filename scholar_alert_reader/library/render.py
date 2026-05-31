@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..ranking import aggregate_score_breakdown, human_score_component_lines, paper_score_components
-from .status import feedback_note, reading_labels, reading_status
+from .status import feedback_note, priority_override, reading_labels, reading_status, record_source_types
 from .store import paper_directions
 
 
@@ -174,7 +174,9 @@ def write_kb_paper_pages(
         record = asdict(paper)
         labels = reading_labels(record, feedback)
         status = reading_status(record, feedback)
+        priority = priority_override(record, feedback)
         note = feedback_note(record, feedback, limit=3000)
+        source_types = record_source_types(record)
         components = paper_score_components(paper)
         metadata = _paper_metadata_from_authors_source(str(getattr(paper, "authors_source", "")))
         feedback_item = feedback.get("papers", {}).get(str(paper.id), {})
@@ -192,11 +194,12 @@ def write_kb_paper_pages(
             f"last_seen: {_yaml_scalar(getattr(paper, 'last_seen', ''))}",
             f"reading_status: {_yaml_scalar(status)}",
             f"feedback_status: {_yaml_scalar(feedback_status)}",
+            f"priority_override: {_yaml_scalar(priority)}",
             "tags:",
             *[f"  - {_yaml_scalar(tag)}" for tag in sorted(set(getattr(paper, "tags", [])))],
             *_yaml_score_components_lines(components),
             "source_types:",
-            *[f"  - {_yaml_scalar(alert)}" for alert in getattr(paper, "alerts", [])],
+            *[f"  - {_yaml_scalar(source_type)}" for source_type in source_types],
             "---",
             "",
         ]
@@ -269,6 +272,7 @@ def write_kb_search_index(
         record = feedback_papers.get(str(paper.id), {}) if isinstance(feedback_papers, dict) else {}
         if not isinstance(record, dict):
             record = {}
+        paper_record = asdict(paper)
         components = paper_score_components(paper)
         score_breakdown = aggregate_score_breakdown(components)
         search_records.append(
@@ -289,6 +293,7 @@ def write_kb_search_index(
                 "score_breakdown": score_breakdown,
                 "feedback_status": str(record.get("status", "neutral") or "neutral"),
                 "reading_status": str(record.get("reading_status", "unread") or "unread"),
+                "priority_override": priority_override(paper_record, feedback),
                 "labels": list(record.get("labels", [])) if isinstance(record.get("labels", []), list) else [],
             }
         )

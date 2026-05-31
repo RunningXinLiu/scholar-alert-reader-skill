@@ -28,7 +28,7 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
    - If the digest has zero papers, inspect `empty_run_diagnosis` in `summary.json` or the `No-paper diagnosis` section in `digest.md/html` / `DASHBOARD.html` before assuming Gmail/Mail parsing failed.
 9. Use `feedback` to mark papers as interested/archive or more-like-this/less-like-this. The command refreshes the retained knowledge base, reading plan, and project dashboard immediately, and later runs load `knowledge_base/feedback.json` plus retained papers for adaptive similarity ranking automatically.
 10. Use `profile-tune` after several feedback rounds to suggest profile changes from interested/archive patterns. Apply suggestions only when the user asks for it or passes `--apply`.
-11. For interactive triage, use `serve` to open a local feedback UI. The UI can save notes, mark reading decisions, open a one-paper workspace, ask library-wide or selected-paper questions, show existing selected-paper answers on matching paper cards, and link to refreshed reading plans, dashboards, foundation/interested indexes, reading status, weekly review, generated answers, and generated paper reports through local allowlisted routes. For higher-value retained papers, use `enrich` before weekly synthesis.
+11. For interactive triage, use `serve` to open the local Review Workspace. The workspace batches separate feedback dimensions: decision, priority override, learning signal, reading status, optional report generation, and notes. It can open source paper links, open a one-paper workspace, ask library-wide or selected-paper questions, show existing selected-paper answers on matching paper cards, and link to refreshed reading plans, dashboards, foundation/interested indexes, reading status, weekly review, generated answers, and generated paper reports through local allowlisted routes. For higher-value retained papers, use `enrich` before weekly synthesis.
 12. Use `dashboard` / `dashboard_reader.sh` as the project home page after setup or any successful run; it links the current digest, reading plan, review queue, profile health, knowledge base, and diagnostics.
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
 14. Use `reading-plan`, `evidence`, `explain-ranking`, `ranking-eval`, `embedding-check`, `semantic-rerank`, `deep-read`, `workup`, `fetch-pdf`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
@@ -39,7 +39,7 @@ Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata
 
 Gmail distribution rule: never ship the developer's OAuth client JSON or token. For shared/public use, each user should bring their own Desktop OAuth client unless the app owner has completed Google OAuth verification for a shared client. The requested scope is Gmail read-only.
 
-Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local semantic reranking, and retained-library context. Digest cards, feedback UI cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show per-paper evidence levels such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed. Use `evidence --paper-id <ID>` when a user asks whether a selected paper is citation-ready or why a report is still metadata-only; it reports local artifact availability, what the current level can support, what remains unverified, and the next upgrade commands. `deep-read` includes an Evidence Boundary section that says what the current report can support and how to upgrade a selected paper into `review-workflow` / `full-text` analysis. `semantic-rerank` defaults to dependency-free sparse TF-IDF; `--backend sentence-transformers` uses an optional user-installed local embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
+Capability boundary: ranking and literature-copilot commands start from alert metadata, bibliography fields, snippets, profile terms, local token-overlap semantic queries, adaptive feedback similarity, local semantic reranking, and retained-library context. Digest cards, Review Workspace cards, paper notes, foundation/interested indexes, and selected-paper deep-read reports show per-paper evidence levels such as metadata-only, metadata-enriched, PDF-link-ready, local-PDF-ready, or full-text-backed. Use `evidence --paper-id <ID>` when a user asks whether a selected paper is citation-ready or why a report is still metadata-only; it reports local artifact availability, what the current level can support, what remains unverified, and the next upgrade commands. `deep-read` includes an Evidence Boundary section that says what the current report can support and how to upgrade a selected paper into `review-workflow` / `full-text` analysis. `semantic-rerank` defaults to dependency-free sparse TF-IDF; `--backend sentence-transformers` uses an optional user-installed local embedding model. `workup` is a human-readable selected-paper decision brief; `fetch-pdf` can download explicit/open PDF URLs from user input, arXiv, structured webpage metadata, or OpenAlex metadata; `full-text` can extract local PDF/text files when the user provides them, Zotero sync supplies a local path, or `fetch-pdf` saved one locally. `review-pack` creates a markdown context pack for Codex, Claude, ChatGPT, or another assistant; it does not upload files, crawl publisher pages, bypass access controls, or claim autonomous expert review.
 
 ## Outputs
 
@@ -83,7 +83,7 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/comparisons/*.md`: side-by-side paper comparisons.
 - `knowledge_base/research_map.md`: topic clusters and representative papers.
 - `knowledge_base/zotero/`: Zotero-ready BibTeX/RIS files.
-- `knowledge_base/obsidian/`: Obsidian-ready Markdown dashboard, paper notes, maps, reading status, library answers, comparisons, deep reads, and generated answer/comparison/analysis indexes. In a real vault, sync it into a generated folder such as `01_Literatures/10_Scholar_Alert_Reader/`.
+- `knowledge_base/obsidian/` or a chosen vault inbox folder: Obsidian-ready Markdown paper notes. Export defaults to `clean`, which writes only selected `Must read` / explicitly `interested` paper notes under `01_Papers/`. Use `--obsidian-mode full` only when you intentionally want generated dashboards, maps, reading status, answers, comparisons, deep reads, and generated indexes in that target folder.
 
 `zotero-sync` can read a Better BibTeX/BibTeX export back into `knowledge_base/library.json` so retained papers keep Zotero citation keys, item keys, and local PDF paths under `metadata.zotero`.
 
@@ -347,7 +347,7 @@ python3 scripts/scholar_reader.py feedback \
   --less-like-this
 ```
 
-Open the local feedback UI:
+Open the local Review Workspace:
 
 ```bash
 python3 scripts/scholar_reader.py serve \
@@ -602,7 +602,7 @@ python3 scripts/scholar_reader.py obsidian \
   --vault-dir "~/Documents/Obsidian Vault/01_Literatures/10_Scholar_Alert_Reader"
 ```
 
-The Obsidian export is generated content. The dashboard links generated indexes for answers, comparisons, and analysis reports. Prefer syncing it into a dedicated folder such as `01_Literatures/10_Scholar_Alert_Reader/`; keep user-authored reading notes, topic synthesis, and writing drafts in sibling folders so reruns never overwrite personal notes.
+Obsidian export defaults to `clean` mode. It writes selected generated paper notes only, avoids automatic `[[wikilinks]]`, and should target a dedicated inbox such as `01_Literatures/10_Scholar_Alert_Reader/` rather than the vault root. Keep user-authored reading notes, topic synthesis, and writing drafts in sibling folders. Use `--obsidian-mode full` only for an explicit generated bundle with dashboards, maps, reading status, answers, comparisons, and analysis indexes.
 
 Enrich retained papers and write a weekly review:
 

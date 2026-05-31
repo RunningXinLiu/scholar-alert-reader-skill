@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.1.0-alpha - 2026-05-29
+## v0.2.89 - 2026-05-31
 
 - Mark this repository as ready for alpha demonstration and early user testing.
 - Validate the standalone RSS demo path end to end with bundled sample data.
@@ -10,6 +10,8 @@
 - Surface explainable scoring artifacts in user-facing outputs, including score breakdown visibility in digest and paper notes.
 - Keep Obsidian/Zotero as optional downstream handoff integrations.
 - Keep deep-read/workup/map/advice in the optional experimental layer, separate from the core standalone path.
+- Make Obsidian clean-export pruning file-level and manifest-based so generated full-export files can be removed without deleting user-written files inside old generated directories.
+- Keep user-facing score breakdown text readable while preserving machine-readable `score_components`.
 
 ## v0.2.88 - 2026-05-28
 

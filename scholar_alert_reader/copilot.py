@@ -9,7 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from .export import best_authors, best_doi, best_journal, best_year
-from .library.status import feedback_note, feedback_note_summary, feedback_record, reading_labels, reading_status
+from .library.status import (
+    feedback_note,
+    feedback_note_summary,
+    feedback_record,
+    reading_labels,
+    reading_status,
+    record_source_types,
+)
 
 
 STOPWORDS = {
@@ -1439,7 +1446,7 @@ def render_obsidian_paper(
     metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
     zotero = metadata.get("zotero") if isinstance(metadata.get("zotero"), dict) else {}
     pdf_paths = [str(path) for path in zotero.get("pdf_paths", [])] if isinstance(zotero, dict) else []
-    source_types = [str(source) for source in record.get("alerts", []) if str(source).strip()]
+    source_types = record_source_types(record)
     frontmatter = [
         "---",
         "type: paper",

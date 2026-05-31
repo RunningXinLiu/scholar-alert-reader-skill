@@ -51,7 +51,7 @@ def sample_paper() -> dict:
                 "source": "Journal",
                 "authors": ["A Researcher", "B Researcher"],
             },
-            "crossref": {"doi": "10.0000/test"},
+            "crossref": {"doi": "10.0000/test", "volume": "12", "issue": "3"},
         },
         "is_new": True,
     }
@@ -236,6 +236,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "profile_wizard.sh").exists())
             self.assertTrue((project / "profile_doctor.sh").exists())
             self.assertTrue((project / "run_reader.sh").exists())
+            self.assertIn("OPEN_REVIEW_WORKSPACE", (project / "run_reader.sh").read_text(encoding="utf-8"))
             self.assertTrue((project / "bibtex_import.sh").exists())
             self.assertTrue((project / "ris_import.sh").exists())
             self.assertTrue((project / "web_import.sh").exists())
@@ -248,6 +249,9 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "dashboard_reader.sh").exists())
             self.assertTrue((project / "guide_reader.sh").exists())
             self.assertTrue((project / "compare_papers.sh").exists())
+            serve_script = (project / "serve_reader.sh").read_text(encoding="utf-8")
+            self.assertIn("reader_out/foundation/papers.json", serve_script)
+            self.assertIn("reader_out/daily/papers.json", serve_script)
             self.assertTrue((project / "obsidian_export.sh").exists())
             self.assertTrue((project / "zotero_sync.sh").exists())
             self.assertTrue((project / "workup_paper.sh").exists())
@@ -420,6 +424,7 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertTrue((project / "DASHBOARD.html").exists())
             dashboard = (project / "DASHBOARD.md").read_text(encoding="utf-8")
             self.assertIn("Scholar Alert Reader Dashboard", dashboard)
+            self.assertIn("Open First: Review Workspace", dashboard)
             self.assertIn("Latest digest HTML", dashboard)
             self.assertIn("Review Workflow", dashboard)
             self.assertIn("Analysis index HTML", dashboard)
@@ -1009,9 +1014,21 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("evidence full-text-backed", html_content)
             self.assertIn("cached full text", html_content)
             digest_text = digest.read_text(encoding="utf-8")
+            self.assertIn("Review Workspace", digest_text)
+            self.assertIn("cannot start the local server", digest_text)
+            self.assertIn("serve --profile", digest_text)
+            self.assertNotIn("Use the `ID` shown under each paper", digest_text)
+            self.assertNotIn("--paper-id <ID>", digest_text)
             self.assertIn("Score breakdown:", digest_text)
-            self.assertIn("topical_relevance", digest_text)
-            self.assertIn("method_relevance", digest_text)
+            self.assertIn("Topic fit", digest_text)
+            self.assertIn("Method fit", digest_text)
+            self.assertNotIn("topical_relevance", digest_text)
+            self.assertNotIn("method_relevance", digest_text)
+            self.assertIn("Review Workspace", html_content)
+            self.assertIn("Open running workspace", html_content)
+            self.assertIn("Step 1: start the workspace server", html_content)
+            self.assertIn("cannot start the local server", html_content)
+            self.assertNotIn("Use a paper ID from the badges below", html_content)
             self.assertIn("Score breakdown", html_content)
 
     def test_evidence_command_reports_ladder_and_selected_paper_status(self) -> None:
@@ -2410,7 +2427,7 @@ SCHEDULE_TIME=09:00
                         "",
                         "## Setup Guidance",
                         "",
-                        "- After a successful live check, run `./run_reader.sh`; open `reader_out/daily/digest.html` and `knowledge_base/reading_plan.html`.",
+                        "- After a successful live check, run `./run_reader.sh`; open the Review Workspace with `./serve_reader.sh`. Use `reader_out/daily/digest.html` and `knowledge_base/reading_plan.html` as static reference pages.",
                     ]
                 ),
                 encoding="utf-8",
@@ -2437,6 +2454,8 @@ SCHEDULE_TIME=09:00
             )
             dashboard_content = dashboard.read_text(encoding="utf-8")
             self.assertIn("Scholar Alert Reader Dashboard", dashboard_content)
+            self.assertIn("Open First: Review Workspace", dashboard_content)
+            self.assertIn("Review Workspace source JSON", dashboard_content)
             self.assertIn("Reading plan HTML", dashboard_content)
             self.assertIn("Analysis index HTML", dashboard_content)
             self.assertIn("Source Readiness", dashboard_content)
@@ -2517,6 +2536,8 @@ SCHEDULE_TIME=09:00
             )
             self.assertTrue((zotero_dir / "scholar_alert_reader.bib").exists())
             self.assertTrue((zotero_dir / "scholar_alert_reader.ris").exists())
+            self.assertIn("journal = {Journal}", (zotero_dir / "scholar_alert_reader.bib").read_text(encoding="utf-8"))
+            self.assertIn("JO  - Journal", (zotero_dir / "scholar_alert_reader.ris").read_text(encoding="utf-8"))
 
             zotero_bib = root / "zotero.bib"
             pdf_path = root / "Ambient Noise.pdf"
@@ -3058,6 +3079,22 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
             papers_json = root / "reader_out" / "daily" / "papers.json"
             papers_json.parent.mkdir(parents=True)
             papers_json.write_text(json.dumps([sample_paper()]), encoding="utf-8")
+            (papers_json.parent / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "mode": "daily",
+                        "source": "gmail",
+                        "source_item_count": 3,
+                        "papers_in_digest": 1,
+                        "library_papers": 1,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (papers_json.parent / "digest.html").write_text("<h1>Daily Digest</h1>", encoding="utf-8")
+            (root / "reader_out" / "foundation").mkdir(parents=True)
+            (root / "reader_out" / "foundation" / "digest.html").write_text("<h1>Foundation Digest</h1>", encoding="utf-8")
+            (kb / "index.html").write_text("<h1>Library Index</h1>", encoding="utf-8")
             config = ServerConfig(profile_path=profile, kb_dir=kb, papers_json=papers_json)
             server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(config))
             thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -3068,15 +3105,59 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     initial_body = response.read().decode("utf-8")
                 self.assertIn('value="review_workflow"', initial_body)
                 self.assertIn("Full review", initial_body)
-                self.assertIn('value="status_background"', initial_body)
-                self.assertIn('value="status_not_relevant"', initial_body)
+                self.assertIn('name="decision__p1"', initial_body)
+                self.assertIn('name="priority__p1"', initial_body)
+                self.assertIn('value="must_read"', initial_body)
+                self.assertIn('value="background-only"', initial_body)
+                self.assertIn('value="not-relevant"', initial_body)
                 self.assertIn('id="status"', initial_body)
                 self.assertIn('data-status="unread"', initial_body)
                 self.assertIn("feedback none", initial_body)
+                self.assertIn("Scholar Alert Review Workspace", initial_body)
+                self.assertIn('class="title-link"', initial_body)
+                self.assertIn('class="source-icon"', initial_body)
+                self.assertIn('href="https://example.org/p1"', initial_body)
+                self.assertIn('target="_blank"', initial_body)
+                self.assertIn("Publication details", initial_body)
+                self.assertIn("Journal / venue", initial_body)
+                self.assertIn("Year", initial_body)
+                self.assertIn("Volume", initial_body)
+                self.assertIn("Issue", initial_body)
+                self.assertIn(">12<", initial_body)
+                self.assertIn(">3<", initial_body)
+                self.assertIn("DOI", initial_body)
+                self.assertIn("Source domain", initial_body)
+                self.assertIn("Scholar source line", initial_body)
+                self.assertIn("A Researcher, B Researcher - Journal, 2026", initial_body)
+                self.assertIn("Abstract / snippet", initial_body)
+                self.assertIn("Showing the full abstract/snippet text available in this source record.", initial_body)
+                self.assertIn("We present ambient noise tomography for crustal structure.", initial_body)
+                self.assertIn("Daily digest", initial_body)
+                self.assertIn("You are reviewing the current run", initial_body)
+                self.assertIn("Mode: daily", initial_body)
+                self.assertIn("Source: gmail", initial_body)
+                self.assertIn("Digest papers: 1", initial_body)
+                self.assertIn("Retained library: 1", initial_body)
+                self.assertIn('href="#must-read"', initial_body)
+                self.assertIn('id="must-read"', initial_body)
+                self.assertIn("Load all cards", initial_body)
+                self.assertIn("Showing 1 of 1", initial_body)
+                self.assertIn("Must read 1", initial_body)
+                self.assertIn('/local?name=current_digest', initial_body)
+                self.assertIn('/local?name=library_index', initial_body)
+                self.assertIn('/local?name=foundation_digest', initial_body)
                 self.assertIn("evidence metadata-enriched", initial_body)
                 self.assertIn("OpenAlex", initial_body)
-                self.assertIn('name="note"', initial_body)
-                self.assertIn("Save note", initial_body)
+                self.assertIn('action="/feedback-batch"', initial_body)
+                self.assertIn("Save selected changes", initial_body)
+                self.assertIn('name="note__p1"', initial_body)
+                self.assertIn('name="note_mode__p1"', initial_body)
+                self.assertIn("Replace saved note", initial_body)
+                self.assertIn("Clear saved note", initial_body)
+                self.assertIn("Learning signal", initial_body)
+                self.assertIn("Generate report on save", initial_body)
+                self.assertIn("combo-warning", initial_body)
+                self.assertIn("Interested + Less like this", initial_body)
                 self.assertIn('action="/ask"', initial_body)
                 self.assertIn("Ask library", initial_body)
                 self.assertIn("/paper?id=p1", initial_body)
@@ -3190,6 +3271,15 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 with urllib.request.urlopen(f"{base_url}/local?name=foundation", timeout=5) as response:
                     foundation_body = response.read().decode("utf-8")
                 self.assertIn("Foundation Library", foundation_body)
+                with urllib.request.urlopen(f"{base_url}/local?name=current_digest", timeout=5) as response:
+                    current_digest_body = response.read().decode("utf-8")
+                self.assertIn("Daily Digest", current_digest_body)
+                with urllib.request.urlopen(f"{base_url}/local?name=library_index", timeout=5) as response:
+                    library_index_body = response.read().decode("utf-8")
+                self.assertIn("Scholar Alert Knowledge Base", library_index_body)
+                with urllib.request.urlopen(f"{base_url}/local?name=foundation_digest", timeout=5) as response:
+                    foundation_digest_body = response.read().decode("utf-8")
+                self.assertIn("Foundation Digest", foundation_digest_body)
                 with self.assertRaises(urllib.error.HTTPError) as raised:
                     urllib.request.urlopen(f"{base_url}/local?name=../VERSION", timeout=5)
                 raised.exception.close()
@@ -3327,6 +3417,153 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                         for item in feedback.get("terms", [])
                     )
                 )
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+
+    def test_review_workspace_defaults_to_active_queue_and_lazy_archive(self) -> None:
+        from scholar_alert_reader.server import ServerConfig, make_handler
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "reader"
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
+            profile.write_text((ROOT / "examples" / "research_profile.example.json").read_text(), encoding="utf-8")
+            kb = root / "knowledge_base"
+            kb.mkdir()
+            papers_json = root / "reader_out" / "foundation" / "papers.json"
+            papers_json.parent.mkdir(parents=True)
+            active = sample_paper()
+            archived = sample_paper()
+            archived.update(
+                {
+                    "id": "p2",
+                    "title": "Low-priority archive-only paper",
+                    "url": "https://example.org/p2",
+                    "tier": "Archive",
+                    "score": 1,
+                }
+            )
+            papers_json.write_text(json.dumps([active, archived]), encoding="utf-8")
+            (papers_json.parent / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "mode": "foundation",
+                        "source": "gmail",
+                        "source_item_count": 2,
+                        "papers_in_digest": 2,
+                        "library_papers": 1,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config = ServerConfig(profile_path=profile, kb_dir=kb, papers_json=papers_json)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(config))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                base_url = f"http://127.0.0.1:{server.server_port}"
+                with urllib.request.urlopen(base_url, timeout=5) as response:
+                    body = response.read().decode("utf-8")
+                    self.assertEqual(response.headers.get("Connection"), "close")
+                self.assertIn("Active review queue", body)
+                self.assertIn("Showing: 1 of 2", body)
+                self.assertIn("Ambient noise tomography", body)
+                self.assertNotIn("Low-priority archive-only paper", body)
+                self.assertIn('/?view=archive#archive', body)
+
+                with urllib.request.urlopen(f"{base_url}/?view=archive", timeout=5) as response:
+                    archive_body = response.read().decode("utf-8")
+                self.assertIn("Archive review", archive_body)
+                self.assertIn("Showing: 1 of 2", archive_body)
+                self.assertIn("Low-priority archive-only paper", archive_body)
+
+                batch_body = urllib.parse.urlencode(
+                    {
+                        "view": "active",
+                        "paper_id": ["p1", "p2"],
+                        "decision__p1": "interested",
+                        "priority__p1": "must_read",
+                        "signal_more__p1": "1",
+                        "note__p2": "Keep a note without choosing an action.",
+                    },
+                    doseq=True,
+                ).encode("utf-8")
+                batch_request = urllib.request.Request(
+                    f"{base_url}/feedback-batch",
+                    data=batch_body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(batch_request, timeout=5) as response:
+                    batch_response = response.read().decode("utf-8")
+                self.assertIn("Saved 2 selected changes", batch_response)
+                feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
+                self.assertEqual(feedback["papers"]["p1"]["status"], "interested")
+                self.assertEqual(feedback["papers"]["p1"]["priority_override"], "must_read")
+                self.assertTrue(feedback["papers"]["p1"]["signals"]["more_like_this"])
+                self.assertIn("Keep a note without choosing an action.", feedback["papers"]["p2"]["note"])
+
+                replace_note_body = urllib.parse.urlencode(
+                    {
+                        "view": "active",
+                        "paper_id": ["p2"],
+                        "note_mode__p2": "replace",
+                        "note__p2": "Replacement note.",
+                    },
+                    doseq=True,
+                ).encode("utf-8")
+                replace_note_request = urllib.request.Request(
+                    f"{base_url}/feedback-batch",
+                    data=replace_note_body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(replace_note_request, timeout=5) as response:
+                    replace_note_response = response.read().decode("utf-8")
+                self.assertIn("Saved 1 selected change", replace_note_response)
+                feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
+                self.assertEqual(feedback["papers"]["p2"]["note"], "Replacement note.")
+
+                clear_note_body = urllib.parse.urlencode(
+                    {
+                        "view": "active",
+                        "paper_id": ["p2"],
+                        "note_mode__p2": "clear",
+                    },
+                    doseq=True,
+                ).encode("utf-8")
+                clear_note_request = urllib.request.Request(
+                    f"{base_url}/feedback-batch",
+                    data=clear_note_body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(clear_note_request, timeout=5) as response:
+                    clear_note_response = response.read().decode("utf-8")
+                self.assertIn("Saved 1 selected change", clear_note_response)
+                feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
+                self.assertNotIn("note", feedback["papers"]["p2"])
+
+                warning_body = urllib.parse.urlencode(
+                    {
+                        "view": "active",
+                        "paper_id": ["p1"],
+                        "decision__p1": "interested",
+                        "signal_less__p1": "1",
+                    },
+                    doseq=True,
+                ).encode("utf-8")
+                warning_request = urllib.request.Request(
+                    f"{base_url}/feedback-batch",
+                    data=warning_body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(warning_request, timeout=5) as response:
+                    warning_response = response.read().decode("utf-8")
+                self.assertIn("unusual combinations noted: 1", warning_response)
             finally:
                 server.shutdown()
                 server.server_close()
