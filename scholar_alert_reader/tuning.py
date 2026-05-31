@@ -47,11 +47,18 @@ def clean_candidate(term: str) -> str:
     return term
 
 
+def internal_feedback_candidate(term: str) -> bool:
+    lowered = term.strip().lower()
+    return lowered.startswith(("similar:", "dissimilar:"))
+
+
 def useful_candidate(term: str) -> bool:
     cleaned = clean_candidate(term)
     if not cleaned:
         return False
     lowered = cleaned.lower()
+    if internal_feedback_candidate(lowered):
+        return False
     if lowered in GENERIC_TERMS:
         return False
     if len(lowered) < 4:

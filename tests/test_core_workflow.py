@@ -1118,7 +1118,11 @@ class CoreWorkflowTests(unittest.TestCase):
                     **sample_paper(),
                     "id": "positive",
                     "title": "Foundation model for continuous seismic monitoring",
-                    "matched_terms": ["foundation model", "continuous seismic"],
+                    "matched_terms": [
+                        "foundation model",
+                        "continuous seismic",
+                        "similar:Foundation model for continuous seismic monitoring",
+                    ],
                     "tags": ["ai", "monitoring"],
                 },
                 {
@@ -1138,6 +1142,20 @@ class CoreWorkflowTests(unittest.TestCase):
                 },
                 "terms": [],
             }
+            feedback["terms"] = [
+                {
+                    "term": "dissimilar:Old earthquake report",
+                    "direction": "positive",
+                    "weight": 9,
+                    "sources": ["paper"],
+                },
+                {
+                    "term": "similar:Foundation model for continuous seismic monitoring",
+                    "direction": "positive",
+                    "weight": 9,
+                    "sources": ["paper"],
+                },
+            ]
             (kb / "feedback.json").write_text(json.dumps(feedback), encoding="utf-8")
             report = root / "profile_tuning.md"
 
@@ -1161,6 +1179,8 @@ class CoreWorkflowTests(unittest.TestCase):
             self.assertIn("Profile Tuning Suggestions", content)
             self.assertIn("foundation model", content)
             self.assertIn("medical imaging", content)
+            self.assertNotIn("dissimilar:Old earthquake report", content)
+            self.assertNotIn("similar:Foundation model", content)
 
             subprocess.run(
                 [
@@ -1182,6 +1202,7 @@ class CoreWorkflowTests(unittest.TestCase):
             tuned = json.loads(profile.read_text(encoding="utf-8"))
             self.assertTrue(any(item["term"] == "foundation model" for item in tuned["focus_terms"]))
             self.assertTrue(any(item["term"] == "medical imaging" for item in tuned["exclude_terms"]))
+            self.assertFalse(any(str(item["term"]).startswith(("similar:", "dissimilar:")) for item in tuned["focus_terms"]))
 
     def test_explain_ranking_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
