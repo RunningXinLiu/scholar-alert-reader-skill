@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scholar Alert Reader 中文用户手册</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --paper: #ffffff;
+      --ink: #17212f;
+      --muted: #64748b;
+      --line: #d7e2f0;
+      --teal: #0f766e;
+      --blue: #2563eb;
+      --amber: #d97706;
+      --rose: #e11d48;
+      --soft: #ecfeff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f1f5f9 0%, var(--bg) 280px);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+      line-height: 1.68;
+    }
+    .shell {
+      width: min(1120px, calc(100vw - 42px));
+      margin: 36px auto 72px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+    header {
+      padding: 44px 54px 28px;
+      background: #0f172a;
+      color: white;
+      border-bottom: 5px solid var(--teal);
+    }
+    header .eyebrow {
+      color: #99f6e4;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    header h1 {
+      margin: 10px 0 12px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    header p {
+      margin: 0;
+      max-width: 850px;
+      color: #dbeafe;
+      font-size: 18px;
+    }
+    nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      padding: 22px 54px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--line);
+    }
+    nav a {
+      display: block;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--teal);
+      background: white;
+      font-weight: 700;
+      text-align: center;
+      font-size: 14px;
+    }
+    main {
+      padding: 18px 54px 56px;
+    }
+    h1:first-child { display: none; }
+    h2 {
+      margin-top: 46px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      font-size: 28px;
+      line-height: 1.25;
+    }
+    h3 {
+      margin-top: 30px;
+      font-size: 21px;
+    }
+    p, li {
+      font-size: 16px;
+    }
+    blockquote {
+      margin: 22px 0;
+      padding: 16px 20px;
+      background: #ecfdf5;
+      border-left: 5px solid var(--teal);
+      border-radius: 12px;
+      color: #134e4a;
+    }
+    img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 22px auto 32px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      box-shadow: 0 16px 44px rgba(15, 23, 42, 0.10);
+      background: white;
+    }
+    p > img:only-child {
+      width: 100%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0 30px;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+    }
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 15px;
+    }
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 800;
+    }
+    tr:last-child td { border-bottom: 0; }
+    code {
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      background: #eef2ff;
+      color: #1e293b;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: .92em;
+    }
+    pre {
+      background: #0b1220;
+      color: #e5e7eb;
+      padding: 18px 20px;
+      border-radius: 16px;
+      overflow-x: auto;
+      border: 1px solid #1e293b;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+      font-size: 14px;
+    }
+    a { color: var(--blue); }
+    hr { border: 0; border-top: 1px solid var(--line); margin: 44px 0; }
+    .footer {
+      padding: 22px 54px 36px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: #f8fafc;
+      font-size: 14px;
+    }
+    @media (max-width: 800px) {
+      .shell { width: 100%; margin: 0; border-radius: 0; border-left: 0; border-right: 0; }
+      header, main, nav, .footer { padding-left: 24px; padding-right: 24px; }
+      nav { grid-template-columns: 1fr 1fr; }
+      h2 { font-size: 24px; }
+    }
+    @media print {
+      body { background: white; }
+      .shell { box-shadow: none; border: 0; width: 100%; margin: 0; }
+      nav { display: none; }
+      img { box-shadow: none; page-break-inside: avoid; }
+      h2 { page-break-after: avoid; }
+      pre { white-space: pre-wrap; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="eyebrow">Local literature triage manual</div>
+      <h1>Scholar Alert Reader 中文用户手册</h1>
+      <p>从 Scholar Alert、RSS/arXiv、BibTeX/RIS 到 Review Workspace、foundation、本地知识库、Obsidian clean export 和 Zotero handoff。</p>
+    </header>
+    <nav>
+      <a href="#3-三分钟-demo-不接-gmail-也能先跑通">三分钟 demo</a>
+      <a href="#7-第一次真实运行-建立-foundation">Gmail foundation</a>
+      <a href="#9-review-workspace-怎么用">Review Workspace</a>
+      <a href="#13-obsidian-推荐-clean-export">Obsidian / Zotero</a>
+    </nav>
+    <main><h1 id="scholar-alert-reader-中文用户手册">Scholar Alert Reader 中文用户手册</h1>
+<blockquote>
+<p>本手册面向第一次使用的人：不要求安装 Codex、Obsidian 或 Zotero。核心目标是把 Google Scholar Alert、RSS/arXiv、BibTeX/RIS 等来源里的论文候选，变成本地可筛选、可反馈、可沉淀的个人文献库。</p>
+</blockquote>
+<p><img src="assets/social-card.zh.png" alt="Scholar Alert Reader 中文产品卡片"></p>
+<h2 id="1-它解决什么问题">1. 它解决什么问题</h2>
+<p>每天的 Scholar Alert 邮件、RSS feed 和文献库导出很容易变成噪音。Scholar Alert Reader 做的是一条本地文献分诊流水线：</p>
+<pre><code class="language-text">论文来源
+  -&gt; 解析元数据
+  -&gt; 去重
+  -&gt; 按研究画像打分
+  -&gt; 生成 Review Workspace / digest
+  -&gt; 人工反馈 interested / archive / more-like-this / less-like-this
+  -&gt; 更新本地 foundation / interested library
+  -&gt; 可选导出到 Obsidian / Zotero
+</code></pre>
+<p><img src="assets/workflow.zh.gif" alt="工作流动图"></p>
+<p>它不是 Zotero 或 Obsidian 的替代品，也不是全自动阅读全文机器人。更准确地说，它是一个本地、隐私优先、轻量化的文献筛选和文献库构建工具。</p>
+<h2 id="2-你会得到什么">2. 你会得到什么</h2>
+<p>一次运行后，最重要的是这些文件和页面：</p>
+<table>
+<thead>
+<tr>
+<th>输出</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Review Workspace</code></td>
+<td>浏览器里的交互式筛选界面，最适合日常使用</td>
+</tr>
+<tr>
+<td><code>reader_out/&lt;mode&gt;/digest.html</code></td>
+<td>静态 digest，可归档或分享给自己</td>
+</tr>
+<tr>
+<td><code>knowledge_base/index.html</code></td>
+<td>本地轻量文献库首页</td>
+</tr>
+<tr>
+<td><code>knowledge_base/papers/*.md</code></td>
+<td>每篇论文的 Markdown 记录</td>
+</tr>
+<tr>
+<td><code>knowledge_base/feedback.json</code></td>
+<td>你的 interested/archive/more-like-this 等反馈</td>
+</tr>
+<tr>
+<td><code>knowledge_base/zotero/*.bib/.ris</code></td>
+<td>可导入 Zotero 的引用文件</td>
+</tr>
+<tr>
+<td>Obsidian clean notes</td>
+<td>可选，只导出精选论文笔记</td>
+</tr>
+</tbody></table>
+<p><img src="screenshots/02-feedback-triage.png" alt="Review Workspace 批量反馈界面"></p>
+<h2 id="3-三分钟-demo-不接-gmail-也能先跑通">3. 三分钟 demo：不接 Gmail 也能先跑通</h2>
+<p>先用内置 RSS 样例验证流程。这个 demo 不读私人邮箱、不需要 Obsidian/Zotero，也不需要 Google OAuth。</p>
+<pre><code class="language-bash">git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git
+cd scholar-alert-reader-skill
+
+python3 scripts/scholar_reader.py init-project \
+  --project-dir ~/scholar_alerts_demo \
+  --profile-template seismic-imaging
+
+cd ~/scholar_alerts_demo
+RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
+PAPERS_JSON=reader_out/rss/papers.json ./serve_reader.sh
+</code></pre>
+<p>浏览器打开后，先看：</p>
+<ul>
+<li>论文是否按 <code>Must read / Skim / Archive</code> 分层。</li>
+<li>每篇论文是否有推荐理由和证据等级。</li>
+<li>批量反馈按钮是否能保存。</li>
+</ul>
+<h2 id="4-推荐目录结构">4. 推荐目录结构</h2>
+<p>建议把 Scholar Alert Reader 工作区放在 Obsidian 外部：</p>
+<pre><code class="language-text">~/scholar_alerts/
+├── profiles/
+│   └── research_profile.json
+├── reader_out/
+│   ├── foundation/
+│   └── daily/
+├── knowledge_base/
+│   ├── index.html
+│   ├── library.json
+│   ├── feedback.json
+│   └── papers/
+└── reader.env
+</code></pre>
+<p>如果用 Obsidian，建议只给它一个独立 inbox：</p>
+<pre><code class="language-text">~/Documents/Obsidian Vault/
+└── 01_Literatures/
+    └── 10_Scholar_Alert_Reader/
+        └── 01_Papers/
+</code></pre>
+<p>不要把整个 <code>knowledge_base/</code> 拖进 Obsidian。<code>knowledge_base/</code> 是机器工作区，Obsidian 应该默认只接收精选论文笔记。</p>
+<h2 id="5-配置你的研究画像">5. 配置你的研究画像</h2>
+<p>研究画像在项目目录里：</p>
+<pre><code class="language-text">profiles/research_profile.json
+</code></pre>
+<p>重点改这些字段：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>focus_terms</code></td>
+<td>你关心的主题，例如 seismic foundation model</td>
+</tr>
+<tr>
+<td><code>methods</code></td>
+<td>方法词，例如 phase picking、FWI、self-supervised learning</td>
+</tr>
+<tr>
+<td><code>regions</code></td>
+<td>区域、数据集或应用场景</td>
+</tr>
+<tr>
+<td><code>semantic_queries</code></td>
+<td>用一句话描述你真正想找的论文</td>
+</tr>
+<tr>
+<td><code>exclude_terms</code></td>
+<td>经常误报的噪音词</td>
+</tr>
+<tr>
+<td><code>tier_thresholds</code></td>
+<td>Must read / Skim / Archive 的阈值</td>
+</tr>
+</tbody></table>
+<p>可以用向导快速补充：</p>
+<pre><code class="language-bash">./profile_wizard.sh \
+  --focus &quot;seismic foundation model, earthquake monitoring&quot; \
+  --method &quot;phase picking, self-supervised learning, uncertainty quantification&quot; \
+  --region &quot;Tibet, Sichuan Basin, North China&quot;
+</code></pre>
+<p>检查画像是否太宽或太窄：</p>
+<pre><code class="language-bash">./profile_doctor.sh
+open profiles/profile_doctor.md
+</code></pre>
+<h2 id="6-gmail-第一次接入">6. Gmail 第一次接入</h2>
+<p>Gmail 是可选的，但它最适合自动读取 Google Scholar Alert。</p>
+<p>如果你用 Codex，推荐直接让 Codex 带你走授权流程；它可以检查依赖、检查凭据位置、启动浏览器授权、再跑 source check。你需要亲自完成的只有 Google Cloud 里创建 OAuth client，以及浏览器里点一次授权。</p>
+<p>详细步骤见：<a href="gmail_auth_guide.zh.md">Gmail 授权中文指南</a>。</p>
+<p>你需要在 Google Cloud 做一次配置：</p>
+<ol>
+<li>创建或选择一个 project。</li>
+<li>启用 Gmail API。</li>
+<li>配 OAuth consent screen。</li>
+<li>如果 app 处于 testing，把自己的 Gmail 加成 test user。</li>
+<li>创建 OAuth client，类型选 <code>Desktop app</code>。</li>
+<li>下载 client secret JSON。</li>
+</ol>
+<p>建议把凭据放到 repo 外面：</p>
+<pre><code class="language-text">~/.codex/scholar-alert-reader/gmail_credentials.json
+</code></pre>
+<p>第一次授权：</p>
+<pre><code class="language-bash">python3 /path/to/scholar-alert-reader-skill/scripts/scholar_reader.py auth-gmail \
+  --gmail-credentials ~/.codex/scholar-alert-reader/gmail_credentials.json \
+  --gmail-token ~/.codex/scholar-alert-reader/gmail_token.json
+</code></pre>
+<p>在项目目录 <code>reader.env</code> 里写：</p>
+<pre><code class="language-bash">SOURCE=auto
+GMAIL_CREDENTIALS=$HOME/.codex/scholar-alert-reader/gmail_credentials.json
+GMAIL_TOKEN=$HOME/.codex/scholar-alert-reader/gmail_token.json
+</code></pre>
+<p>检查 Gmail 是否能读：</p>
+<pre><code class="language-bash">./source_check.sh --source gmail --live
+</code></pre>
+<p>看到 Gmail live read 成功后，再跑真实任务。</p>
+<h2 id="7-第一次真实运行-建立-foundation">7. 第一次真实运行：建立 foundation</h2>
+<p>第一次不要只看当天。应该先用已有 Scholar Alert 邮件建立 foundation，形成 baseline：</p>
+<pre><code class="language-bash">MODE=foundation SOURCE=gmail ./run_reader.sh
+PAPERS_JSON=reader_out/foundation/papers.json ./serve_reader.sh
+</code></pre>
+<p>foundation 的意义：</p>
+<ul>
+<li>读取已有 alert 邮件。</li>
+<li>去重，避免同一篇论文从多个 alert 重复出现。</li>
+<li>按你的 research profile 打分。</li>
+<li>建立 <code>seen_papers.json</code>，之后 daily 不再反复推旧论文。</li>
+<li>写入 <code>knowledge_base/</code>，形成本地轻量文献库。</li>
+</ul>
+<p><img src="screenshots/03-foundation-interested.png" alt="Foundation 和 interested library"></p>
+<h2 id="8-日常运行-daily">8. 日常运行：daily</h2>
+<p>foundation 之后，日常运行用 daily。它只显示还没见过的新论文：</p>
+<pre><code class="language-bash">SOURCE=gmail ./run_reader.sh
+./serve_reader.sh
+</code></pre>
+<p>如果 <code>Papers in digest: 0</code>，不一定是坏了。先看诊断：</p>
+<pre><code class="language-bash">open reader_out/daily/digest.html
+python3 -m json.tool reader_out/daily/summary.json | sed -n &#39;1,120p&#39;
+</code></pre>
+<p>常见原因：</p>
+<ul>
+<li>Gmail 读到了邮件，但这些论文已经在 foundation/seen state 里。</li>
+<li>今天没有新的 Scholar Alert。</li>
+<li>Gmail 查询窗口太短。</li>
+<li>OAuth/token 或网络读取失败。</li>
+</ul>
+<p>如果只是想重看最近邮件，不想改 foundation：</p>
+<pre><code class="language-bash">./review_recent.sh
+./serve_recent.sh
+</code></pre>
+<h2 id="9-review-workspace-怎么用">9. Review Workspace 怎么用</h2>
+<p>Review Workspace 是日常最重要的入口。</p>
+<p><img src="screenshots/02-feedback-triage.png" alt="Review Workspace 批量反馈界面"></p>
+<p>建议操作顺序：</p>
+<ol>
+<li>先用搜索框按 topic、author、venue、method 粗筛。</li>
+<li>扫 <code>Must read</code>，快速判断是否真相关。</li>
+<li>对明显有价值的论文设置 <code>Interested</code>。</li>
+<li>对明显无关的论文设置 <code>Archive</code>。</li>
+<li>对想让系统以后多推荐的方向勾 <code>More like this</code>。</li>
+<li>对误报方向勾 <code>Less like this</code>。</li>
+<li>有想法就写 <code>Personal note</code>。</li>
+<li>最后统一点 <code>Save selected changes</code>。</li>
+</ol>
+<p>每篇论文卡片里应重点看：</p>
+<ul>
+<li>标题和 <code>Open paper</code> 原文链接。</li>
+<li>期刊/年份/DOI/来源域名。</li>
+<li>evidence level：metadata-only、PDF-link-ready、full-text-backed 等。</li>
+<li>摘要是否是完整摘要，还是 Scholar Alert 截断片段。</li>
+<li>score reason：为什么它被推荐或降权。</li>
+<li>你的反馈状态和阅读状态。</li>
+</ul>
+<h2 id="10-批量保存逻辑">10. 批量保存逻辑</h2>
+<p>当前 UI 不是每点一次就立即写入，而是先累积 pending changes，再统一保存。</p>
+<p><img src="screenshots/01-daily-digest.png" alt="Daily digest 和 score breakdown 示例"></p>
+<p>一次保存可以同时包含：</p>
+<ul>
+<li><code>Decision</code>: Interested / Archive / Neutral。</li>
+<li><code>Priority</code>: Must read / Skim / Archive。</li>
+<li><code>Learning signal</code>: More like this / Less like this。</li>
+<li><code>Reading status</code>: Reading / Read / Must cite / Background only / Not relevant。</li>
+<li><code>Generate report on save</code>: Deep read / Full review / Workup / Review pack。</li>
+<li><code>Personal note</code>: append、replace 或 clear。</li>
+</ul>
+<p>保存后会更新：</p>
+<ul>
+<li><code>knowledge_base/feedback.json</code></li>
+<li><code>knowledge_base/library.json</code></li>
+<li><code>knowledge_base/interested.md</code></li>
+<li>per-paper Markdown note</li>
+<li>后续 daily ranking 的反馈加权</li>
+</ul>
+<h2 id="11-它怎么打分">11. 它怎么打分</h2>
+<p>打分不是黑箱。每篇论文都会有可解释的 score breakdown：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Topic fit</td>
+<td>和主题词的匹配</td>
+</tr>
+<tr>
+<td>Method fit</td>
+<td>和方法词的匹配</td>
+</tr>
+<tr>
+<td>Domain/region fit</td>
+<td>和区域、数据集、应用场景的匹配</td>
+</tr>
+<tr>
+<td>Semantic fit</td>
+<td>和 <code>semantic_queries</code> 的轻量语义匹配</td>
+</tr>
+<tr>
+<td>Author/source signal</td>
+<td>关注作者或来源信号</td>
+</tr>
+<tr>
+<td>Feedback similarity</td>
+<td>和你标过 interested/more-like-this 的论文相似</td>
+</tr>
+<tr>
+<td>Exclusion penalty</td>
+<td>命中排除词或噪音模式</td>
+</tr>
+</tbody></table>
+<p>这套解释会出现在 digest、paper note、search index 和 Review Workspace 里。</p>
+<h2 id="12-不用-gmail-的来源">12. 不用 Gmail 的来源</h2>
+<p>RSS/Atom：</p>
+<pre><code class="language-bash">RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
+PAPERS_JSON=reader_out/rss/papers.json ./serve_reader.sh
+</code></pre>
+<p>arXiv：</p>
+<pre><code class="language-bash">ARXIV_QUERY=&#39;cat:physics.geo-ph AND all:tomography&#39; ./arxiv_search.sh
+PAPERS_JSON=reader_out/arxiv/papers.json ./serve_reader.sh
+</code></pre>
+<p>BibTeX：</p>
+<pre><code class="language-bash">cp ~/Downloads/library.bib import.bib
+./bibtex_import.sh
+PAPERS_JSON=reader_out/bibtex/papers.json ./serve_reader.sh
+</code></pre>
+<p>RIS：</p>
+<pre><code class="language-bash">cp ~/Downloads/library.ris import.ris
+./ris_import.sh
+PAPERS_JSON=reader_out/ris/papers.json ./serve_reader.sh
+</code></pre>
+<h2 id="13-obsidian-推荐-clean-export">13. Obsidian：推荐 clean export</h2>
+<p>Obsidian 是可选的。推荐默认 clean 模式，只把精选论文 note 送进 Obsidian。</p>
+<pre><code class="language-bash">./sync_obsidian_vault.sh --obsidian-mode clean
+</code></pre>
+<p>clean 模式只导出：</p>
+<ul>
+<li><code>Must read</code> 论文。</li>
+<li>你手动标为 <code>Interested</code> 的论文。</li>
+<li>per-paper Markdown notes。</li>
+</ul>
+<p>clean 模式不会导出：</p>
+<ul>
+<li>dashboard / index / search_index。</li>
+<li>runs / analysis / answers。</li>
+<li>deep-read / workup / review-pack 报告。</li>
+<li>自动 <code>[[wikilinks]]</code>。</li>
+</ul>
+<p><img src="assets/obsidian-mode-decision.zh.png" alt="Obsidian clean 和 full 的边界"></p>
+<p>clean export 的目标是让 Obsidian 成为人的阅读 inbox，而不是机器工作区。</p>
+<p><img src="assets/obsidian-boundary.zh.png" alt="Obsidian 导出边界"></p>
+<p>如果你已经把 full 模式导出进 Obsidian，迁移时可以参考：</p>
+<p><img src="assets/obsidian-migration.zh.png" alt="Obsidian 迁移建议"></p>
+<p>如果你以前在同一个目录里跑过 full 模式，第一次迁移建议保守一点：</p>
+<pre><code class="language-bash">./sync_obsidian_vault.sh --obsidian-mode clean --no-prune
+</code></pre>
+<p>确认没问题后，再决定是否去掉 <code>--no-prune</code>。</p>
+<p>详细指南见：</p>
+<ul>
+<li><a href="obsidian_export_guide.zh.md">Obsidian 导出指南（中文）</a></li>
+</ul>
+<h2 id="14-zotero-导出-bibtex-ris">14. Zotero：导出 BibTeX/RIS</h2>
+<p>Zotero 也是可选的。推荐先只导入 Must-read 或 retained papers，不要一开始把所有 Archive 也塞进去。</p>
+<pre><code class="language-bash">./zotero_export.sh
+</code></pre>
+<p>输出通常在：</p>
+<pre><code class="language-text">knowledge_base/zotero/scholar_alert_reader.bib
+knowledge_base/zotero/scholar_alert_reader.ris
+</code></pre>
+<p>把 <code>.bib</code> 或 <code>.ris</code> 导入 Zotero 即可。</p>
+<p>如果之后在 Zotero 里用 Better BibTeX 导出了库，可以把 citation key、item key 和本地 PDF 路径同步回 Scholar Alert Reader：</p>
+<pre><code class="language-bash">ZOTERO_BIBTEX_PATH=~/Downloads/My_Library.bib ./zotero_sync.sh
+</code></pre>
+<h2 id="15-可选报告-谨慎使用">15. 可选报告：谨慎使用</h2>
+<p>这些功能可以帮你决定一篇论文是否值得认真读：</p>
+<ul>
+<li><code>Deep read</code></li>
+<li><code>Full review</code></li>
+<li><code>Workup</code></li>
+<li><code>Review pack</code></li>
+<li><code>Research map</code></li>
+<li><code>Advice</code></li>
+</ul>
+<p>但要注意 evidence boundary：</p>
+<ul>
+<li>metadata-only：只基于标题、摘要、alert 元数据、profile 和反馈。</li>
+<li>PDF-link-ready：知道 open PDF 或 landing URL，但未必已有全文。</li>
+<li>local-PDF-ready / full-text-backed：本地已有 PDF/text，报告可信度更高。</li>
+</ul>
+<p>metadata-only 报告只能用于 triage，不能当作 citation-ready 结论。</p>
+<h2 id="16-隐私和公开分享">16. 隐私和公开分享</h2>
+<p>可以公开分享 repo、示例数据、demo 截图和手册。不要公开分享真实个人运行产物。</p>
+<p>不要上传：</p>
+<ul>
+<li>Gmail credentials。</li>
+<li>Gmail token。</li>
+<li>原始 mailbox。</li>
+<li><code>profiles/seen_papers.json</code>。</li>
+<li><code>knowledge_base/feedback.json</code>。</li>
+<li>真实账号生成的 <code>knowledge_base/</code>。</li>
+<li>PDF/full-text cache。</li>
+</ul>
+<p>分享前运行：</p>
+<pre><code class="language-bash">./privacy_check.sh
+</code></pre>
+<h2 id="17-常见问题">17. 常见问题</h2>
+<h3 id="daily-没有论文-是不是坏了">daily 没有论文，是不是坏了？</h3>
+<p>不一定。先看 <code>reader_out/daily/summary.json</code>。如果 <code>seen_papers_filtered_out</code> 很高，说明这些论文已经在 foundation 里见过了。</p>
+<h3 id="note-是追加还是覆盖">note 是追加还是覆盖？</h3>
+<p>Review Workspace 里可以选择 append、replace 或 clear。默认 append 不会覆盖旧笔记。</p>
+<h3 id="为什么摘要有时不完整">为什么摘要有时不完整？</h3>
+<p>Scholar Alert 邮件经常只给截断 snippet。可以在 paper 卡片里用 <code>Fetch abstract</code> 尝试从 OpenAlex/Crossref 补公开摘要。</p>
+<h3 id="为什么不自动给-obsidian-加-wikilinks">为什么不自动给 Obsidian 加 wikilinks？</h3>
+<p>自动 wikilinks 会污染 Obsidian graph。工具默认只写 tags 和普通 Markdown 链接，让真正的知识连接由你读完后手动建立。</p>
+<h3 id="没有-codex-能不能用">没有 Codex 能不能用？</h3>
+<p>可以。核心是 Python CLI 和项目目录里的脚本。Codex 只是更方便的配置和维护入口。</p>
+<h2 id="18-推荐日常流程">18. 推荐日常流程</h2>
+<pre><code class="language-bash">cd ~/scholar_alerts
+SOURCE=gmail ./run_reader.sh
+./serve_reader.sh
+</code></pre>
+<p>每天做三件事：</p>
+<ol>
+<li>看 <code>Must read</code>，扫一眼 <code>Skim</code>。</li>
+<li>给 5-10 篇文章做明确反馈。</li>
+<li>每周导出一次 Obsidian clean notes 和 Zotero BibTeX/RIS。</li>
+</ol>
+<p>推荐节奏：</p>
+<pre><code class="language-text">每天：Gmail/RSS/arXiv -&gt; Review Workspace -&gt; feedback
+每周：clean export -&gt; Obsidian inbox；Must-read BibTeX/RIS -&gt; Zotero
+每月：profile-doctor / profile-tune，调整研究画像
+</code></pre>
+<h2 id="19-下一步">19. 下一步</h2>
+<p>如果你只是想试试：</p>
+<pre><code class="language-bash">RSS_SOURCE=examples/sample_feed.atom ./rss_import.sh
+PAPERS_JSON=reader_out/rss/papers.json ./serve_reader.sh
+</code></pre>
+<p>如果你要真实使用：</p>
+<pre><code class="language-bash">MODE=foundation SOURCE=gmail ./run_reader.sh
+PAPERS_JSON=reader_out/foundation/papers.json ./serve_reader.sh
+</code></pre>
+<p>然后从 Review Workspace 开始筛选。</p>
+</main>
+    <div class="footer">Generated from <code>docs/user_manual.zh.md</code>. Keep the repository folder structure so relative images display correctly.</div>
+  </div>
+</body>
+</html>

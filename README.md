@@ -8,6 +8,35 @@ Version: `0.2.89`
 
 Created by [Xin Liu](https://github.com/RunningXinLiu).
 
+## 中文用户入口
+
+这个项目主要适合每天需要跟踪 Google Scholar Alert、RSS/arXiv、BibTeX/RIS 或网页论文来源的科研用户。它会在本地完成论文解析、去重、可解释打分、Review Workspace 交互筛选、foundation 文献库沉淀，并可选导出到 Obsidian 和 Zotero。
+
+如果你用 Codex，最省心的方式是直接让 Codex 帮你配置和运行：
+
+```text
+使用 scholar-alert-reader skill，帮我初始化项目、配置 Gmail 授权、建立第一次 foundation，并打开 Review Workspace。
+```
+
+中文资料：
+
+- [中文用户手册（带图总览）](docs/user_manual.zh.md)
+- [中文用户手册 HTML](docs/user_manual.zh.html)
+- [中文用户手册 PDF](docs/user_manual.zh.pdf)
+- [Gmail 授权中文指南](docs/gmail_auth_guide.zh.md)
+- [中文手动使用流程](docs/manual_setup_no_ai.zh.md)
+- [Obsidian clean/full 导出指南](docs/obsidian_export_guide.zh.md)
+- [中文宣传文案](docs/share-copy.zh.md)
+
+中文图片和动图已经放在仓库里，适合介绍或分享：
+
+- [中文产品卡片](docs/assets/social-card.zh.png)
+- [中文工作流动图](docs/assets/workflow.zh.gif)
+- [中文架构图](docs/assets/architecture-showcase.zh.png)
+- [Obsidian clean/full 边界图](docs/assets/obsidian-mode-decision.zh.png)
+- [中文手册预览图](docs/user_manual.zh.preview.png)
+- [功能截图目录](docs/screenshots)
+
 ## Product Boundary (v2)
 
 ### Standalone mode (required)
@@ -191,6 +220,10 @@ You can run the core tool from any terminal or from any coding agent that can ac
 
 Full no-AI guides:
 
+- [中文用户手册（带图总览）](docs/user_manual.zh.md)
+- [中文用户手册 HTML](docs/user_manual.zh.html)
+- [中文用户手册 PDF](docs/user_manual.zh.pdf)
+- [Gmail 授权中文指南](docs/gmail_auth_guide.zh.md)
 - [Manual setup without Codex or another AI agent](docs/manual_setup_no_ai.md)
 - [中文手动使用流程](docs/manual_setup_no_ai.zh.md)
 
@@ -492,6 +525,8 @@ git clone https://github.com/RunningXinLiu/scholar-alert-reader-skill.git \
 After that, Codex can read `SKILL.md` and guide the user through setup, source checks, Gmail OAuth, daily runs, feedback, and optional Obsidian/Zotero exports. Optional experimental copilot reports are covered later in this README.
 
 ## Gmail API Setup
+
+中文用户建议先看：[Gmail 授权中文指南](docs/gmail_auth_guide.zh.md)。Codex 可以帮你检查依赖、启动 OAuth 授权、跑 Gmail source check；你只需要自己在 Google Cloud 创建 `Desktop app` OAuth client，并在浏览器里确认授权。
 
 Install dependencies in your preferred Python environment:
 
