@@ -13,6 +13,7 @@ import urllib.parse
 import urllib.request
 import unittest
 from unittest import mock
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from scholar_alert_reader.weekly import render_weekly_review
 
 
 def sample_paper() -> dict:
+    today = date.today().isoformat()
     return {
         "id": "p1",
         "title": "Ambient noise tomography of the Taiwan crust",
@@ -36,8 +38,8 @@ def sample_paper() -> dict:
         "snippet": "We present ambient noise tomography for crustal structure.",
         "url": "https://example.org/p1",
         "scholar_url": "https://scholar.google.com/p1",
-        "first_seen": "2026-05-27",
-        "last_seen": "2026-05-27",
+        "first_seen": today,
+        "last_seen": today,
         "alerts": ["seismic tomography"],
         "occurrences": 1,
         "score": 30,
@@ -686,6 +688,7 @@ class CoreWorkflowTests(unittest.TestCase):
                 "SOURCE": "mbox",
                 "MBOX_PATH": str(project / "examples" / "sample_scholar_alerts.mbox"),
                 "MODE": "foundation",
+                "SINCE_DAYS": "3650",
             }
             subprocess.run([str(project / "run_reader.sh")], cwd=project, env=env, text=True, capture_output=True, check=True)
             env["MODE"] = "daily"
@@ -872,7 +875,7 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertEqual(paper.tier, "Skim")
         self.assertIn("uncertainty quantification for seismic monitoring", paper.matched_terms)
         self.assertIn("semantic", paper.tags)
-        self.assertTrue(any("语义匹配" in reason for reason in paper.reasons))
+        self.assertTrue(any("Semantic match" in reason for reason in paper.reasons))
 
     def test_adaptive_ranking_uses_interested_library_seed(self) -> None:
         seed = core.Paper(
@@ -920,7 +923,7 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertEqual(paper.tier, "Skim")
         self.assertIn("adaptive", paper.tags)
         self.assertTrue(any(term.startswith("similar:") for term in paper.matched_terms))
-        self.assertTrue(any("反馈相似度加权" in reason for reason in paper.reasons))
+        self.assertTrue(any("Feedback similarity boost" in reason for reason in paper.reasons))
 
     def test_adaptive_ranking_penalizes_archive_like_papers(self) -> None:
         paper = core.Paper(
@@ -953,7 +956,7 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertEqual(paper.tier, "Archive")
         self.assertIn("adaptive", paper.tags)
         self.assertTrue(any(term.startswith("dissimilar:") for term in paper.matched_terms))
-        self.assertTrue(any("反馈相似度降权" in reason for reason in paper.reasons))
+        self.assertTrue(any("Feedback similarity penalty" in reason for reason in paper.reasons))
 
     def test_paper_evidence_summary_and_digest_badges(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -3446,8 +3449,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     html_body = response.read().decode("utf-8")
                 self.assertIn("Saved feedback for p1: status_background", html_body)
                 self.assertIn('data-status="background-only"', html_body)
-                self.assertIn("feedback neutral", html_body)
-                self.assertIn("reading background-only", html_body)
+                self.assertIn("Decision neutral", html_body)
+                self.assertIn("Reading status Background only", html_body)
                 feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
                 self.assertEqual(feedback["papers"]["p1"]["reading_status"], "background-only")
                 self.assertEqual(feedback["papers"]["p1"]["status"], "neutral")
@@ -3469,8 +3472,8 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                     html_body = response.read().decode("utf-8")
                 self.assertIn("Saved feedback for p1: status_not_relevant", html_body)
                 self.assertIn('data-status="not-relevant"', html_body)
-                self.assertIn("feedback archive", html_body)
-                self.assertIn("reading not-relevant", html_body)
+                self.assertIn("Decision archive", html_body)
+                self.assertIn("Reading status Not relevant", html_body)
                 self.assertIn("less-like-this", html_body)
                 feedback = json.loads((kb / "feedback.json").read_text(encoding="utf-8"))
                 self.assertEqual(feedback["papers"]["p1"]["reading_status"], "not-relevant")
@@ -3492,6 +3495,31 @@ The results show a robust low velocity zone and demonstrate how ambient noise to
                 server.shutdown()
                 server.server_close()
                 thread.join(timeout=5)
+
+    def test_review_workspace_can_render_chinese_ui(self) -> None:
+        from scholar_alert_reader.server import ServerConfig, render_page
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "reader"
+            profile = root / "profiles" / "research_profile.json"
+            profile.parent.mkdir(parents=True)
+            profile.write_text(json.dumps({"language": "zh-CN"}), encoding="utf-8")
+            kb = root / "knowledge_base"
+            kb.mkdir()
+            papers_json = root / "reader_out" / "daily" / "papers.json"
+            papers_json.parent.mkdir(parents=True)
+            paper = core.paper_from_dict(sample_paper())
+            config = ServerConfig(profile_path=profile, kb_dir=kb, papers_json=papers_json, language="zh-CN")
+
+            body = render_page([paper], config, feedback={}, all_papers=[paper])
+
+            self.assertIn("Scholar Alert 文献分诊", body)
+            self.assertIn("保存选中修改", body)
+            self.assertIn("处理决定", body)
+            self.assertIn("打开原文", body)
+            self.assertIn("出版信息", body)
+            self.assertIn("当前显示的是这个来源记录中可获得的完整摘要/片段。", body)
+            self.assertNotIn("Save selected changes", body)
 
     def test_review_workspace_defaults_to_active_queue_and_lazy_archive(self) -> None:
         from scholar_alert_reader.server import ServerConfig, make_handler

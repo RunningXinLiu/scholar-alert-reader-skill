@@ -413,6 +413,16 @@ python3 -m json.tool reader_out/daily/summary.json | sed -n &#39;1,120p&#39;
 <h2 id="9-review-workspace-怎么用">9. Review Workspace 怎么用</h2>
 <p>Review Workspace 是日常最重要的入口。</p>
 <p><img src="screenshots/02-feedback-triage.png" alt="Review Workspace 批量反馈界面"></p>
+<p>如果想打开纯中文界面：</p>
+<pre><code class="language-bash">UI_LANGUAGE=zh-CN ./serve_reader.sh
+</code></pre>
+<p>如果想打开英文界面：</p>
+<pre><code class="language-bash">UI_LANGUAGE=en ./serve_reader.sh
+</code></pre>
+<p>推荐中文 profile 里保留：</p>
+<pre><code class="language-json">{&quot;language&quot;: &quot;zh-CN&quot;}
+</code></pre>
+<p>这样 Review Workspace 的界面和打分理由都会尽量保持中文。</p>
 <p>建议操作顺序：</p>
 <ol>
 <li>先用搜索框按 topic、author、venue、method 粗筛。</li>

@@ -133,6 +133,14 @@ class _SeedPaper:
     last_seen: str = ""
 
 
+def profile_language(profile: dict[str, Any] | None) -> str:
+    raw = str((profile or {}).get("language", "") or "").strip().lower()
+    return "zh" if raw.startswith("zh") else "en"
+
+
+def _msg(lang: str, zh: str, en: str) -> str:
+    return zh if lang == "zh" else en
+
 
 def _text_fields(paper: Any) -> dict[str, str]:
     return {
@@ -299,6 +307,7 @@ def _record_hit(
 def feedback_adjustment(
     paper: Any,
     feedback: dict[str, Any] | None,
+    lang: str = "en",
 ) -> tuple[int, list[str], set[str], list[str], str | None]:
     """Apply direct feedback overrides and term-weight signals."""
 
@@ -320,39 +329,39 @@ def feedback_adjustment(
             delta += 6
             forced_tier = "Skim"
             tags.add("feedback")
-            reasons.append("用户反馈：这篇已标为 interested，至少进入保留阅读队列。")
+            reasons.append(_msg(lang, "用户反馈：这篇已标为 interested，至少进入保留阅读队列。", "User feedback: marked interested, so it stays in the retained reading queue."))
         elif status == "archive":
             delta -= 100
             forced_tier = "Archive"
             tags.add("feedback")
-            reasons.append("用户反馈：这篇已标为 archive，强制归档。")
+            reasons.append(_msg(lang, "用户反馈：这篇已标为 archive，强制归档。", "User feedback: marked archive, so it is forced into Archive."))
 
         priority_override = str(paper_feedback.get("priority_override", "") or "").strip().lower().replace("-", "_")
         if priority_override == "must_read" and status != "archive":
             delta += 12
             forced_tier = "Must read"
             tags.add("feedback")
-            reasons.append("用户反馈：priority override = Must read，强制进入重点阅读。")
+            reasons.append(_msg(lang, "用户反馈：priority override = Must read，强制进入重点阅读。", "User feedback: priority override = Must read."))
         elif priority_override == "skim" and status != "archive":
             delta += 6
             forced_tier = "Skim"
             tags.add("feedback")
-            reasons.append("用户反馈：priority override = Skim，强制进入略读队列。")
+            reasons.append(_msg(lang, "用户反馈：priority override = Skim，强制进入略读队列。", "User feedback: priority override = Skim."))
         elif priority_override == "archive":
             delta -= 100
             forced_tier = "Archive"
             tags.add("feedback")
-            reasons.append("用户反馈：priority override = Archive，强制归档。")
+            reasons.append(_msg(lang, "用户反馈：priority override = Archive，强制归档。", "User feedback: priority override = Archive."))
 
         signals = paper_feedback.get("signals", {})
         if isinstance(signals, dict) and signals.get("more_like_this"):
             delta += 4
             tags.add("feedback")
-            reasons.append("用户反馈：这篇曾被标记为 more-like-this。")
+            reasons.append(_msg(lang, "用户反馈：这篇曾被标记为 more-like-this。", "User feedback: marked more-like-this."))
         if isinstance(signals, dict) and signals.get("less_like_this"):
             delta -= 8
             tags.add("feedback")
-            reasons.append("用户反馈：这篇曾被标记为 less-like-this。")
+            reasons.append(_msg(lang, "用户反馈：这篇曾被标记为 less-like-this。", "User feedback: marked less-like-this."))
 
     for item in feedback.get("terms", []):
         if not isinstance(item, dict):
@@ -368,11 +377,11 @@ def feedback_adjustment(
         if direction == "negative":
             delta -= weight
             matched_terms.append(f"user:-{term}")
-            reasons.append(f"用户反馈降权：命中 `{term}`。")
+            reasons.append(_msg(lang, f"用户反馈降权：命中 `{term}`。", f"User feedback penalty: matched `{term}`."))
         else:
             delta += weight
             matched_terms.append(f"user:{term}")
-            reasons.append(f"用户反馈加权：命中 `{term}`。")
+            reasons.append(_msg(lang, f"用户反馈加权：命中 `{term}`。", f"User feedback boost: matched `{term}`."))
 
     return delta, matched_terms, tags, reasons[:5], forced_tier
 
@@ -433,6 +442,7 @@ def adaptive_ranking_adjustment(
     """Score by similarity to positive/negative seed papers from feedback and library."""
 
     settings = adaptive_ranking_settings(profile)
+    lang = profile_language(profile)
     if not settings["enabled"]:
         return 0, [], set(), []
 
@@ -497,8 +507,13 @@ def adaptive_ranking_adjustment(
         matched_terms.append(f"similar:{getattr(positive_seed, 'title', '')}")
         tags.add("adaptive")
         reasons.append(
-            f"反馈相似度加权：和已关注论文 `{getattr(positive_seed, 'title', '')}` 共享 {len(positive_overlap)} 个关键词"
-            f"（{', '.join(positive_overlap[:6])}）。"
+            _msg(
+                lang,
+                f"反馈相似度加权：和已关注论文 `{getattr(positive_seed, 'title', '')}` 共享 {len(positive_overlap)} 个关键词"
+                f"（{', '.join(positive_overlap[:6])}）。",
+                f"Feedback similarity boost: shares {len(positive_overlap)} keywords with interested paper `{getattr(positive_seed, 'title', '')}`"
+                f" ({', '.join(positive_overlap[:6])}).",
+            )
         )
     if negative_seed:
         strength = min(1.5, len(negative_overlap) / settings["min_overlap"])
@@ -507,32 +522,38 @@ def adaptive_ranking_adjustment(
         matched_terms.append(f"dissimilar:{getattr(negative_seed, 'title', '')}")
         tags.add("adaptive")
         reasons.append(
-            f"反馈相似度降权：和已归档论文 `{getattr(negative_seed, 'title', '')}` 共享 {len(negative_overlap)} 个关键词"
-            f"（{', '.join(negative_overlap[:6])}）。"
+            _msg(
+                lang,
+                f"反馈相似度降权：和已归档论文 `{getattr(negative_seed, 'title', '')}` 共享 {len(negative_overlap)} 个关键词"
+                f"（{', '.join(negative_overlap[:6])}）。",
+                f"Feedback similarity penalty: shares {len(negative_overlap)} keywords with archived paper `{getattr(negative_seed, 'title', '')}`"
+                f" ({', '.join(negative_overlap[:6])}).",
+            )
         )
 
     return delta, matched_terms, tags, reasons[:3]
 
 
-def build_reasons(hits: list[_TermHit], paper: Any) -> list[str]:
+def build_reasons(hits: list[_TermHit], paper: Any, lang: str = "en") -> list[str]:
     if not hits:
-        return ["没有命中当前 profile 的重点词，默认归档或低优先级。"]
+        return [_msg(lang, "没有命中当前 profile 的重点词，默认归档或低优先级。", "No high-priority profile terms matched; defaulting to archive or low priority.")]
     top_hits = sorted(hits, key=lambda h: abs(h.weight), reverse=True)[:4]
     reasons: list[str] = []
     for hit in top_hits:
         if hit.weight < 0:
-            reasons.append(f"降权：命中排除词 `{hit.term[1:]}`。")
+            reasons.append(_msg(lang, f"降权：命中排除词 `{hit.term[1:]}`。", f"Penalty: matched exclusion term `{hit.term[1:]}`."))
         elif hit.field == "title":
-            reasons.append(f"标题命中 `{hit.term}`，与 `{hit.section}` 相关。")
+            reasons.append(_msg(lang, f"标题命中 `{hit.term}`，与 `{hit.section}` 相关。", f"Title matched `{hit.term}` from `{hit.section}`."))
         elif hit.field.startswith("semantic"):
             overlap = f"；重叠词：{', '.join(hit.overlap[:6])}" if hit.overlap else ""
-            reasons.append(f"语义匹配 `{hit.term}`，与 `{hit.section}` 相关{overlap}。")
+            overlap_en = f"; overlap: {', '.join(hit.overlap[:6])}" if hit.overlap else ""
+            reasons.append(_msg(lang, f"语义匹配 `{hit.term}`，与 `{hit.section}` 相关{overlap}。", f"Semantic match `{hit.term}` from `{hit.section}`{overlap_en}."))
         elif hit.field == "alerts":
-            reasons.append(f"来自/关联重点 alert `{hit.term}`。")
+            reasons.append(_msg(lang, f"来自/关联重点 alert `{hit.term}`。", f"Linked to priority alert `{hit.term}`."))
         else:
-            reasons.append(f"摘要或来源命中 `{hit.term}`。")
+            reasons.append(_msg(lang, f"摘要或来源命中 `{hit.term}`。", f"Abstract or source matched `{hit.term}`."))
     if getattr(paper, "occurrences", 0) > 1:
-        reasons.append(f"同一论文在 {paper.occurrences} 个 alert 记录中出现。")
+        reasons.append(_msg(lang, f"同一论文在 {paper.occurrences} 个 alert 记录中出现。", f"The same paper appeared in {paper.occurrences} alert records."))
     return reasons
 
 
@@ -549,6 +570,7 @@ def score_paper(
     place so existing CLI, dashboard, and tests remain compatible.
     """
 
+    lang = profile_language(profile)
     positive, negative = profile_terms(profile, boost)
     fields = _text_fields(paper)
     hits: list[_TermHit] = []
@@ -578,7 +600,7 @@ def score_paper(
                     weight,
                     field_name,
                     term,
-                    f"标题/摘要命中：`{term}`。",
+                    _msg(lang, f"标题/摘要命中：`{term}`。", f"Title/abstract matched `{term}`."),
                     field_name,
                 )
                 exact_match = True
@@ -596,7 +618,7 @@ def score_paper(
                     weight,
                     field_name,
                     term,
-                    f"语义匹配 `{term}`，字段 `{field_name}`。",
+                    _msg(lang, f"语义匹配 `{term}`，字段 `{field_name}`。", f"Semantic match `{term}` in field `{field_name}`."),
                     field_name,
                 )
 
@@ -631,7 +653,7 @@ def score_paper(
                 weight,
                 field_name,
                 term,
-                f"watch_authors 命中 `{term}`。",
+                _msg(lang, f"watch_authors 命中 `{term}`。", f"watch_authors matched `{term}`."),
                 field_name,
             )
             break
@@ -652,7 +674,7 @@ def score_paper(
                     -weight,
                     field_name,
                     term,
-                    f"排除词 `{term}` 触发降权。",
+                    _msg(lang, f"排除词 `{term}` 触发降权。", f"Exclusion term `{term}` triggered a penalty."),
                     field_name,
                 )
                 break
@@ -666,7 +688,7 @@ def score_paper(
             novelty,
             "paper",
             "occurrence",
-            f"重复出现 {getattr(paper, 'occurrences')} 次，叠加多源出现信号。",
+            _msg(lang, f"重复出现 {getattr(paper, 'occurrences')} 次，叠加多源出现信号。", f"Appeared {getattr(paper, 'occurrences')} times, adding source recurrence signal."),
             "occurrences",
         )
 
@@ -679,7 +701,7 @@ def score_paper(
             1,
             "metadata",
             "year",
-            f"年份信号包含 {current_year}/{current_year - 1}，给予新近性加权。",
+            _msg(lang, f"年份信号包含 {current_year}/{current_year - 1}，给予新近性加权。", f"Year signal includes {current_year}/{current_year - 1}, adding recency weight."),
             "authors_source",
         )
 
@@ -691,13 +713,13 @@ def score_paper(
             1,
             "title",
             "review",
-            "命中 `review/survey/benchmark/dataset` 等术语，给予 review 信号加权。",
+            _msg(lang, "命中 `review/survey/benchmark/dataset` 等术语，给予 review 信号加权。", "Matched review/survey/benchmark/dataset terms, adding review signal."),
             "title",
         )
 
-    feedback_delta, feedback_terms, feedback_tags, feedback_reasons, forced_tier = feedback_adjustment(paper, feedback)
+    feedback_delta, feedback_terms, feedback_tags, feedback_reasons, forced_tier = feedback_adjustment(paper, feedback, lang)
     score += feedback_delta
-    _record_hit(components, "feedback_similarity", feedback_delta, "feedback", "feedback", "反馈信号影响。", "feedback")
+    _record_hit(components, "feedback_similarity", feedback_delta, "feedback", "feedback", _msg(lang, "反馈信号影响。", "Feedback signals affected the score."), "feedback")
 
     adaptive_delta, adaptive_terms, adaptive_tags, adaptive_reasons = adaptive_ranking_adjustment(
         paper,
@@ -706,7 +728,7 @@ def score_paper(
         library,
     )
     score += adaptive_delta
-    _record_hit(components, "feedback_similarity", adaptive_delta, "adaptive", "adaptive", "反馈学习相似度影响。", "adaptive")
+    _record_hit(components, "feedback_similarity", adaptive_delta, "adaptive", "adaptive", _msg(lang, "反馈学习相似度影响。", "Adaptive feedback similarity affected the score."), "adaptive")
 
     thresholds = profile.get("tier_thresholds", {})
     must = int(thresholds.get("must_read", 8))
@@ -734,9 +756,9 @@ def score_paper(
         {tag for hit in hits for tag in hit.tags} | set(feedback_tags) | set(adaptive_tags),
     )
     reasons = feedback_reasons + adaptive_reasons
-    reasons.extend(build_reasons(hits, paper) if hits or not (feedback_reasons or adaptive_reasons) else [])
+    reasons.extend(build_reasons(hits, paper, lang) if hits or not (feedback_reasons or adaptive_reasons) else [])
     if not reasons:
-        reasons = ["没有命中当前 profile 的重点词，默认归档或低优先级。"]
+        reasons = [_msg(lang, "没有命中当前 profile 的重点词，默认归档或低优先级。", "No high-priority profile terms matched; defaulting to archive or low priority.")]
 
     # Backward-compatible mutation for existing pipeline consumers.
     paper.score = score

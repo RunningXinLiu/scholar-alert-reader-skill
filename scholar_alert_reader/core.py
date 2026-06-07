@@ -4819,7 +4819,7 @@ PY
     PAPERS_JSON="$PROJECT_DIR/reader_out/foundation/papers.json"
   fi
 fi
-exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "$PAPERS_JSON" --port "${PORT:-8765}" --open "$@"
+exec "${SKILL_CMD[@]}" serve --profile "$PROFILE_PATH" --kb-dir "$KB_DIR" --papers-json "$PAPERS_JSON" --port "${PORT:-8765}" --language "${UI_LANGUAGE:-en}" --open "$@"
 """,
         "review_recent.sh": 'export SINCE_DAYS="${SINCE_DAYS:-7}"\nexport OUT_DIR="${OUT_DIR:-$PROJECT_DIR/reader_out/recent}"\nNO_KB_UPDATE=1 MODE=run "$PROJECT_DIR/run_reader.sh"\n',
         "serve_recent.sh": 'PAPERS_JSON="${PAPERS_JSON:-$PROJECT_DIR/reader_out/recent/papers.json}" exec "$PROJECT_DIR/serve_reader.sh" "$@"\n',
@@ -7281,6 +7281,7 @@ def serve_feedback_ui(args: argparse.Namespace) -> None:
             host=args.host,
             port=args.port,
             open_browser=args.open,
+            language=args.language,
         )
     )
 
@@ -10465,6 +10466,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve_cmd.add_argument("--papers-json", type=Path, default=Path("out/daily/papers.json"))
     serve_cmd.add_argument("--host", default="127.0.0.1")
     serve_cmd.add_argument("--port", type=int, default=8765)
+    serve_cmd.add_argument("--language", default=os.environ.get("UI_LANGUAGE", "en"), help="Review Workspace UI language, e.g. en or zh-CN")
     serve_cmd.add_argument("--open", action="store_true", help="Open the UI in the default browser")
     serve_cmd.set_defaults(func=serve_feedback_ui)
 

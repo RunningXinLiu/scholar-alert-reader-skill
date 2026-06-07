@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 import webbrowser
 from dataclasses import dataclass
@@ -22,6 +23,264 @@ class ServerConfig:
     host: str = "127.0.0.1"
     port: int = 8765
     open_browser: bool = False
+    language: str = "en"
+
+
+UI_TEXT = {
+    "en": {
+        "all_statuses": "All statuses",
+        "all_tiers": "All tiers",
+        "answers": "Answers",
+        "append_note": "Append typed note",
+        "archive": "Archive",
+        "archive_review": "Archive review",
+        "ask_library": "Ask library",
+        "ask_library_placeholder": "Ask your library, e.g. which papers are closest to my current project?",
+        "ask_paper": "Ask about this paper",
+        "ask_paper_placeholder": "Ask about this paper against your foundation/interested library",
+        "auto": "Auto",
+        "back_to_workspace": "Back to review workspace",
+        "batch_review": "Batch review",
+        "clear_metadata_action": "Clear metadata action",
+        "clear_report": "Clear report",
+        "clear_saved_note": "Clear saved note",
+        "clear_signal": "Clear signal",
+        "current_digest": "Current digest",
+        "daily_digest": "Daily digest",
+        "dashboard": "Dashboard",
+        "decision": "Decision",
+        "decision_help": "Keep/archive decision.",
+        "demo_review": "Demo review",
+        "digest_papers": "Digest papers",
+        "domain": "Source domain",
+        "doi": "DOI",
+        "evidence_pdf_link_ready": "An open PDF URL or local PDF path is known, but no local full-text brief is cached yet.",
+        "evidence_full_text_backed": "Local full-text cache or full-text brief exists for closer reading.",
+        "evidence_local_pdf_ready": "A local PDF path exists; run full-text or review-workflow to extract evidence.",
+        "evidence_metadata_enriched": "Includes public metadata enrichment, but not paper full text.",
+        "evidence_metadata_only": "Uses title, source line, snippet, alert/import metadata, profile terms, and feedback signals.",
+        "fetch_abstract": "Fetch abstract",
+        "feedback_none": "feedback none",
+        "foundation": "Foundation",
+        "foundation_digest": "Foundation digest",
+        "foundation_review": "Foundation review",
+        "full_review": "Full review",
+        "full_review_set": "Full review set",
+        "generate_report": "Generate report on save",
+        "improve_metadata": "Improve metadata on save",
+        "interested": "Interested",
+        "interested_file": "Interested",
+        "issue": "Issue",
+        "journal": "Journal / venue",
+        "kb": "Knowledge base",
+        "learning_help": "Optional ranking feedback for future runs.",
+        "learning_signal": "Learning signal",
+        "library_index": "Library index",
+        "load_all": "Load all cards",
+        "metadata_enrichment": "Metadata enrichment",
+        "metadata_help": "Looks up public OpenAlex/Crossref metadata for this paper only. It may take a few seconds.",
+        "mode": "Mode",
+        "more_like": "More like this",
+        "must_read": "Must read",
+        "must_read_only": "Must read only",
+        "neutral": "Neutral",
+        "no_change": "No change",
+        "no_papers_title": "No papers in this run",
+        "note": "Note",
+        "note_help": "Blank text with the default mode leaves existing notes unchanged.",
+        "note_placeholder": "Optional note; choose Replace to overwrite, or Clear saved note to remove the current note.",
+        "open_paper": "Open paper",
+        "open_workspace": "Open workspace",
+        "pages": "Pages",
+        "papers": "Papers",
+        "paper_workspace": "Scholar Alert Paper Workspace",
+        "priority": "Priority",
+        "priority_help": "Manual tier override.",
+        "profile": "Profile",
+        "publication_details": "Publication details",
+        "read": "Read",
+        "reading": "Reading",
+        "reading_plan": "Reading plan",
+        "reading_status": "Reading status",
+        "reading_status_file": "Reading status",
+        "reading_status_help": "Reading progress or use.",
+        "recent_review": "Recent review",
+        "retained_library": "Retained library",
+        "replace_note": "Replace saved note",
+        "reports": "Reports",
+        "review_pack": "Review pack",
+        "review_workflow": "Review workflow",
+        "save_selected": "Save selected changes",
+        "search_placeholder": "Search title, alert, term, source",
+        "showing": "Showing",
+        "skim": "Skim",
+        "skim_only": "Skim only",
+        "source": "Source",
+        "source_items": "Source items",
+        "source_line": "Scholar source line",
+        "status_unread": "unread",
+        "view": "View",
+        "weekly_review": "Weekly review",
+        "workup": "Workup",
+        "workspace": "Scholar Alert Review Workspace",
+        "year": "Year",
+        "volume": "Volume",
+        "unavailable": "Unavailable from current alert/metadata",
+        "abstract": "Abstract",
+        "abstract_or_snippet": "Abstract / snippet",
+        "no_abstract": "No abstract or alert snippet is available.",
+        "full_snippet": "Showing the full abstract/snippet text available in this source record.",
+        "truncated_snippet": "The source record already ends with an ellipsis; the UI is showing all text available from the alert/source item.",
+        "enriched_abstract": "Showing an enriched public metadata abstract from {provider}; the Scholar Alert snippet may be shorter or truncated.",
+    },
+    "zh": {
+        "all_statuses": "全部阅读状态",
+        "all_tiers": "全部层级",
+        "answers": "问答记录",
+        "append_note": "追加新笔记",
+        "archive": "归档",
+        "archive_review": "归档复查",
+        "ask_library": "询问文献库",
+        "ask_library_placeholder": "询问当前文献库，例如：哪些论文最接近我的当前项目？",
+        "ask_paper": "询问这篇论文",
+        "ask_paper_placeholder": "结合 foundation/interested library 询问这篇论文",
+        "auto": "自动",
+        "back_to_workspace": "返回 Review Workspace",
+        "batch_review": "批量筛选",
+        "clear_metadata_action": "清除元数据操作",
+        "clear_report": "清除报告选择",
+        "clear_saved_note": "清除已保存笔记",
+        "clear_signal": "清除学习信号",
+        "current_digest": "当前 digest",
+        "daily_digest": "Daily digest",
+        "dashboard": "Dashboard",
+        "decision": "处理决定",
+        "decision_help": "保留或归档这篇论文。",
+        "demo_review": "Demo 筛选",
+        "digest_papers": "Digest 论文数",
+        "domain": "来源域名",
+        "doi": "DOI",
+        "evidence_pdf_link_ready": "已知道开放 PDF 链接或本地 PDF 路径，但还没有本地全文缓存。",
+        "evidence_full_text_backed": "已有本地全文缓存或全文 brief，可用于更深入阅读。",
+        "evidence_local_pdf_ready": "已有本地 PDF 路径；可运行 full-text 或 review-workflow 提取证据。",
+        "evidence_metadata_enriched": "包含公开元数据补全，但还不是论文全文证据。",
+        "evidence_metadata_only": "基于标题、来源行、摘要片段、alert/import 元数据、profile 词和反馈信号。",
+        "fetch_abstract": "补全摘要",
+        "feedback_none": "未反馈",
+        "foundation": "Foundation",
+        "foundation_digest": "Foundation digest",
+        "foundation_review": "Foundation 复查",
+        "full_review": "完整复查",
+        "full_review_set": "完整列表",
+        "generate_report": "保存时生成报告",
+        "improve_metadata": "保存时补全元数据",
+        "interested": "感兴趣",
+        "interested_file": "Interested",
+        "issue": "期",
+        "journal": "期刊 / 会议 / 来源",
+        "kb": "知识库",
+        "learning_help": "给未来排序使用的可选反馈。",
+        "learning_signal": "学习信号",
+        "library_index": "文献库首页",
+        "load_all": "加载全部卡片",
+        "metadata_enrichment": "元数据补全",
+        "metadata_help": "只为这篇论文查询公开 OpenAlex/Crossref 元数据，可能需要几秒。",
+        "mode": "模式",
+        "more_like": "以后多推荐类似",
+        "must_read": "重点阅读",
+        "must_read_only": "只看重点阅读",
+        "neutral": "中立",
+        "no_change": "不修改",
+        "no_papers_title": "本次没有论文",
+        "note": "笔记",
+        "note_help": "默认模式下，空白文本不会修改已有笔记。",
+        "note_placeholder": "可选笔记；选择“替换”可覆盖，选择“清除”可删除当前笔记。",
+        "open_paper": "打开原文",
+        "open_workspace": "打开单篇工作区",
+        "pages": "页码",
+        "papers": "论文",
+        "paper_workspace": "Scholar Alert 单篇论文工作区",
+        "priority": "阅读优先级",
+        "priority_help": "手动覆盖 Must read / Skim / Archive。",
+        "profile": "研究画像",
+        "publication_details": "出版信息",
+        "read": "已读",
+        "reading": "在读",
+        "reading_plan": "阅读计划",
+        "reading_status": "阅读状态",
+        "reading_status_file": "阅读状态",
+        "reading_status_help": "阅读进度或用途。",
+        "recent_review": "最近邮件复查",
+        "retained_library": "保留文献库",
+        "replace_note": "替换已保存笔记",
+        "reports": "报告",
+        "review_pack": "Review pack",
+        "review_workflow": "Review workflow",
+        "save_selected": "保存选中修改",
+        "search_placeholder": "搜索标题、alert、关键词、来源",
+        "showing": "显示",
+        "skim": "略读",
+        "skim_only": "只看略读",
+        "source": "来源",
+        "source_items": "来源条目",
+        "source_line": "Scholar 来源行",
+        "status_unread": "未读",
+        "view": "视图",
+        "weekly_review": "周回顾",
+        "workup": "Workup",
+        "workspace": "Scholar Alert 文献分诊",
+        "year": "年份",
+        "volume": "卷",
+        "unavailable": "当前 alert/元数据未提供",
+        "abstract": "摘要",
+        "abstract_or_snippet": "摘要 / 片段",
+        "no_abstract": "当前没有摘要或 alert 片段。",
+        "full_snippet": "当前显示的是这个来源记录中可获得的完整摘要/片段。",
+        "truncated_snippet": "来源记录本身已经以省略号结尾；这里显示的是 alert/source item 提供的全部文本。",
+        "enriched_abstract": "显示来自 {provider} 的公开元数据摘要；Scholar Alert 片段可能更短或被截断。",
+    },
+}
+
+
+def normalize_ui_language(value: str | None) -> str:
+    raw = str(value or "").strip().lower()
+    return "zh" if raw.startswith("zh") else "en"
+
+
+def ui_language(config: ServerConfig) -> str:
+    return normalize_ui_language(config.language)
+
+
+def ui_text(config: ServerConfig, key: str) -> str:
+    lang = ui_language(config)
+    return UI_TEXT.get(lang, UI_TEXT["en"]).get(key, UI_TEXT["en"].get(key, key))
+
+
+def tier_display(config: ServerConfig, tier: str) -> str:
+    mapping = {"Must read": "must_read", "Skim": "skim", "Archive": "archive"}
+    key = mapping.get(str(tier), "")
+    return ui_text(config, key) if key else str(tier)
+
+
+def status_display(config: ServerConfig, status: str) -> str:
+    mapping = {
+        "unread": "status_unread",
+        "reading": "reading",
+        "read": "read",
+        "must-cite": "Must cite",
+        "method-reference": "Method ref",
+        "background-only": "Background only",
+        "not-relevant": "Not relevant",
+    }
+    value = mapping.get(str(status), str(status))
+    if ui_language(config) != "zh" or value not in {"Must cite", "Method ref", "Background only", "Not relevant"}:
+        return ui_text(config, value) if value in UI_TEXT["en"] else value
+    return {
+        "Must cite": "必须引用",
+        "Method ref": "方法参考",
+        "Background only": "背景阅读",
+        "Not relevant": "不相关",
+    }[value]
 
 
 def render_badge(value: str) -> str:
@@ -57,17 +316,23 @@ def paper_priority_override(paper: Any, feedback: dict[str, Any] | None) -> str:
     return ""
 
 
-def feedback_badges(paper: Any, feedback: dict[str, Any] | None) -> str:
+def feedback_badges(paper: Any, feedback: dict[str, Any] | None, config: ServerConfig | None = None) -> str:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
     item = paper_feedback_item(feedback, str(getattr(paper, "id", "")))
     if not item:
-        return '<div class="badges feedback-badges">' + render_badge("feedback none") + render_badge("reading unread") + "</div>"
+        return (
+            '<div class="badges feedback-badges">'
+            + render_badge(ui_text(config, "feedback_none"))
+            + render_badge(f'{ui_text(config, "reading_status")} {status_display(config, "unread")}')
+            + "</div>"
+        )
     values = [
-        f"feedback {item.get('status', 'neutral')}",
-        f"reading {paper_reading_status(paper, feedback)}",
+        f'{ui_text(config, "decision")} {item.get("status", "neutral")}',
+        f'{ui_text(config, "reading_status")} {status_display(config, paper_reading_status(paper, feedback))}',
     ]
     priority_override = paper_priority_override(paper, feedback)
     if priority_override:
-        values.append(f"priority {priority_override.replace('_', ' ')}")
+        values.append(f'{ui_text(config, "priority")} {priority_override.replace("_", " ")}')
     labels = item.get("labels", [])
     if isinstance(labels, list):
         values.extend(f"label {label}" for label in labels if str(label).strip())
@@ -80,12 +345,13 @@ def feedback_badges(paper: Any, feedback: dict[str, Any] | None) -> str:
     return '<div class="badges feedback-badges">' + "".join(render_badge(str(value)) for value in values) + "</div>"
 
 
-def paper_feedback_note_html(paper: Any, feedback: dict[str, Any] | None) -> str:
+def paper_feedback_note_html(paper: Any, feedback: dict[str, Any] | None, config: ServerConfig | None = None) -> str:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
     item = paper_feedback_item(feedback, str(getattr(paper, "id", "")))
     note = str(item.get("note", "") or "").strip()
     if not note:
         return ""
-    return '<div class="note"><strong>Note</strong><pre>' + html.escape(note) + "</pre></div>"
+    return f'<div class="note"><strong>{html.escape(ui_text(config, "note"))}</strong><pre>' + html.escape(note) + "</pre></div>"
 
 
 def append_feedback_note(record: dict[str, Any], note: str | None) -> None:
@@ -262,6 +528,20 @@ def feedback_action_state(action: str) -> dict[str, Any]:
     return state
 
 
+def localized_system_note(config: ServerConfig, note: str | None) -> str | None:
+    if ui_language(config) != "zh" or not note:
+        return note
+    mapping = {
+        "Queued for deep reading from Review Workspace.": "已从 Review Workspace 加入 deep read 队列。",
+        "Queued for workup from Review Workspace.": "已从 Review Workspace 加入 workup 队列。",
+        "Queued for review pack from Review Workspace.": "已从 Review Workspace 加入 review pack 队列。",
+        "Queued for full review workflow from Review Workspace.": "已从 Review Workspace 加入完整复查 workflow。",
+        "Marked as background only from Review Workspace.": "已从 Review Workspace 标记为背景阅读。",
+        "Marked as not relevant from Review Workspace.": "已从 Review Workspace 标记为不相关。",
+    }
+    return mapping.get(note, note)
+
+
 def domain_from_url(url: str) -> str:
     try:
         parsed = urlparse(url)
@@ -404,33 +684,36 @@ def publication_metadata(paper: Any) -> list[tuple[str, str]]:
     return [(label, value) for label, value in fields if value]
 
 
-def publication_metadata_html(paper: Any) -> str:
+def publication_metadata_html(paper: Any, config: ServerConfig | None = None) -> str:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
     values = publication_metadata_values(paper)
+    unavailable = ui_text(config, "unavailable")
     core_fields = [
-        ("Journal / venue", values["venue"] or "Unavailable from current alert/metadata"),
-        ("Year", values["year"] or "Unavailable from current alert/metadata"),
-        ("Volume", values["volume"] or "Unavailable from current alert/metadata"),
-        ("Issue", values["issue"] or "Unavailable from current alert/metadata"),
+        (ui_text(config, "journal"), values["venue"] or unavailable),
+        (ui_text(config, "year"), values["year"] or unavailable),
+        (ui_text(config, "volume"), values["volume"] or unavailable),
+        (ui_text(config, "issue"), values["issue"] or unavailable),
     ]
     optional_fields = [
-        ("Pages", values["pages"]),
-        ("DOI", values["doi"]),
-        ("Source domain", values["domain"]),
+        (ui_text(config, "pages"), values["pages"]),
+        (ui_text(config, "doi"), values["doi"]),
+        (ui_text(config, "domain"), values["domain"]),
     ]
     fields = core_fields + [(label, value) for label, value in optional_fields if value]
     items = "".join(
         f'<div class="pub-field"><span>{html.escape(label)}</span><strong>{html.escape(value)}</strong></div>'
         for label, value in fields
     )
-    return f'<div class="publication-meta"><strong>Publication details</strong><div class="pub-grid">{items}</div></div>'
+    return f'<div class="publication-meta"><strong>{html.escape(ui_text(config, "publication_details"))}</strong><div class="pub-grid">{items}</div></div>'
 
 
-def scholar_source_line_html(paper: Any) -> str:
+def scholar_source_line_html(paper: Any, config: ServerConfig | None = None) -> str:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
     source_line = str(getattr(paper, "authors_source", "") or "").strip()
     if not source_line:
         return ""
     return (
-        '<p class="source-line"><strong>Scholar source line</strong>'
+        f'<p class="source-line"><strong>{html.escape(ui_text(config, "source_line"))}</strong>'
         f"<span>{html.escape(source_line)}</span></p>"
     )
 
@@ -460,22 +743,23 @@ def _metadata_abstract_candidates(paper: Any) -> list[tuple[str, str]]:
     return candidates
 
 
-def best_abstract_or_snippet(paper: Any) -> tuple[str, str, str]:
+def best_abstract_or_snippet(paper: Any, config: ServerConfig | None = None) -> tuple[str, str, str]:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
     snippet = str(getattr(paper, "snippet", "") or "").strip()
     source_truncated = snippet.endswith("…") or snippet.endswith("...")
     for label, abstract in _metadata_abstract_candidates(paper):
         if len(abstract) > max(len(snippet) + 80, 300) or source_truncated:
             provider = label.split()[0]
-            hint = f"Showing an enriched public metadata abstract from {provider}; the Scholar Alert snippet may be shorter or truncated."
-            return "Abstract", abstract, hint
+            hint = ui_text(config, "enriched_abstract").format(provider=provider)
+            return ui_text(config, "abstract"), abstract, hint
     if not snippet:
-        return "Abstract / snippet", "", "No abstract or alert snippet is available."
+        return ui_text(config, "abstract_or_snippet"), "", ui_text(config, "no_abstract")
     hint = (
-        "The source record already ends with an ellipsis; the UI is showing all text available from the alert/source item."
+        ui_text(config, "truncated_snippet")
         if source_truncated
-        else "Showing the full abstract/snippet text available in this source record."
+        else ui_text(config, "full_snippet")
     )
-    return "Abstract / snippet", snippet, hint
+    return ui_text(config, "abstract_or_snippet"), snippet, hint
 
 
 def _render_latex_fragment(fragment: str) -> str:
@@ -517,8 +801,8 @@ def render_academic_inline_text(value: str) -> str:
     return "".join(parts)
 
 
-def abstract_snippet_html(paper: Any) -> str:
-    label, text, hint = best_abstract_or_snippet(paper)
+def abstract_snippet_html(paper: Any, config: ServerConfig | None = None) -> str:
+    label, text, hint = best_abstract_or_snippet(paper, config)
     if not text:
         return f'<div class="snippet-block missing"><strong>{html.escape(label)}</strong><p>{html.escape(hint)}</p></div>'
     rendered_text = render_academic_inline_text(text)
@@ -560,11 +844,18 @@ def paper_evidence_html(paper: Any, config: ServerConfig) -> str:
     summary = core.paper_evidence_summary(paper, config.kb_dir)
     badges = [f"evidence {summary['level']}"]
     badges.extend(str(item) for item in summary["badges"][1:8])
+    description = {
+        "metadata-only": ui_text(config, "evidence_metadata_only"),
+        "metadata-enriched": ui_text(config, "evidence_metadata_enriched"),
+        "PDF-link-ready": ui_text(config, "evidence_pdf_link_ready"),
+        "local-PDF-ready": ui_text(config, "evidence_local_pdf_ready"),
+        "full-text-backed": ui_text(config, "evidence_full_text_backed"),
+    }.get(str(summary.get("level", "")), str(summary["description"]))
     return (
         '<div class="badges evidence-badges">'
         + "".join(render_badge(value) for value in badges)
         + "</div>"
-        + f'<p class="evidence-note">{html.escape(str(summary["description"]))}</p>'
+        + f'<p class="evidence-note">{html.escape(description)}</p>'
     )
 
 
@@ -651,21 +942,21 @@ def local_file_targets(config: ServerConfig) -> list[tuple[str, str, Path]]:
     project_dir = core.infer_project_dir(config.profile_path, config.kb_dir, config.papers_json)
     out_dir = config.papers_json.parent
     candidates: list[tuple[str, str, Path | None]] = [
-        ("current_digest", "Current digest", out_dir / "digest.html"),
-        ("library_index", "Library index", config.kb_dir / "index.html"),
-        ("reading_plan", "Reading plan", config.kb_dir / "reading_plan.html"),
-        ("foundation", "Foundation", config.kb_dir / "foundation.md"),
-        ("interested", "Interested", config.kb_dir / "interested.md"),
-        ("reading_status", "Reading status", config.kb_dir / "reading_status.md"),
-        ("weekly_review", "Weekly review", config.kb_dir / "weekly_review.md"),
-        ("answers", "Answers", config.kb_dir / "answers_index.md"),
+        ("current_digest", ui_text(config, "current_digest"), out_dir / "digest.html"),
+        ("library_index", ui_text(config, "library_index"), config.kb_dir / "index.html"),
+        ("reading_plan", ui_text(config, "reading_plan"), config.kb_dir / "reading_plan.html"),
+        ("foundation", ui_text(config, "foundation"), config.kb_dir / "foundation.md"),
+        ("interested", ui_text(config, "interested_file"), config.kb_dir / "interested.md"),
+        ("reading_status", ui_text(config, "reading_status_file"), config.kb_dir / "reading_status.md"),
+        ("weekly_review", ui_text(config, "weekly_review"), config.kb_dir / "weekly_review.md"),
+        ("answers", ui_text(config, "answers"), config.kb_dir / "answers_index.md"),
     ]
     if project_dir:
-        candidates.insert(0, ("dashboard", "Dashboard", project_dir / "DASHBOARD.html"))
+        candidates.insert(0, ("dashboard", ui_text(config, "dashboard"), project_dir / "DASHBOARD.html"))
         candidates.extend(
             [
-                ("daily_digest", "Daily digest", project_dir / "reader_out" / "daily" / "digest.html"),
-                ("foundation_digest", "Foundation digest", project_dir / "reader_out" / "foundation" / "digest.html"),
+                ("daily_digest", ui_text(config, "daily_digest"), project_dir / "reader_out" / "daily" / "digest.html"),
+                ("foundation_digest", ui_text(config, "foundation_digest"), project_dir / "reader_out" / "foundation" / "digest.html"),
             ]
         )
     seen: set[str] = set()
@@ -700,13 +991,13 @@ def safe_local_file_path(config: ServerConfig, name: str) -> Path | None:
 def workspace_run_label(config: ServerConfig) -> str:
     parts = [part.lower() for part in config.papers_json.parts]
     if "foundation" in parts:
-        return "Foundation review"
+        return ui_text(config, "foundation_review")
     if "daily" in parts:
-        return "Daily digest"
+        return ui_text(config, "daily_digest")
     if "recent" in parts:
-        return "Recent review"
+        return ui_text(config, "recent_review")
     if "demo" in parts:
-        return "Demo review"
+        return ui_text(config, "demo_review")
     return config.papers_json.parent.name or "Current run"
 
 
@@ -788,12 +1079,25 @@ def render_workspace_overview(
     )
     source_items = _summary_count(summary, "source_item_count", "source_items", "gmail_message_count")
     papers_in_digest = _summary_count(summary, "papers_in_digest", "papers")
-    if "Foundation" in run_label:
-        note = "You are reviewing the foundation library. Feedback here updates interested/foundation outputs and tunes future daily ranking."
+    paper_path_parts = {part.lower() for part in config.papers_json.parts}
+    if "foundation" in paper_path_parts:
+        note = (
+            "你正在复查 foundation 文献库。这里的反馈会更新 interested/foundation 输出，并影响后续 daily ranking。"
+            if ui_language(config) == "zh"
+            else "You are reviewing the foundation library. Feedback here updates interested/foundation outputs and tunes future daily ranking."
+        )
     elif len(papers) == 0:
-        note = "This run has no reviewable papers. Open Foundation review from the top links, or run ./serve_reader.sh without PAPERS_JSON to fall back automatically."
+        note = (
+            "本次运行没有可筛选论文。可以从顶部链接打开 Foundation，或不设置 PAPERS_JSON 运行 ./serve_reader.sh 自动回退到 foundation。"
+            if ui_language(config) == "zh"
+            else "This run has no reviewable papers. Open Foundation review from the top links, or run ./serve_reader.sh without PAPERS_JSON to fall back automatically."
+        )
     else:
-        note = "You are reviewing the current run. Paper actions here refresh Foundation, Interested, Reading Plan, and future ranking signals."
+        note = (
+            "你正在筛选当前运行结果。这里的操作会刷新 Foundation、Interested、Reading Plan 和未来排序信号。"
+            if ui_language(config) == "zh"
+            else "You are reviewing the current run. Paper actions here refresh Foundation, Interested, Reading Plan, and future ranking signals."
+        )
     question_html = (
         '<div class="question-strip">'
         + "".join(f'<div class="question-pill">{html.escape(question)}</div>' for question in questions)
@@ -802,11 +1106,11 @@ def render_workspace_overview(
         else ""
     )
     view_labels = {
-        "active": "Active review queue",
-        "must-read": "Must read only",
-        "skim": "Skim only",
-        "archive": "Archive review",
-        "all": "Full review set",
+        "active": "当前筛选队列" if ui_language(config) == "zh" else "Active review queue",
+        "must-read": ui_text(config, "must_read_only"),
+        "skim": ui_text(config, "skim_only"),
+        "archive": ui_text(config, "archive_review"),
+        "all": ui_text(config, "full_review_set"),
     }
     visible = len(papers) if visible_count is None else visible_count
     return "\n".join(
@@ -817,27 +1121,27 @@ def render_workspace_overview(
             f'<p class="meta">{html.escape(note)}</p>',
             "</div>",
             '<div class="digest-panels">',
-            f'<a class="digest-panel" href="#must-read"><strong>{tier_counts.get("Must read", 0)}</strong><span>Must read</span></a>',
-            f'<a class="digest-panel" href="#skim"><strong>{tier_counts.get("Skim", 0)}</strong><span>Skim</span></a>',
-            f'<a class="digest-panel" href="#archive"><strong>{tier_counts.get("Archive", 0)}</strong><span>Archive</span></a>',
-            f'<div class="digest-panel"><strong>{status_counts.get("unread", 0)}</strong><span>Unread</span></div>',
+            f'<a class="digest-panel" href="#must-read"><strong>{tier_counts.get("Must read", 0)}</strong><span>{html.escape(ui_text(config, "must_read"))}</span></a>',
+            f'<a class="digest-panel" href="#skim"><strong>{tier_counts.get("Skim", 0)}</strong><span>{html.escape(ui_text(config, "skim"))}</span></a>',
+            f'<a class="digest-panel" href="#archive"><strong>{tier_counts.get("Archive", 0)}</strong><span>{html.escape(ui_text(config, "archive"))}</span></a>',
+            f'<div class="digest-panel"><strong>{status_counts.get("unread", 0)}</strong><span>{html.escape(status_display(config, "unread"))}</span></div>',
             "</div>",
             '<div class="run-details">',
-            f"<span>View: {html.escape(view_labels.get(view, view))}</span>",
-            f"<span>Showing: {visible} of {len(papers)}</span>",
-            f"<span>Mode: {html.escape(mode)}</span>",
-            f"<span>Source: {html.escape(source)}</span>",
-            f"<span>Source items: {html.escape(source_items)}</span>",
-            f"<span>Digest papers: {html.escape(papers_in_digest or str(len(papers)))}</span>",
-            f"<span>Retained library: {html.escape(retained)}</span>",
+            f"<span>{html.escape(ui_text(config, 'view'))}: {html.escape(view_labels.get(view, view))}</span>",
+            f"<span>{html.escape(ui_text(config, 'showing'))}: {visible} / {len(papers)}</span>" if ui_language(config) == "zh" else f"<span>Showing: {visible} of {len(papers)}</span>",
+            f"<span>{html.escape(ui_text(config, 'mode'))}: {html.escape(mode)}</span>",
+            f"<span>{html.escape(ui_text(config, 'source'))}: {html.escape(source)}</span>",
+            f"<span>{html.escape(ui_text(config, 'source_items'))}: {html.escape(source_items)}</span>",
+            f"<span>{html.escape(ui_text(config, 'digest_papers'))}: {html.escape(papers_in_digest or str(len(papers)))}</span>",
+            f"<span>{html.escape(ui_text(config, 'retained_library'))}: {html.escape(retained)}</span>",
             "</div>",
             question_html,
             '<nav class="workspace-tabs">',
-            '<a href="/?view=active#overview">Active queue</a>',
-            '<a href="/?view=must-read#must-read">Must read</a>',
-            '<a href="/?view=skim#skim">Skim</a>',
-            '<a href="/?view=archive#archive">Archive</a>',
-            '<a href="/?view=all#all-papers">Load all cards</a>',
+            f'<a href="/?view=active#overview">{html.escape(view_labels["active"])}</a>',
+            f'<a href="/?view=must-read#must-read">{html.escape(ui_text(config, "must_read"))}</a>',
+            f'<a href="/?view=skim#skim">{html.escape(ui_text(config, "skim"))}</a>',
+            f'<a href="/?view=archive#archive">{html.escape(ui_text(config, "archive"))}</a>',
+            f'<a href="/?view=all#all-papers">{html.escape(ui_text(config, "load_all"))}</a>',
             "</nav>",
             "</section>",
         ]
@@ -900,7 +1204,8 @@ def workspace_limit_from_query(query: dict[str, list[str]]) -> int | None:
     return DEFAULT_WORKSPACE_CARD_LIMIT
 
 
-def limit_workspace_papers(papers: list[Any], view: str, limit: int | None) -> tuple[list[Any], str]:
+def limit_workspace_papers(papers: list[Any], view: str, limit: int | None, config: ServerConfig | None = None) -> tuple[list[Any], str]:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
     if limit is None or view == "all" or len(papers) <= limit:
         return papers, ""
     if view == "active":
@@ -918,20 +1223,31 @@ def limit_workspace_papers(papers: list[Any], view: str, limit: int | None) -> t
                     break
     else:
         selected = papers[:limit]
-    notice = (
-        f"Showing a lighter review batch ({len(selected)} of {len(papers)} cards in this view) so feedback controls stay responsive. "
-        'Use <a href="/?view=all#all-papers">Load all cards</a> for the complete set.'
-    )
+    if ui_language(config) == "zh":
+        notice = (
+            f"当前只加载较轻量的筛选批次（本视图 {len(selected)} / {len(papers)} 张卡片），这样反馈控件会更流畅。"
+            '用 <a href="/?view=all#all-papers">加载全部卡片</a> 查看完整列表。'
+        )
+    else:
+        notice = (
+            f"Showing a lighter review batch ({len(selected)} of {len(papers)} cards in this view) so feedback controls stay responsive. "
+            'Use <a href="/?view=all#all-papers">Load all cards</a> for the complete set.'
+        )
     return selected, notice
 
 
-def render_grouped_cards(card_rows: list[tuple[str, str]], tier_counts: dict[str, int]) -> str:
+def render_grouped_cards(card_rows: list[tuple[str, str]], tier_counts: dict[str, int], config: ServerConfig | None = None) -> str:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
     if not card_rows:
         return (
             '<section class="empty-panel">'
-            "<h2>No papers in this run</h2>"
-            '<p class="empty">This papers.json is empty. Use the navigation above to open Foundation, Interested, or a previous digest, or run the workspace against foundation papers.</p>'
-            "</section>"
+            f"<h2>{html.escape(ui_text(config, 'no_papers_title'))}</h2>"
+            + (
+                '<p class="empty">这个 papers.json 为空。可以用顶部链接打开 Foundation / Interested / 历史 digest，或对 foundation papers 运行 workspace。</p>'
+                if ui_language(config) == "zh"
+                else '<p class="empty">This papers.json is empty. Use the navigation above to open Foundation, Interested, or a previous digest, or run the workspace against foundation papers.</p>'
+            )
+            + "</section>"
         )
     grouped: dict[str, list[str]] = {}
     for tier, card in card_rows:
@@ -945,7 +1261,7 @@ def render_grouped_cards(card_rows: list[tuple[str, str]], tier_counts: dict[str
             "\n".join(
                 [
                     f'<section class="tier-section" id="{tier_anchor(tier)}">',
-                    f'<h2 class="section-heading">{html.escape(tier)} <span>{tier_counts.get(tier, len(cards))}</span></h2>',
+                    f'<h2 class="section-heading">{html.escape(tier_display(config, tier))} <span>{tier_counts.get(tier, len(cards))}</span></h2>',
                     *cards,
                     "</section>",
                 ]
@@ -956,7 +1272,7 @@ def render_grouped_cards(card_rows: list[tuple[str, str]], tier_counts: dict[str
             "\n".join(
                 [
                     f'<section class="tier-section" id="{html.escape(tier_anchor(tier), quote=True)}">',
-                    f'<h2 class="section-heading">{html.escape(tier)} <span>{len(cards)}</span></h2>',
+                    f'<h2 class="section-heading">{html.escape(tier_display(config, tier))} <span>{len(cards)}</span></h2>',
                     *cards,
                     "</section>",
                 ]
@@ -965,12 +1281,14 @@ def render_grouped_cards(card_rows: list[tuple[str, str]], tier_counts: dict[str
     return "\n".join(sections)
 
 
-def batch_save_bar(position: str = "top") -> str:
-    label = "Save selected changes"
+def batch_save_bar(position: str = "top", config: ServerConfig | None = None) -> str:
+    config = config or ServerConfig(profile_path=Path("."), kb_dir=Path("."), papers_json=Path("."))
+    label = ui_text(config, "save_selected")
+    pending = "无待保存修改" if ui_language(config) == "zh" else "No pending changes"
     return "\n".join(
         [
             f'<div class="batch-save-bar batch-save-bar-{html.escape(position, quote=True)}">',
-            '<div><strong>Batch review</strong><span class="pending-count">No pending changes</span></div>',
+            f'<div><strong>{html.escape(ui_text(config, "batch_review"))}</strong><span class="pending-count">{html.escape(pending)}</span></div>',
             f'<button class="primary-save" type="submit">{label}</button>',
             "</div>",
         ]
@@ -1023,25 +1341,25 @@ def render_page(
                         paper_title_html(paper),
                         '<div class="badges">'
                         + render_badge(f"id {paper.id}")
-                        + render_badge(str(paper.tier))
+                        + render_badge(tier_display(config, str(paper.tier)))
                         + render_badge(f"score {paper.score}")
                         + "</div>",
                         paper_evidence_html(paper, config),
-                        feedback_badges(paper, feedback),
-                        paper_feedback_note_html(paper, feedback),
-                        scholar_source_line_html(paper),
-                        f'<p class="meta enrichment-line"><strong>Metadata enrichment</strong><span>{html.escape(metadata_summary)}</span></p>'
+                        feedback_badges(paper, feedback, config),
+                        paper_feedback_note_html(paper, feedback, config),
+                        scholar_source_line_html(paper, config),
+                        f'<p class="meta enrichment-line"><strong>{html.escape(ui_text(config, "metadata_enrichment"))}</strong><span>{html.escape(metadata_summary)}</span></p>'
                         if metadata_summary
                         else "",
-                        publication_metadata_html(paper),
-                        abstract_snippet_html(paper),
+                        publication_metadata_html(paper, config),
+                        abstract_snippet_html(paper, config),
                         '<p class="paper-links">'
                         + (
-                            f'<a href="/paper?id={quote(paper.id, safe="")}">Open workspace</a>'
+                            f'<a href="/paper?id={quote(paper.id, safe="")}">{html.escape(ui_text(config, "open_workspace"))}</a>'
                             if focused_paper is None
-                            else '<a href="/">Back to review workspace</a>'
+                            else f'<a href="/">{html.escape(ui_text(config, "back_to_workspace"))}</a>'
                         )
-                        + (f' · <a href="{html.escape(paper.url, quote=True)}">Open paper</a>' if paper.url else "")
+                        + (f' · <a href="{html.escape(paper.url, quote=True)}">{html.escape(ui_text(config, "open_paper"))}</a>' if paper.url else "")
                         + "</p>",
                         report_links(paper.id, config),
                         selected_answer_links(paper.id, config),
@@ -1053,102 +1371,117 @@ def render_page(
                         '<div class="review-grid">',
                         review_select(
                             f"decision__{paper.id}",
-                            "Decision",
+                            ui_text(config, "decision"),
                             [
-                                ("", "No change"),
-                                ("interested", "Interested"),
-                                ("neutral", "Neutral"),
-                                ("archive", "Archive"),
+                                ("", ui_text(config, "no_change")),
+                                ("interested", ui_text(config, "interested")),
+                                ("neutral", ui_text(config, "neutral")),
+                                ("archive", ui_text(config, "archive")),
                             ],
-                            "Keep/archive decision.",
+                            ui_text(config, "decision_help"),
                         ),
                         review_select(
                             f"priority__{paper.id}",
-                            "Priority",
+                            ui_text(config, "priority"),
                             [
-                                ("", "No change"),
-                                ("auto", "Auto"),
-                                ("must_read", "Must read"),
-                                ("skim", "Skim"),
-                                ("archive", "Archive"),
+                                ("", ui_text(config, "no_change")),
+                                ("auto", ui_text(config, "auto")),
+                                ("must_read", ui_text(config, "must_read")),
+                                ("skim", ui_text(config, "skim")),
+                                ("archive", ui_text(config, "archive")),
                             ],
-                            "Manual tier override.",
+                            ui_text(config, "priority_help"),
                         ),
                         review_select(
                             f"reading__{paper.id}",
-                            "Reading status",
+                            ui_text(config, "reading_status"),
                             [
-                                ("", "No change"),
-                                ("unread", "Unread"),
-                                ("reading", "Reading"),
-                                ("read", "Read"),
-                                ("must-cite", "Must cite"),
-                                ("method-reference", "Method ref"),
-                                ("background-only", "Background only"),
-                                ("not-relevant", "Not relevant"),
+                                ("", ui_text(config, "no_change")),
+                                ("unread", status_display(config, "unread")),
+                                ("reading", status_display(config, "reading")),
+                                ("read", status_display(config, "read")),
+                                ("must-cite", status_display(config, "must-cite")),
+                                ("method-reference", status_display(config, "method-reference")),
+                                ("background-only", status_display(config, "background-only")),
+                                ("not-relevant", status_display(config, "not-relevant")),
                             ],
-                            "Reading progress or use.",
+                            ui_text(config, "reading_status_help"),
                         ),
                         "</div>",
-                        '<div class="review-field learning-field"><span>Learning signal</span><div class="checkbox-row">',
-                        review_checkbox(f"signal_more__{paper.id}", "More like this", "signal-more"),
-                        review_checkbox(f"signal_less__{paper.id}", "Less like this", "signal-less"),
-                        review_checkbox(f"signal_clear__{paper.id}", "Clear signal", "signal-clear"),
-                        "</div><span class=\"control-help\">Optional ranking feedback for future runs.</span></div>",
+                        f'<div class="review-field learning-field"><span>{html.escape(ui_text(config, "learning_signal"))}</span><div class="checkbox-row">',
+                        review_checkbox(f"signal_more__{paper.id}", ui_text(config, "more_like"), "signal-more"),
+                        review_checkbox(f"signal_less__{paper.id}", "以后少推荐类似" if ui_language(config) == "zh" else "Less like this", "signal-less"),
+                        review_checkbox(f"signal_clear__{paper.id}", ui_text(config, "clear_signal"), "signal-clear"),
+                        f'</div><span class="control-help">{html.escape(ui_text(config, "learning_help"))}</span></div>',
                         '<div class="combo-warning" hidden></div>',
-                        '<div class="review-field report-field"><span>Generate report on save</span>',
+                        f'<div class="review-field report-field"><span>{html.escape(ui_text(config, "generate_report"))}</span>',
                         '<div class="action-row">',
                         '<button type="button" class="action-chip" data-set-report="deep" value="deep">Deep read</button>',
-                        '<button type="button" class="action-chip" data-set-report="review_workflow" value="review_workflow">Full review</button>',
-                        '<button type="button" class="action-chip" data-set-report="workup" value="workup">Workup</button>',
-                        '<button type="button" class="action-chip" data-set-report="review_pack" value="review_pack">Review pack</button>',
-                        '<button type="button" class="action-chip clear-action" data-set-report="" value="">Clear report</button>',
+                        f'<button type="button" class="action-chip" data-set-report="review_workflow" value="review_workflow">{html.escape(ui_text(config, "full_review"))}</button>',
+                        f'<button type="button" class="action-chip" data-set-report="workup" value="workup">{html.escape(ui_text(config, "workup"))}</button>',
+                        f'<button type="button" class="action-chip" data-set-report="review_pack" value="review_pack">{html.escape(ui_text(config, "review_pack"))}</button>',
+                        f'<button type="button" class="action-chip clear-action" data-set-report="" value="">{html.escape(ui_text(config, "clear_report"))}</button>',
                         "</div></div>",
-                        '<div class="review-field metadata-field"><span>Improve metadata on save</span>',
+                        f'<div class="review-field metadata-field"><span>{html.escape(ui_text(config, "improve_metadata"))}</span>',
                         '<div class="action-row">',
-                        '<button type="button" class="action-chip" data-set-metadata="abstract" value="abstract">Fetch abstract</button>',
-                        '<button type="button" class="action-chip clear-action" data-set-metadata="" value="">Clear metadata action</button>',
-                        "</div><span class=\"control-help\">Looks up public OpenAlex/Crossref metadata for this paper only. It may take a few seconds.</span></div>",
-                        '<label class="note-input"><span>Personal note</span>'
+                        f'<button type="button" class="action-chip" data-set-metadata="abstract" value="abstract">{html.escape(ui_text(config, "fetch_abstract"))}</button>',
+                        f'<button type="button" class="action-chip clear-action" data-set-metadata="" value="">{html.escape(ui_text(config, "clear_metadata_action"))}</button>',
+                        f'</div><span class="control-help">{html.escape(ui_text(config, "metadata_help"))}</span></div>',
+                        f'<label class="note-input"><span>{html.escape(ui_text(config, "note"))}</span>'
                         + '<div class="note-tools">'
                         + f'<select class="review-select note-mode" name="note_mode__{html.escape(paper.id, quote=True)}">'
                         + select_options(
                             [
-                                ("", "Append typed note"),
-                                ("replace", "Replace saved note"),
-                                ("clear", "Clear saved note"),
+                                ("", ui_text(config, "append_note")),
+                                ("replace", ui_text(config, "replace_note")),
+                                ("clear", ui_text(config, "clear_saved_note")),
                             ]
                         )
                         + "</select>"
-                        + '<span class="control-help">Blank text with the default mode leaves existing notes unchanged.</span>'
+                        + f'<span class="control-help">{html.escape(ui_text(config, "note_help"))}</span>'
                         + "</div>"
-                        + f'<textarea class="paper-note" name="note__{html.escape(paper.id, quote=True)}" rows="2" placeholder="Optional note; choose Replace to overwrite, or Clear saved note to remove the current note."></textarea></label>',
+                        + f'<textarea class="paper-note" name="note__{html.escape(paper.id, quote=True)}" rows="2" placeholder="{html.escape(ui_text(config, "note_placeholder"), quote=True)}"></textarea></label>',
                         "</div>",
                         "</article>",
                     ]
                 ),
             )
         )
-    content = render_grouped_cards(card_rows, visible_tier_counts)
+    content = render_grouped_cards(card_rows, visible_tier_counts, config)
     context = load_workspace_context(config)
     overview = "" if focused_paper is not None else render_workspace_overview(all_papers, config, context, tier_counts, status_counts, view=view, visible_count=len(papers))
     stat_items = [
-        f"Showing {len(papers)} of {len(all_papers)}",
-        f"Must read {tier_counts.get('Must read', 0)}",
-        f"Skim {tier_counts.get('Skim', 0)}",
-        f"Archive {tier_counts.get('Archive', 0)}",
-        f"Unread {status_counts.get('unread', 0)}",
-        f"Reading {status_counts.get('reading', 0)}",
-        f"Read {status_counts.get('read', 0)}",
+        f"{ui_text(config, 'showing')} {len(papers)} / {len(all_papers)}" if ui_language(config) == "zh" else f"Showing {len(papers)} of {len(all_papers)}",
+        f"{ui_text(config, 'must_read')} {tier_counts.get('Must read', 0)}",
+        f"{ui_text(config, 'skim')} {tier_counts.get('Skim', 0)}",
+        f"{ui_text(config, 'archive')} {tier_counts.get('Archive', 0)}",
+        f"{status_display(config, 'unread')} {status_counts.get('unread', 0)}",
+        f"{status_display(config, 'reading')} {status_counts.get('reading', 0)}",
+        f"{status_display(config, 'read')} {status_counts.get('read', 0)}",
     ]
+    js_labels = {
+        "noPending": "无待保存修改" if ui_language(config) == "zh" else "No pending changes",
+        "pendingSingular": "项待保存修改" if ui_language(config) == "zh" else "pending change",
+        "pendingPlural": "项待保存修改" if ui_language(config) == "zh" else "pending changes",
+        "nothingToSave": "没有选中操作或笔记需要保存。" if ui_language(config) == "zh" else "No selected actions or notes to save.",
+        "unusualIntro": "有些反馈组合不太常见：" if ui_language(config) == "zh" else "Some feedback combinations are unusual:",
+        "saveAnyway": "仍然保存？" if ui_language(config) == "zh" else "Save anyway?",
+        "warnInterestedLess": "感兴趣 + 以后少推荐类似：这篇会保留，但相似论文后续会降权。" if ui_language(config) == "zh" else "Interested + Less like this keeps this paper but downranks similar future papers.",
+        "warnArchiveMore": "归档 + 以后多推荐类似：这篇会归档，但相似论文后续会加权。" if ui_language(config) == "zh" else "Archive + More like this archives this paper but boosts similar future papers.",
+        "warnPriorityArchiveMore": "优先级归档 + 以后多推荐类似不常见；这篇论文以归档优先。" if ui_language(config) == "zh" else "Priority Archive + More like this is unusual; archive priority wins for this paper.",
+        "warnMustLess": "重点阅读 + 以后少推荐类似不常见；这篇保留重点阅读，但相似论文会降权。" if ui_language(config) == "zh" else "Must read + Less like this is unusual; this paper stays prioritized but similar papers are downranked.",
+        "warnNotRelevantMore": "不相关 + 以后多推荐类似不常见；不相关会归档这篇论文。" if ui_language(config) == "zh" else "Not relevant + More like this is unusual; not-relevant archives this paper.",
+        "warnBackgroundMore": "背景阅读 + 以后多推荐类似不常见；背景阅读通常会清除排序信号。" if ui_language(config) == "zh" else "Background only + More like this is unusual; background-only usually clears ranking signals.",
+        "warnArchivePriority": "归档决定和阅读优先级冲突；归档会优先生效。" if ui_language(config) == "zh" else "Archive decision conflicts with a reading priority; Archive wins for ranking.",
+    }
     return "\n".join(
         [
             "<!doctype html>",
-            '<html lang="zh-CN">',
+            f'<html lang="{"zh-CN" if ui_language(config) == "zh" else "en"}">',
             "<head>",
             '<meta charset="utf-8">',
             '<meta name="viewport" content="width=device-width, initial-scale=1">',
-            "<title>Scholar Alert Review Workspace</title>",
+            f"<title>{html.escape(ui_text(config, 'workspace'))}</title>",
             "<style>",
             """
             :root {
@@ -1677,26 +2010,26 @@ def render_page(
             "</head>",
             "<body>",
             "<header>",
-            "<h1>Scholar Alert Paper Workspace</h1>" if focused_paper is not None else "<h1>Scholar Alert Review Workspace</h1>",
-            f'<div class="meta">Profile: {html.escape(str(config.profile_path))}</div>',
-            f'<div class="meta">Papers: {html.escape(str(config.papers_json))}</div>',
-            f'<div class="meta">Knowledge base: {html.escape(str(config.kb_dir))}</div>',
+            f"<h1>{html.escape(ui_text(config, 'paper_workspace'))}</h1>" if focused_paper is not None else f"<h1>{html.escape(ui_text(config, 'workspace'))}</h1>",
+            f'<div class="meta">{html.escape(ui_text(config, "profile"))}: {html.escape(str(config.profile_path))}</div>',
+            f'<div class="meta">{html.escape(ui_text(config, "papers"))}: {html.escape(str(config.papers_json))}</div>',
+            f'<div class="meta">{html.escape(ui_text(config, "kb"))}: {html.escape(str(config.kb_dir))}</div>',
             local_nav_links(config),
             '<div class="run-stats">' + "".join(f'<span class="run-stat">{html.escape(item)}</span>' for item in stat_items) + "</div>",
             '<div class="toolbar">',
-            '<input id="search" type="search" placeholder="Search title, alert, term, source">',
-            '<select id="tier"><option value="">All tiers</option><option>Must read</option><option>Skim</option><option>Archive</option></select>',
-            '<select id="status"><option value="">All statuses</option><option>unread</option><option>reading</option><option>read</option><option>must-cite</option><option>method-reference</option><option>background-only</option><option>not-relevant</option></select>',
+            f'<input id="search" type="search" placeholder="{html.escape(ui_text(config, "search_placeholder"), quote=True)}">',
+            f'<select id="tier"><option value="">{html.escape(ui_text(config, "all_tiers"))}</option><option value="Must read">{html.escape(ui_text(config, "must_read"))}</option><option value="Skim">{html.escape(ui_text(config, "skim"))}</option><option value="Archive">{html.escape(ui_text(config, "archive"))}</option></select>',
+            f'<select id="status"><option value="">{html.escape(ui_text(config, "all_statuses"))}</option><option value="unread">{html.escape(status_display(config, "unread"))}</option><option value="reading">{html.escape(status_display(config, "reading"))}</option><option value="read">{html.escape(status_display(config, "read"))}</option><option value="must-cite">{html.escape(status_display(config, "must-cite"))}</option><option value="method-reference">{html.escape(status_display(config, "method-reference"))}</option><option value="background-only">{html.escape(status_display(config, "background-only"))}</option><option value="not-relevant">{html.escape(status_display(config, "not-relevant"))}</option></select>',
             "</div>",
             '<form class="ask-form" method="post" action="/ask">',
             f'<input type="hidden" name="view" value="{html.escape(view, quote=True)}">',
             f'<input type="hidden" name="paper_id" value="{html.escape(str(getattr(focused_paper, "id", "")), quote=True)}">'
             if focused_paper is not None
             else "",
-            '<input name="question" type="search" placeholder="Ask about this paper against your foundation/interested library">'
+            f'<input name="question" type="search" placeholder="{html.escape(ui_text(config, "ask_paper_placeholder"), quote=True)}">'
             if focused_paper is not None
-            else '<input name="question" type="search" placeholder="Ask your library, e.g. which papers are closest to my current project?">',
-            "<button>Ask about this paper</button>" if focused_paper is not None else "<button>Ask library</button>",
+            else f'<input name="question" type="search" placeholder="{html.escape(ui_text(config, "ask_library_placeholder"), quote=True)}">',
+            f"<button>{html.escape(ui_text(config, 'ask_paper'))}</button>" if focused_paper is not None else f"<button>{html.escape(ui_text(config, 'ask_library'))}</button>",
             "</form>",
             f'<div class="message">{message_html}</div>'
             if message_html
@@ -1707,12 +2040,13 @@ def render_page(
             "<main>",
             f'<form class="batch-feedback-form" method="post" action="/feedback-batch">',
             f'<input type="hidden" name="view" value="{html.escape(view, quote=True)}">',
-            batch_save_bar("top"),
+            batch_save_bar("top", config),
             content,
-            batch_save_bar("bottom"),
+            batch_save_bar("bottom", config),
             "</form>",
             "</main>",
             "<script>",
+            f"const UI = {json.dumps(js_labels, ensure_ascii=False)};",
             """
             const search = document.getElementById('search');
             const tier = document.getElementById('tier');
@@ -1751,25 +2085,25 @@ def render_page(
               const less = reviewChecked(card, 'signal_less');
               const warnings = [];
               if (decision === 'interested' && less) {
-                warnings.push('Interested + Less like this keeps this paper but downranks similar future papers.');
+                warnings.push(UI.warnInterestedLess);
               }
               if (decision === 'archive' && more) {
-                warnings.push('Archive + More like this archives this paper but boosts similar future papers.');
+                warnings.push(UI.warnArchiveMore);
               }
               if (priority === 'archive' && more) {
-                warnings.push('Priority Archive + More like this is unusual; archive priority wins for this paper.');
+                warnings.push(UI.warnPriorityArchiveMore);
               }
               if (priority === 'must_read' && less) {
-                warnings.push('Must read + Less like this is unusual; this paper stays prioritized but similar papers are downranked.');
+                warnings.push(UI.warnMustLess);
               }
               if (reading === 'not-relevant' && more) {
-                warnings.push('Not relevant + More like this is unusual; not-relevant archives this paper.');
+                warnings.push(UI.warnNotRelevantMore);
               }
               if (reading === 'background-only' && more) {
-                warnings.push('Background only + More like this is unusual; background-only usually clears ranking signals.');
+                warnings.push(UI.warnBackgroundMore);
               }
               if (decision === 'archive' && (priority === 'must_read' || priority === 'skim')) {
-                warnings.push('Archive decision conflicts with a reading priority; Archive wins for ranking.');
+                warnings.push(UI.warnArchivePriority);
               }
               return warnings;
             }
@@ -1827,7 +2161,7 @@ def render_page(
                 if (cardHasChanges(card)) changed.add(card);
               }
               refreshAllCombinationWarnings();
-              const text = changed.size === 0 ? 'No pending changes' : `${changed.size} pending change${changed.size === 1 ? '' : 's'}`;
+              const text = changed.size === 0 ? UI.noPending : `${changed.size} ${changed.size === 1 ? UI.pendingSingular : UI.pendingPlural}`;
               document.querySelectorAll('.pending-count').forEach(el => { el.textContent = text; });
             }
             if (batchForm) {
@@ -1899,13 +2233,13 @@ def render_page(
                 }
                 if (!changed) {
                   event.preventDefault();
-                  alert('No selected actions or notes to save.');
+                  alert(UI.nothingToSave);
                   return;
                 }
                 const warnings = refreshAllCombinationWarnings();
                 if (warnings.length) {
                   const uniqueWarnings = [...new Set(warnings)].slice(0, 5).join('\\n');
-                  if (!confirm(`Some feedback combinations are unusual:\n\n${uniqueWarnings}\n\nSave anyway?`)) {
+                  if (!confirm(`${UI.unusualIntro}\n\n${uniqueWarnings}\n\n${UI.saveAnyway}`)) {
                     event.preventDefault();
                   }
                 }
@@ -2044,7 +2378,7 @@ def make_handler(config: ServerConfig):
             if state["less_like_this"]:
                 for term, weight in core.feedback_terms_from_paper(paper):
                     core.add_feedback_term(feedback, term, "negative", weight, "paper", paper.id)
-            update_feedback_note(record, state.get("note"), user_note, note_mode)
+            update_feedback_note(record, localized_system_note(config, state.get("note")), user_note, note_mode)
             return True
 
         def apply_feedback_fields(
@@ -2091,7 +2425,7 @@ def make_handler(config: ServerConfig):
                 if not reading_status:
                     reading_status = str(report_state.get("reading_status") or "")
                 labels.extend(str(label) for label in report_state.get("labels", []) if str(label).strip())
-                generated_note = str(report_state.get("note") or "").strip() or None
+                generated_note = localized_system_note(config, str(report_state.get("note") or "").strip() or None)
 
             priority = priority.strip().lower().replace("-", "_")
             if priority in {"must_read", "skim"} and not mark:
@@ -2110,11 +2444,11 @@ def make_handler(config: ServerConfig):
             elif reading_status == "background-only":
                 mark = mark or "neutral"
                 signal_clear = True
-                generated_note = generated_note or "Marked as background only from Review Workspace."
+                generated_note = generated_note or localized_system_note(config, "Marked as background only from Review Workspace.")
             elif reading_status == "not-relevant":
                 mark = "archive"
                 less_like_this = True
-                generated_note = generated_note or "Marked as not relevant from Review Workspace."
+                generated_note = generated_note or localized_system_note(config, "Marked as not relevant from Review Workspace.")
 
             if mark == "archive":
                 less_like_this = True
@@ -2218,7 +2552,7 @@ def make_handler(config: ServerConfig):
                     body = render_page(
                         selected,
                         config,
-                        message=f"Focused workspace for {paper_id}",
+                        message=(f"单篇工作区：{paper_id}" if ui_language(config) == "zh" else f"Focused workspace for {paper_id}"),
                         feedback=feedback,
                         focused_paper=selected[0],
                         all_papers=selected,
@@ -2233,7 +2567,7 @@ def make_handler(config: ServerConfig):
             all_papers = core.load_papers_json(config.papers_json)
             feedback = core.load_feedback(core.default_feedback_file(config.kb_dir))
             papers = filter_papers_for_view(all_papers, view, feedback)
-            papers, limit_notice = limit_workspace_papers(papers, view, workspace_limit_from_query(query))
+            papers, limit_notice = limit_workspace_papers(papers, view, workspace_limit_from_query(query), config)
             body = render_page(
                 papers,
                 config,
@@ -2281,17 +2615,25 @@ def make_handler(config: ServerConfig):
                 papers = selected or filter_papers_for_view(all_papers, view, feedback)
                 limit_notice = ""
                 if not selected:
-                    papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT)
+                    papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT, config)
                 answer_link = f'<a href="/answer?name={quote(output.name, safe="")}">{html.escape(output.name)}</a>'
+                if ui_language(config) == "zh":
+                    ask_message = (
+                        f"已回答论文 {html.escape(paper_id)} 的问题：{html.escape(question)}；答案：{answer_link}"
+                        if paper_id
+                        else f"已回答文献库问题：{html.escape(question)}；答案：{answer_link}"
+                    )
+                else:
+                    ask_message = (
+                        f"Answered paper question for {html.escape(paper_id)}: {html.escape(question)}; answer: {answer_link}"
+                        if paper_id
+                        else f"Answered library question: {html.escape(question)}; answer: {answer_link}"
+                    )
                 body = render_page(
                     papers,
                     config,
                     feedback=feedback,
-                    message_html=(
-                        f"Answered paper question for {html.escape(paper_id)}: {html.escape(question)}; answer: {answer_link}"
-                        if paper_id
-                        else f"Answered library question: {html.escape(question)}; answer: {answer_link}"
-                    ),
+                    message_html=ask_message,
                     focused_paper=selected[0] if selected else None,
                     all_papers=selected or all_papers,
                     view="focused" if selected else view,
@@ -2396,29 +2738,44 @@ def make_handler(config: ServerConfig):
                     for paper_id, action in review_actions:
                         for label, artifact in self.run_review_artifact(action, paper_id, feedback_file):
                             review_artifacts.append((paper_id, label, artifact))
-                    message = f"Saved {len(changed)} selected change{'s' if len(changed) != 1 else ''}."
+                    message = (
+                        f"已保存 {len(changed)} 项选中修改。"
+                        if ui_language(config) == "zh"
+                        else f"Saved {len(changed)} selected change{'s' if len(changed) != 1 else ''}."
+                    )
                 else:
                     refreshed = {}
                     review_artifacts = []
-                    message = "Saved metadata request." if metadata_checked else "No selected actions or notes to save."
-                if metadata_checked:
-                    message += (
-                        f"; public metadata checked: {metadata_checked}, updated: {metadata_updated}, "
-                        f"abstracts available: {metadata_abstracts}"
+                    message = (
+                        "已保存元数据请求。"
+                        if metadata_checked and ui_language(config) == "zh"
+                        else "Saved metadata request."
+                        if metadata_checked
+                        else "没有选中操作或笔记需要保存。"
+                        if ui_language(config) == "zh"
+                        else "No selected actions or notes to save."
                     )
+                if metadata_checked:
+                    if ui_language(config) == "zh":
+                        message += f"；公开元数据检查：{metadata_checked}，更新：{metadata_updated}，可用摘要：{metadata_abstracts}"
+                    else:
+                        message += (
+                            f"; public metadata checked: {metadata_checked}, updated: {metadata_updated}, "
+                            f"abstracts available: {metadata_abstracts}"
+                        )
                 if metadata_errors:
-                    message += f"; metadata lookup errors: {len(metadata_errors)}"
+                    message += f"；元数据查询错误：{len(metadata_errors)}" if ui_language(config) == "zh" else f"; metadata lookup errors: {len(metadata_errors)}"
                 if refreshed.get("reading_plan_html"):
-                    message += f"; reading plan: {refreshed['reading_plan_html']}"
+                    message += f"；阅读计划：{refreshed['reading_plan_html']}" if ui_language(config) == "zh" else f"; reading plan: {refreshed['reading_plan_html']}"
                 if refreshed.get("dashboard_html"):
-                    message += f"; dashboard: {refreshed['dashboard_html']}"
+                    message += f"；Dashboard：{refreshed['dashboard_html']}" if ui_language(config) == "zh" else f"; dashboard: {refreshed['dashboard_html']}"
                 if combination_warnings:
-                    message += f"; unusual combinations noted: {len(combination_warnings)}"
+                    message += f"；不常见反馈组合：{len(combination_warnings)}" if ui_language(config) == "zh" else f"; unusual combinations noted: {len(combination_warnings)}"
                 for paper_id, label, artifact in review_artifacts:
-                    message += f"; {paper_id} {label}: {artifact}"
+                    message += f"；{paper_id} {label}: {artifact}" if ui_language(config) == "zh" else f"; {paper_id} {label}: {artifact}"
                 all_papers = core.load_papers_json(config.papers_json)
                 papers = filter_papers_for_view(all_papers, view, feedback)
-                papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT)
+                papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT, config)
                 featured_papers = [*changed, *metadata_requests]
                 for paper in featured_papers:
                     if not any(getattr(item, "id", "") == getattr(paper, "id", "") for item in papers):
@@ -2543,7 +2900,7 @@ def make_handler(config: ServerConfig):
                 if less_like_this:
                     for term, weight in core.feedback_terms_from_paper(paper):
                         core.add_feedback_term(feedback, term, "negative", weight, "paper", paper.id)
-                update_feedback_note(record, note, user_note, note_mode)
+                update_feedback_note(record, localized_system_note(config, note), user_note, note_mode)
             core.save_feedback(feedback_file, feedback)
             core.apply_feedback_to_knowledge_base(
                 config.kb_dir,
@@ -2594,14 +2951,14 @@ def make_handler(config: ServerConfig):
 
             all_papers = core.load_papers_json(config.papers_json)
             papers = filter_papers_for_view(all_papers, view, feedback)
-            papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT)
+            papers, limit_notice = limit_workspace_papers(papers, view, DEFAULT_WORKSPACE_CARD_LIMIT, config)
             if selected and not any(getattr(paper, "id", "") == paper_id for paper in papers):
                 papers = selected + papers
-            message = f"Saved feedback for {paper_id}: {action}"
+            message = f"已保存 {paper_id} 的反馈：{action}" if ui_language(config) == "zh" else f"Saved feedback for {paper_id}: {action}"
             if refreshed.get("reading_plan_html"):
-                message += f"; reading plan: {refreshed['reading_plan_html']}"
+                message += f"；阅读计划：{refreshed['reading_plan_html']}" if ui_language(config) == "zh" else f"; reading plan: {refreshed['reading_plan_html']}"
             if refreshed.get("dashboard_html"):
-                message += f"; dashboard: {refreshed['dashboard_html']}"
+                message += f"；Dashboard：{refreshed['dashboard_html']}" if ui_language(config) == "zh" else f"; dashboard: {refreshed['dashboard_html']}"
             if deep_report:
                 message += f"; deep-read report: {deep_report}"
             if workflow_report:

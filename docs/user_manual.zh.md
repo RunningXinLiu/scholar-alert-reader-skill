@@ -229,6 +229,26 @@ Review Workspace 是日常最重要的入口。
 
 ![Review Workspace 批量反馈界面](screenshots/02-feedback-triage.png)
 
+如果想打开纯中文界面：
+
+```bash
+UI_LANGUAGE=zh-CN ./serve_reader.sh
+```
+
+如果想打开英文界面：
+
+```bash
+UI_LANGUAGE=en ./serve_reader.sh
+```
+
+推荐中文 profile 里保留：
+
+```json
+{"language": "zh-CN"}
+```
+
+这样 Review Workspace 的界面和打分理由都会尽量保持中文。
+
 建议操作顺序：
 
 1. 先用搜索框按 topic、author、venue、method 粗筛。

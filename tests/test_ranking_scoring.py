@@ -58,6 +58,18 @@ class RankingScoringTests(unittest.TestCase):
         self.assertIn("topical_relevance", [c.name for c in result.components])
         self.assertTrue(any(c.name == "topical_relevance" and c.value > 0 for c in result.components))
 
+    def test_scoring_reasons_follow_profile_language(self) -> None:
+        english_paper = mk_paper(id="lang-en", title="Ambient noise tomography", snippet="")
+        english = {"language": "en", "focus_terms": [{"term": "ambient noise", "weight": 4}], "tier_thresholds": {"must_read": 8, "skim": 3}}
+        scorer.score_paper(english_paper, english, None, None, [])
+        self.assertTrue(any("Title matched" in reason for reason in english_paper.reasons))
+        self.assertFalse(any("标题命中" in reason for reason in english_paper.reasons))
+
+        chinese_paper = mk_paper(id="lang-zh", title="Ambient noise tomography", snippet="")
+        chinese = {"language": "zh-CN", "focus_terms": [{"term": "ambient noise", "weight": 4}], "tier_thresholds": {"must_read": 8, "skim": 3}}
+        scorer.score_paper(chinese_paper, chinese, None, None, [])
+        self.assertTrue(any("标题命中" in reason for reason in chinese_paper.reasons))
+
     def test_methods_map_to_method_relevance(self) -> None:
         paper = mk_paper(id="m1", title="An AI phase picking model for earthquakes", snippet="")
         profile = {"methods": [{"term": "phase picking", "weight": 3}], "tier_thresholds": {"must_read": 8, "skim": 3}}
@@ -210,7 +222,7 @@ class RankingScoringTests(unittest.TestCase):
 
     def test_feedback_and_adaptive_signals_are_reflected_in_score(self) -> None:
         paper = mk_paper(id="p4", title="Ambient noise for crustal model")
-        profile = {"adaptive_ranking": {"enabled": True, "min_overlap": 2, "positive_weight": 4, "negative_weight": 5}}
+        profile = {"language": "zh-CN", "adaptive_ranking": {"enabled": True, "min_overlap": 2, "positive_weight": 4, "negative_weight": 5}}
         feedback = {
             "version": 1,
             "updated_at": "2026-01-01T00:00:00",

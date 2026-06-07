@@ -26,7 +26,6 @@ Created by [Xin Liu](https://github.com/RunningXinLiu).
 - [Gmail 授权中文指南](docs/gmail_auth_guide.zh.md)
 - [中文手动使用流程](docs/manual_setup_no_ai.zh.md)
 - [Obsidian clean/full 导出指南](docs/obsidian_export_guide.zh.md)
-- [中文宣传文案](docs/share-copy.zh.md)
 
 中文图片和动图已经放在仓库里，适合介绍或分享：
 
@@ -130,6 +129,16 @@ Open the interactive Review Workspace first:
 ```bash
 PAPERS_JSON=reader_out/rss/papers.json ./serve_reader.sh
 ```
+
+Review Workspace language:
+
+```bash
+UI_LANGUAGE=en ./serve_reader.sh
+UI_LANGUAGE=zh-CN ./serve_reader.sh
+python3 -m scholar_alert_reader serve --profile profiles/research_profile.json --papers-json reader_out/rss/papers.json --language zh-CN --open
+```
+
+The public default is English. Chinese users can set `UI_LANGUAGE=zh-CN` for a fully Chinese Review Workspace. The ranking explanations follow the profile's `language` field, so use `"language": "zh-CN"` in a Chinese research profile and `"language": "en"` in an English one.
 
 Then inspect the static outputs:
 
@@ -422,7 +431,7 @@ flowchart TD
   O --> O4
 ```
 
-Chinese sharing assets are included under `docs/assets/*.zh.*` and paired with Chinese copy in [docs/share-copy.zh.md](docs/share-copy.zh.md).
+Chinese sharing assets are included under `docs/assets/*.zh.*`. Personal promotion copy, group-meeting decks, live private screenshots, and real user outputs should stay outside the public repository.
 
 ## Platform Support
 

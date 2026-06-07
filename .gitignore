@@ -38,3 +38,10 @@ START_HERE.html
 PRIVACY_CHECK.md
 EMBEDDING_CHECK.md
 SUPPORT_BUNDLE.md
+
+# Local presentation / private review drafts
+REVIEW_PRODUCT_ALPHA.md
+docs/presentations/
+scripts/capture_group_meeting_screenshots.js
+scripts/generate_group_meeting_pptx.js
+scripts/generate_group_meeting_visuals.py
