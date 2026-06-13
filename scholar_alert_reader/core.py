@@ -7715,6 +7715,36 @@ def zotero_collections_command(args: argparse.Namespace) -> None:
     print(f"Collection summary: {summary}")
 
 
+def obsidian_graph_command(args: argparse.Namespace) -> None:
+    from .obsidian_graph import export_obsidian_graph
+
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    universe_path = args.universe or (kb_dir / "paper_universe.jsonl")
+    export_dir = args.vault_dir or (kb_dir / "obsidian_graph")
+    records = paper_universe_records(universe_path)
+    result = export_obsidian_graph(
+        records,
+        export_dir,
+        limit=args.limit,
+        include_authors=args.include_authors,
+        author_limit=args.author_limit,
+        max_papers_per_node=args.max_papers_per_node,
+        prune=not args.no_prune,
+    )
+    print(f"Obsidian graph export: {result.export_dir}")
+    print(f"Paper notes: {result.paper_notes}")
+    print(f"Collection notes: {result.collection_notes}")
+    print(f"Topic notes: {result.topic_notes}")
+    print(f"Venue notes: {result.venue_notes}")
+    print(f"Author notes: {result.author_notes}")
+    print(f"Possible overlap candidates: {result.possible_overlaps}")
+    print(f"Index: {result.index}")
+    print(f"Overlap report: {result.overlap_report}")
+    print(f"Manifest: {result.manifest}")
+    if args.open:
+        open_path(result.index)
+
+
 def refresh_library_markdown(kb_dir: Path, profile: dict[str, Any]) -> int:
     library = load_paper_library(kb_dir)
     write_kb_paper_pages(kb_dir, library)
@@ -11072,6 +11102,22 @@ def build_parser() -> argparse.ArgumentParser:
     zotero_collections.add_argument("--output", type=Path, help="Collection map JSON. Defaults to kb-dir/zotero_collections.json")
     zotero_collections.add_argument("--summary", type=Path, help="Collection summary Markdown. Defaults to graph-dir/collection_summary.md")
     zotero_collections.set_defaults(func=zotero_collections_command)
+
+    obsidian_graph = sub.add_parser(
+        "obsidian-graph",
+        help="Export a private Obsidian wikilink graph from paper_universe.jsonl",
+    )
+    obsidian_graph.add_argument("--profile", type=Path, required=True)
+    obsidian_graph.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    obsidian_graph.add_argument("--universe", type=Path, help="Paper universe JSONL. Defaults to kb-dir/paper_universe.jsonl")
+    obsidian_graph.add_argument("--vault-dir", type=Path, help="Dedicated Obsidian graph folder. Defaults to kb-dir/obsidian_graph")
+    obsidian_graph.add_argument("--limit", type=int, default=0, help="Limit paper notes; 0 exports all records")
+    obsidian_graph.add_argument("--include-authors", action="store_true", help="Also generate author nodes. Disabled by default to keep the graph readable")
+    obsidian_graph.add_argument("--author-limit", type=int, default=300, help="Maximum author nodes when --include-authors is set")
+    obsidian_graph.add_argument("--max-papers-per-node", type=int, default=80, help="Maximum linked papers listed inside each collection/topic/venue/author note")
+    obsidian_graph.add_argument("--no-prune", action="store_true", help="Do not remove previously generated graph files before export")
+    obsidian_graph.add_argument("--open", action="store_true", help="Open the generated graph index note after export")
+    obsidian_graph.set_defaults(func=obsidian_graph_command)
 
     obsidian = sub.add_parser("obsidian", help="Export an Obsidian-ready Markdown vault folder")
     obsidian.add_argument("--profile", type=Path, required=True)
