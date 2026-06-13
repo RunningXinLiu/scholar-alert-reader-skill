@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import plistlib
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -1915,6 +1916,90 @@ ER  -
         self.assertIn("Weekly Literature Review", weekly)
         self.assertIn("Personal Notes Review", weekly)
         self.assertIn("Useful comparison for the Taiwan manuscript.", weekly)
+
+    def test_zotero_collections_enriches_paper_universe_from_sqlite_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            profile.write_text(json.dumps({"name": "test profile"}), encoding="utf-8")
+            kb = root / "knowledge_base"
+            graph = kb / "graph"
+            graph.mkdir(parents=True)
+            universe = kb / "paper_universe.jsonl"
+            universe.write_text(
+                json.dumps(
+                    {
+                        "paper_id": "p1",
+                        "title": "Collection-aware paper",
+                        "source_types": ["zotero", "scholar_alert"],
+                        "tier": "Must read",
+                        "abstract": "A useful abstract.",
+                        "pdf_paths": [
+                            "/Users/test/Zotero/storage/ATTACH1/Collection-aware paper.pdf",
+                        ],
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+                + json.dumps(
+                    {
+                        "paper_id": "p2",
+                        "title": "Unmatched paper",
+                        "source_types": ["zotero"],
+                        "pdf_paths": [],
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            zotero_db = root / "zotero.sqlite"
+            con = sqlite3.connect(zotero_db)
+            cur = con.cursor()
+            cur.execute(
+                "CREATE TABLE collections (collectionID INTEGER PRIMARY KEY, collectionName TEXT NOT NULL, parentCollectionID INT, clientDateModified TIMESTAMP, libraryID INT NOT NULL, key TEXT NOT NULL, version INT, synced INT)"
+            )
+            cur.execute("CREATE TABLE collectionItems (collectionID INT NOT NULL, itemID INT NOT NULL, orderIndex INT NOT NULL)")
+            cur.execute(
+                "CREATE TABLE items (itemID INTEGER PRIMARY KEY, itemTypeID INT NOT NULL, dateAdded TIMESTAMP, dateModified TIMESTAMP, clientDateModified TIMESTAMP, libraryID INT NOT NULL, key TEXT NOT NULL, version INT, synced INT)"
+            )
+            cur.execute(
+                "CREATE TABLE itemAttachments (itemID INTEGER PRIMARY KEY, parentItemID INT, linkMode INT, contentType TEXT, charsetID INT, path TEXT, syncState INT, storageModTime INT, storageHash TEXT, lastProcessedModificationTime INT, lastRead INT)"
+            )
+            cur.execute("INSERT INTO collections VALUES (1, 'Root', NULL, '', 1, 'ROOTKEY', 0, 1)")
+            cur.execute("INSERT INTO collections VALUES (2, 'Sub', 1, '', 1, 'SUBKEY', 0, 1)")
+            cur.execute("INSERT INTO items VALUES (10, 1, '', '', '', 1, 'PARENT1', 0, 1)")
+            cur.execute("INSERT INTO items VALUES (11, 14, '', '', '', 1, 'ATTACH1', 0, 1)")
+            cur.execute("INSERT INTO itemAttachments VALUES (11, 10, 1, 'application/pdf', NULL, 'storage:Collection-aware paper.pdf', 0, NULL, NULL, NULL, NULL)")
+            cur.execute("INSERT INTO collectionItems VALUES (2, 10, 0)")
+            con.commit()
+            con.close()
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "scholar_reader.py"),
+                    "zotero-collections",
+                    "--profile",
+                    str(profile),
+                    "--kb-dir",
+                    str(kb),
+                    "--zotero-db",
+                    str(zotero_db),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            self.assertIn("Records matched to Zotero collections: 1", result.stdout)
+            updated = [json.loads(line) for line in universe.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(updated[0]["zotero_collections"], ["Root/Sub"])
+            self.assertEqual(updated[1]["zotero_collections"], [])
+            summary = (graph / "collection_summary.md").read_text(encoding="utf-8")
+            self.assertIn("Root/Sub", summary)
+            self.assertIn("| Root/Sub | 1 | 1 | 1 | 1 | 1 | 0 |", summary)
+            self.assertTrue((graph / "collections.jsonl").exists())
+            self.assertTrue((graph / "collection_edges.jsonl").exists())
 
     def test_title_similarity(self) -> None:
         self.assertGreater(

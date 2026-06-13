@@ -243,21 +243,20 @@ def extract_pdf_paths(value: str) -> list[str]:
     paths: list[str] = []
     if not value:
         return paths
-    for item in re.split(r"\s*;\s*", value):
-        remaining = item
-        for match in re.finditer(r"file://[^\s;]+?\.pdf", item, flags=re.IGNORECASE):
+    remaining = value
+    for match in re.finditer(r"file://[^\n{}]+?\.pdf", value, flags=re.IGNORECASE):
+        path = unquote_file_url(match.group(0))
+        if path and path not in paths:
+            paths.append(path)
+        remaining = remaining.replace(match.group(0), " ")
+    for pattern in [
+        r"(?<![A-Za-z0-9])(?:~|/)[^\n{}]+?\.pdf",
+        r"(?<![A-Za-z])[A-Za-z]:[\\/][^\n{}]+?\.pdf",
+    ]:
+        for match in re.finditer(pattern, remaining, flags=re.IGNORECASE):
             path = unquote_file_url(match.group(0))
             if path and path not in paths:
                 paths.append(path)
-            remaining = remaining.replace(match.group(0), " ")
-        for pattern in [
-            r"(?<![A-Za-z0-9])(?:~|/)[^;]+?\\.pdf",
-            r"(?<![A-Za-z])[A-Za-z]:[\\/][^;]+?\.pdf",
-        ]:
-            for match in re.finditer(pattern, remaining, flags=re.IGNORECASE):
-                path = unquote_file_url(match.group(0))
-                if path and path not in paths:
-                    paths.append(path)
     return paths
 
 

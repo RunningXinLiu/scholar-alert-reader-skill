@@ -885,21 +885,20 @@ def extract_pdf_paths(value: str) -> list[str]:
     paths: list[str] = []
     if not value:
         return paths
-    for item in re.split(r"\s*;\s*", value):
-        remaining = item
-        for match in re.finditer(r"file://[^\s;]+?\.pdf", item, flags=re.IGNORECASE):
+    remaining = value
+    for match in re.finditer(r"file://[^\n{}]+?\.pdf", value, flags=re.IGNORECASE):
+        path = unquote_file_url(match.group(0))
+        if path and path not in paths:
+            paths.append(path)
+        remaining = remaining.replace(match.group(0), " ")
+    for pattern in [
+        r"(?<![A-Za-z0-9])(?:~|/)[^\n{}]+?\.pdf",
+        r"(?<![A-Za-z])[A-Za-z]:[\\/][^\n{}]+?\.pdf",
+    ]:
+        for match in re.finditer(pattern, remaining, flags=re.IGNORECASE):
             path = unquote_file_url(match.group(0))
             if path and path not in paths:
                 paths.append(path)
-            remaining = remaining.replace(match.group(0), " ")
-        for pattern in [
-            r"(?<![A-Za-z0-9])(?:~|/)[^;]+?\.pdf",
-            r"(?<![A-Za-z])[A-Za-z]:[\\/][^;]+?\.pdf",
-        ]:
-            for match in re.finditer(pattern, remaining, flags=re.IGNORECASE):
-                path = unquote_file_url(match.group(0))
-                if path and path not in paths:
-                    paths.append(path)
     return paths
 
 
@@ -7425,6 +7424,297 @@ def sync_zotero_command(args: argparse.Namespace) -> None:
     print(f"Report: {output}")
 
 
+def default_zotero_sqlite_path() -> Path:
+    return Path.home() / "Zotero" / "zotero.sqlite"
+
+
+def zotero_storage_key_from_path(path: str) -> str:
+    match = re.search(r"/Zotero/storage/([A-Za-z0-9]+)/", str(path))
+    if match:
+        return match.group(1)
+    match = re.search(r"(?:^|/)storage/([A-Za-z0-9]+)/", str(path))
+    if match:
+        return match.group(1)
+    return ""
+
+
+def zotero_collection_paths_from_sqlite(zotero_db: Path) -> dict[str, Any]:
+    import sqlite3
+
+    zotero_db = zotero_db.expanduser()
+    if not zotero_db.exists():
+        raise SystemExit(f"Cannot find Zotero database: {zotero_db}")
+
+    snapshot_fd, snapshot_name = tempfile.mkstemp(prefix="zotero-snapshot-", suffix=".sqlite")
+    os.close(snapshot_fd)
+    snapshot_path = Path(snapshot_name)
+    shutil.copy2(zotero_db, snapshot_path)
+    try:
+        con = sqlite3.connect(f"file:{snapshot_path}?mode=ro", uri=True)
+        cur = con.cursor()
+        collections: dict[int, dict[str, Any]] = {}
+        for collection_id, name, parent_id in cur.execute(
+            "SELECT collectionID, collectionName, parentCollectionID FROM collections"
+        ):
+            collections[int(collection_id)] = {
+                "name": str(name),
+                "parent_id": int(parent_id) if parent_id is not None else None,
+            }
+
+        def collection_path(collection_id: int, seen: set[int] | None = None) -> str:
+            seen = seen or set()
+            if collection_id in seen:
+                return collections.get(collection_id, {}).get("name", str(collection_id))
+            seen.add(collection_id)
+            item = collections.get(collection_id)
+            if not item:
+                return str(collection_id)
+            parent_id = item.get("parent_id")
+            if parent_id:
+                return f"{collection_path(parent_id, seen)}/{item['name']}"
+            return item["name"]
+
+        item_paths: dict[str, list[str]] = {}
+        for item_key, collection_id in cur.execute(
+            """
+            SELECT i.key, ci.collectionID
+            FROM collectionItems ci
+            JOIN items i ON i.itemID = ci.itemID
+            """
+        ):
+            path = collection_path(int(collection_id))
+            item_paths.setdefault(str(item_key), [])
+            if path not in item_paths[str(item_key)]:
+                item_paths[str(item_key)].append(path)
+
+        attachment_paths: dict[str, dict[str, Any]] = {}
+        for attachment_key, parent_key in cur.execute(
+            """
+            SELECT attachment.key, parent.key
+            FROM itemAttachments ia
+            JOIN items attachment ON attachment.itemID = ia.itemID
+            JOIN items parent ON parent.itemID = ia.parentItemID
+            WHERE ia.parentItemID IS NOT NULL
+            """
+        ):
+            paths = list(item_paths.get(str(parent_key), []))
+            attachment_paths[str(attachment_key)] = {
+                "parent_item_key": str(parent_key),
+                "collections": paths,
+            }
+            if paths:
+                item_paths.setdefault(str(attachment_key), [])
+                for path in paths:
+                    if path not in item_paths[str(attachment_key)]:
+                        item_paths[str(attachment_key)].append(path)
+
+        con.close()
+    finally:
+        try:
+            snapshot_path.unlink()
+        except OSError:
+            pass
+
+    return {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "zotero_db": str(zotero_db),
+        "items": item_paths,
+        "attachment_items": attachment_paths,
+        "collections": {
+            str(collection_id): {
+                "name": item["name"],
+                "parent_id": item["parent_id"],
+                "path": collection_path(collection_id),
+            }
+            for collection_id, item in collections.items()
+        },
+    }
+
+
+def paper_universe_records(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise SystemExit(f"Cannot find paper universe JSONL: {path}")
+    records: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        item = json.loads(line)
+        if isinstance(item, dict):
+            records.append(item)
+    return records
+
+
+def write_paper_universe_records(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in records),
+        encoding="utf-8",
+    )
+
+
+def zotero_keys_for_universe_record(record: dict[str, Any]) -> set[str]:
+    keys: set[str] = set()
+    for value in [
+        record.get("zotero_item_key"),
+        record.get("item_key"),
+        record.get("zotero_key"),
+    ]:
+        if value:
+            keys.add(str(value))
+    metadata = record.get("metadata")
+    if isinstance(metadata, dict):
+        zotero = metadata.get("zotero")
+        if isinstance(zotero, dict):
+            for field in ["item_key", "key"]:
+                value = zotero.get(field)
+                if value:
+                    keys.add(str(value))
+    source_records = record.get("source_records")
+    if isinstance(source_records, dict):
+        zotero_record = source_records.get("zotero")
+        if isinstance(zotero_record, dict):
+            value = zotero_record.get("item_key")
+            if value:
+                keys.add(str(value))
+    for path in coerce_list(record.get("pdf_paths")):
+        key = zotero_storage_key_from_path(path)
+        if key:
+            keys.add(key)
+    return keys
+
+
+def collection_stats(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    stats: dict[str, dict[str, Any]] = {}
+    for record in records:
+        for collection in coerce_list(record.get("zotero_collections")):
+            item = stats.setdefault(
+                collection,
+                {
+                    "collection": collection,
+                    "papers": 0,
+                    "with_pdf": 0,
+                    "with_abstract": 0,
+                    "scholar_alert_overlap": 0,
+                    "must_read": 0,
+                    "interested": 0,
+                },
+            )
+            item["papers"] += 1
+            if record.get("pdf_paths"):
+                item["with_pdf"] += 1
+            if record.get("abstract"):
+                item["with_abstract"] += 1
+            if "scholar_alert" in set(coerce_list(record.get("source_types"))):
+                item["scholar_alert_overlap"] += 1
+            if str(record.get("tier", "")).lower() == "must read":
+                item["must_read"] += 1
+            if str(record.get("feedback_status", "")).lower() == "interested":
+                item["interested"] += 1
+    return stats
+
+
+def write_zotero_collection_graph_outputs(
+    graph_dir: Path,
+    records: list[dict[str, Any]],
+    stats: dict[str, dict[str, Any]],
+) -> None:
+    graph_dir.mkdir(parents=True, exist_ok=True)
+    collections_path = graph_dir / "collections.jsonl"
+    collection_edges_path = graph_dir / "collection_edges.jsonl"
+    collections_path.write_text(
+        "".join(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n" for item in stats.values()),
+        encoding="utf-8",
+    )
+    edges: list[dict[str, str]] = []
+    for record in records:
+        paper_id = str(record.get("paper_id") or stable_id(str(record.get("title", ""))))
+        for collection in coerce_list(record.get("zotero_collections")):
+            edges.append({"source": f"paper:{paper_id}", "target": f"collection:{collection}", "type": "in_collection"})
+    collection_edges_path.write_text(
+        "".join(json.dumps(edge, ensure_ascii=False, sort_keys=True) + "\n" for edge in edges),
+        encoding="utf-8",
+    )
+
+
+def write_zotero_collection_summary(
+    output: Path,
+    stats: dict[str, dict[str, Any]],
+    *,
+    universe_path: Path,
+    zotero_db: Path,
+    matched_records: int,
+    total_records: int,
+) -> None:
+    lines = [
+        "# Zotero Collection Summary",
+        "",
+        f"- Generated: {datetime.now().isoformat(timespec='seconds')}",
+        f"- Zotero database snapshot source: `{zotero_db}`",
+        f"- Paper universe: `{universe_path}`",
+        f"- Universe records: {total_records}",
+        f"- Records matched to at least one Zotero collection: {matched_records}",
+        f"- Collections with matched papers: {len(stats)}",
+        "",
+        "## Collections",
+        "",
+        "| Collection | Papers | PDFs | Abstracts | Scholar Alert overlap | Must read | Interested |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for item in sorted(stats.values(), key=lambda value: (-int(value["papers"]), str(value["collection"]).lower())):
+        lines.append(
+            "| {collection} | {papers} | {with_pdf} | {with_abstract} | {scholar_alert_overlap} | {must_read} | {interested} |".format(
+                **item
+            )
+        )
+    lines.append("")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines), encoding="utf-8")
+
+
+def zotero_collections_command(args: argparse.Namespace) -> None:
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    universe_path = args.universe or (kb_dir / "paper_universe.jsonl")
+    graph_dir = args.graph_dir or (kb_dir / "graph")
+    output = args.output or (kb_dir / "zotero_collections.json")
+    summary = args.summary or (graph_dir / "collection_summary.md")
+    zotero_db = args.zotero_db or default_zotero_sqlite_path()
+
+    index = zotero_collection_paths_from_sqlite(zotero_db)
+    records = paper_universe_records(universe_path)
+    matched_records = 0
+    for record in records:
+        collections: list[str] = []
+        for key in zotero_keys_for_universe_record(record):
+            for collection in index["items"].get(key, []):
+                if collection not in collections:
+                    collections.append(collection)
+        if collections:
+            matched_records += 1
+            record["zotero_collections"] = sorted(collections)
+        else:
+            record.setdefault("zotero_collections", [])
+
+    write_paper_universe_records(universe_path, records)
+    stats = collection_stats(records)
+    write_zotero_collection_graph_outputs(graph_dir, records, stats)
+    write_zotero_collection_summary(
+        summary,
+        stats,
+        universe_path=universe_path,
+        zotero_db=zotero_db,
+        matched_records=matched_records,
+        total_records=len(records),
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    print(f"Universe records: {len(records)}")
+    print(f"Records matched to Zotero collections: {matched_records}")
+    print(f"Collections: {len(stats)}")
+    print(f"Collection map: {output}")
+    print(f"Collection summary: {summary}")
+
+
 def refresh_library_markdown(kb_dir: Path, profile: dict[str, Any]) -> int:
     library = load_paper_library(kb_dir)
     write_kb_paper_pages(kb_dir, library)
@@ -10769,6 +11059,19 @@ def build_parser() -> argparse.ArgumentParser:
     zotero_sync.add_argument("--bibtex", type=Path, required=True, help="Better BibTeX/BibTeX export from Zotero")
     zotero_sync.add_argument("--report", type=Path, help="Markdown report path. Defaults to kb-dir/zotero/zotero_sync.md")
     zotero_sync.set_defaults(func=sync_zotero_command)
+
+    zotero_collections = sub.add_parser(
+        "zotero-collections",
+        help="Read Zotero SQLite collections and attach collection paths to paper_universe.jsonl",
+    )
+    zotero_collections.add_argument("--profile", type=Path, required=True)
+    zotero_collections.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    zotero_collections.add_argument("--zotero-db", type=Path, help="Zotero sqlite path. Defaults to ~/Zotero/zotero.sqlite")
+    zotero_collections.add_argument("--universe", type=Path, help="Paper universe JSONL. Defaults to kb-dir/paper_universe.jsonl")
+    zotero_collections.add_argument("--graph-dir", type=Path, help="Graph output directory. Defaults to kb-dir/graph")
+    zotero_collections.add_argument("--output", type=Path, help="Collection map JSON. Defaults to kb-dir/zotero_collections.json")
+    zotero_collections.add_argument("--summary", type=Path, help="Collection summary Markdown. Defaults to graph-dir/collection_summary.md")
+    zotero_collections.set_defaults(func=zotero_collections_command)
 
     obsidian = sub.add_parser("obsidian", help="Export an Obsidian-ready Markdown vault folder")
     obsidian.add_argument("--profile", type=Path, required=True)

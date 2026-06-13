@@ -56,6 +56,24 @@ class IngestBibtexTests(unittest.TestCase):
         self.assertEqual(paper.title, "Receiver functions across the Tibetan Plateau")
         self.assertIn("BibTeX import", paper.alerts)
 
+    def test_extract_pdf_paths_from_better_bibtex_file_fields(self) -> None:
+        plain_path = "/Users/example/Zotero/storage/ABCD1234/Author et al. - 2026 - Paper title.pdf"
+        semicolon_path = "/Users/example/Zotero/storage/EFGH5678/Institute; Author - 2025 - Mars mode.pdf"
+        legacy_path = "/Users/example/Zotero/storage/IJKL9012/Full text.pdf"
+        value = (
+            f"{plain_path}; "
+            f"{semicolon_path}; "
+            f"Full Text PDF:{legacy_path}:application/pdf"
+        )
+
+        paths = bibtex.extract_pdf_paths(value)
+        core_paths = core.extract_pdf_paths(value)
+
+        self.assertIn(plain_path, paths)
+        self.assertIn(semicolon_path, paths)
+        self.assertIn(legacy_path, paths)
+        self.assertEqual(core_paths, paths)
+
 
 if __name__ == "__main__":
     unittest.main()
