@@ -17,7 +17,10 @@ from pathlib import Path
 from typing import Any
 
 
-GRAPH_IMPORT_MODE = "paper_universe_graph"
+UNIVERSE_IMPORT_MODE = "paper_universe_graph"
+RESEARCH_IMPORT_MODE = "research_knowledge_graph"
+GRAPH_IMPORT_MODE = UNIVERSE_IMPORT_MODE
+GRAPH_IMPORT_MODES = {UNIVERSE_IMPORT_MODE, RESEARCH_IMPORT_MODE}
 GRAPH_MANIFEST = ".scholar_alert_reader_obsidian_graph_manifest.json"
 
 
@@ -33,6 +36,8 @@ class ObsidianGraphExportResult:
     manifest: Path
     index: Path
     overlap_report: Path
+    graph_mode: str = "universe"
+    concept_notes: int = 0
 
 
 def stable_suffix(value: str, length: int = 8) -> str:
@@ -87,6 +92,13 @@ def collection_note_name(collection: str) -> str:
 
 def topic_note_name(topic: str) -> str:
     return f"Topic - {safe_name(topic, 90)} [{stable_suffix(topic.lower())}]"
+
+
+def concept_note_name(concept: dict[str, Any]) -> str:
+    concept_id = str(concept.get("id") or concept.get("name") or "").strip()
+    name = str(concept.get("name") or concept_id or "Concept").strip()
+    suffix = concept_id or stable_suffix(name.lower())
+    return f"Concept - {safe_name(name, 86)} [{safe_name(suffix, 24)}]"
 
 
 def venue_note_name(venue: str) -> str:
@@ -186,7 +198,9 @@ def is_generated_graph_file(path: Path) -> bool:
         head = path.read_text(encoding="utf-8", errors="replace")[:800]
     except OSError:
         return False
-    return "source_tool: scholar-alert-reader" in head and f"obsidian_import: {GRAPH_IMPORT_MODE}" in head
+    if "source_tool: scholar-alert-reader" not in head:
+        return False
+    return any(f"obsidian_import: {mode}" in head for mode in GRAPH_IMPORT_MODES)
 
 
 def prune_previous_export(export_dir: Path) -> int:
@@ -217,13 +231,21 @@ def write_note(path: Path, content: str, generated_files: list[Path], export_dir
     generated_files.append(path.relative_to(export_dir))
 
 
-def paper_frontmatter(record: dict[str, Any], topics: list[str], collections: list[str]) -> list[str]:
+def paper_frontmatter(
+    record: dict[str, Any],
+    topics: list[str],
+    collections: list[str],
+    *,
+    import_mode: str = UNIVERSE_IMPORT_MODE,
+    concepts: list[str] | None = None,
+) -> list[str]:
+    concept_values = concepts or []
     return [
         "---",
         "type: paper",
         "generated: true",
         "source_tool: scholar-alert-reader",
-        f"obsidian_import: {GRAPH_IMPORT_MODE}",
+        f"obsidian_import: {import_mode}",
         f"paper_id: {yaml_scalar(paper_id(record))}",
         f"title: {yaml_scalar(paper_title(record))}",
         f"year: {yaml_scalar(record_year(record))}",
@@ -234,7 +256,9 @@ def paper_frontmatter(record: dict[str, Any], topics: list[str], collections: li
         f"url: {yaml_scalar(record.get('url', ''))}",
         f"source_types: {yaml_list(coerce_list(record.get('source_types')))}",
         f"zotero_collections: {yaml_list(collections)}",
+        f"zotero_collections_raw: {yaml_list(collections)}",
         f"graph_topics: {yaml_list(topics)}",
+        f"graph_concepts: {yaml_list(concept_values)}",
         f"tags: {yaml_list(coerce_list(record.get('tags')))}",
         "---",
         "",
@@ -299,13 +323,14 @@ def render_node_note(
     description: str,
     papers: list[dict[str, Any]],
     max_papers: int,
+    import_mode: str = UNIVERSE_IMPORT_MODE,
 ) -> str:
     lines = [
         "---",
         f"type: {node_type}",
         "generated: true",
         "source_tool: scholar-alert-reader",
-        f"obsidian_import: {GRAPH_IMPORT_MODE}",
+        f"obsidian_import: {import_mode}",
         f"node_id: {yaml_scalar(node_id)}",
         f"title: {yaml_scalar(title)}",
         f"paper_count: {len(papers)}",
@@ -377,7 +402,7 @@ def render_overlap_report(candidates: list[dict[str, Any]]) -> str:
         "type: overlap_report",
         "generated: true",
         "source_tool: scholar-alert-reader",
-        f"obsidian_import: {GRAPH_IMPORT_MODE}",
+        f"obsidian_import: {UNIVERSE_IMPORT_MODE}",
         "---",
         "",
         "# Possible Scholar Alert / Zotero Overlaps",
@@ -406,6 +431,8 @@ def render_index(
     include_authors: bool,
     author_counts: Counter[str],
     possible_overlaps: int,
+    import_mode: str = UNIVERSE_IMPORT_MODE,
+    title: str = "Paper Universe Graph",
 ) -> str:
     source_counts = Counter()
     for record in records:
@@ -415,11 +442,11 @@ def render_index(
         "type: literature_graph_index",
         "generated: true",
         "source_tool: scholar-alert-reader",
-        f"obsidian_import: {GRAPH_IMPORT_MODE}",
+        f"obsidian_import: {import_mode}",
         f"paper_count: {len(records)}",
         "---",
         "",
-        "# Paper Universe Graph",
+        f"# {title}",
         "",
         f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"- Papers: {len(records)}",
@@ -454,16 +481,360 @@ def render_index(
     return "\n".join(lines)
 
 
+def load_taxonomy(path: Path | None) -> dict[str, Any]:
+    if not path:
+        return {}
+    path = path.expanduser()
+    if not path.exists():
+        raise SystemExit(f"Cannot find knowledge graph taxonomy: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit(f"Taxonomy must be a JSON object: {path}")
+    return data
+
+
+def record_search_text(record: dict[str, Any]) -> str:
+    parts: list[str] = [
+        paper_title(record),
+        str(record.get("abstract") or ""),
+        str(record.get("snippet") or ""),
+        str(record.get("venue") or ""),
+        " ".join(str(item) for item in coerce_list(record.get("tags"))),
+        " ".join(str(item) for item in coerce_list(record.get("matched_terms"))),
+        " ".join(str(item) for item in coerce_list(record.get("zotero_collections"))),
+    ]
+    return " ".join(parts).lower()
+
+
+def taxonomy_concepts(taxonomy: dict[str, Any]) -> list[dict[str, Any]]:
+    concepts = taxonomy.get("concepts", [])
+    if not isinstance(concepts, list):
+        return []
+    output: list[dict[str, Any]] = []
+    for item in concepts:
+        if isinstance(item, dict) and (item.get("name") or item.get("id")):
+            output.append(item)
+    return output
+
+
+def concept_terms(concept: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for field in ["name", "aliases", "terms", "keywords"]:
+        for value in coerce_list(concept.get(field)):
+            text_value = str(value).strip().lower()
+            if len(text_value) >= 3 and text_value not in values:
+                values.append(text_value)
+    return values
+
+
+def collection_terms(concept: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for field in ["collections", "zotero_collections", "collection_aliases"]:
+        for value in coerce_list(concept.get(field)):
+            text_value = str(value).strip().lower()
+            if text_value and text_value not in values:
+                values.append(text_value)
+    return values
+
+
+def taxonomy_excluded(record: dict[str, Any], taxonomy: dict[str, Any]) -> bool:
+    text_blob = record_search_text(record)
+    for term in coerce_list(taxonomy.get("exclude_terms")):
+        cleaned = str(term).strip().lower()
+        if cleaned and cleaned in text_blob:
+            return True
+    return False
+
+
+def match_concepts(record: dict[str, Any], concepts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    text_blob = record_search_text(record)
+    collection_blob = " | ".join(str(item).lower() for item in coerce_list(record.get("zotero_collections")))
+    matched: list[dict[str, Any]] = []
+    for concept in concepts:
+        term_hit = any(term in text_blob for term in concept_terms(concept))
+        collection_hit = any(term in collection_blob for term in collection_terms(concept))
+        if term_hit or collection_hit:
+            matched.append(concept)
+    return matched
+
+
+def research_record_priority(record: dict[str, Any]) -> tuple[int, float, str]:
+    status = str(record.get("feedback_status", "")).lower()
+    reading_status = str(record.get("reading_status", "")).lower()
+    tier = str(record.get("tier", "")).lower()
+    if status == "interested":
+        priority = 0
+    elif reading_status in {"reading", "read", "must-cite", "method-reference", "method-ref"}:
+        priority = 1
+    elif tier == "must read":
+        priority = 2
+    elif tier == "skim":
+        priority = 3
+    else:
+        priority = 4
+    try:
+        score = float(record.get("score", 0) or 0)
+    except (TypeError, ValueError):
+        score = 0.0
+    return (priority, -score, paper_title(record).lower())
+
+
+def research_records(
+    records: list[dict[str, Any]],
+    taxonomy: dict[str, Any],
+    *,
+    min_concepts: int,
+) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+    concepts = taxonomy_concepts(taxonomy)
+    if not concepts:
+        raise SystemExit("Research graph mode needs a taxonomy with at least one concept.")
+    selected: list[dict[str, Any]] = []
+    paper_concepts: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        if taxonomy_excluded(record, taxonomy):
+            continue
+        matched = match_concepts(record, concepts)
+        if len(matched) < min_concepts:
+            continue
+        selected.append(record)
+        paper_concepts[paper_id(record)] = matched
+    selected.sort(key=research_record_priority)
+    return selected, paper_concepts
+
+
+def render_research_paper_note(record: dict[str, Any], concepts: list[dict[str, Any]]) -> str:
+    title = paper_title(record)
+    venue = record_venue(record)
+    year = record_year(record)
+    collections = [str(item) for item in coerce_list(record.get("zotero_collections")) if str(item).strip()]
+    concept_names = [str(concept.get("name") or concept.get("id")) for concept in concepts]
+    pdfs = local_pdf_links(record)
+    lines = paper_frontmatter(
+        record,
+        [],
+        collections,
+        import_mode=RESEARCH_IMPORT_MODE,
+        concepts=concept_names,
+    ) + [
+        f"# {title}",
+        "",
+        "## Knowledge Links",
+        "",
+        "- Concepts: " + ", ".join(wikilink(concept_note_name(concept), str(concept.get("name") or concept.get("id"))) for concept in concepts),
+        "",
+        "## Metadata",
+        "",
+        f"- Year: {year or 'unknown'}",
+        f"- Venue: {venue or 'unknown'}",
+        f"- DOI: {record.get('doi') or 'not found'}",
+        f"- URL: {record.get('url') or 'not found'}",
+        f"- Sources: {', '.join(str(item) for item in coerce_list(record.get('source_types'))) or 'unknown'}",
+        f"- Tier / score: {record.get('tier', 'unknown')} / {record.get('score', 0)}",
+        f"- Local PDF: {', '.join(pdfs) if pdfs else 'not linked'}",
+        "",
+        "### Zotero provenance",
+        "",
+    ]
+    if collections:
+        lines.extend(f"- `{collection}`" for collection in collections)
+    else:
+        lines.append("- not linked to a Zotero collection")
+    lines.extend(
+        [
+            "",
+            "## Abstract",
+            "",
+            str(record.get("abstract") or record.get("snippet") or "No abstract/snippet available."),
+            "",
+            "## My Notes",
+            "",
+            "- ",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def render_research_concept_note(concept: dict[str, Any], papers: list[dict[str, Any]], max_papers: int) -> str:
+    name = str(concept.get("name") or concept.get("id") or "Concept")
+    concept_type = str(concept.get("type") or "concept")
+    description = str(concept.get("description") or "Curated research concept from the local taxonomy.")
+    aliases = [str(item) for item in coerce_list(concept.get("aliases")) if str(item).strip()]
+    lines = [
+        "---",
+        "type: research_concept",
+        "generated: true",
+        "source_tool: scholar-alert-reader",
+        f"obsidian_import: {RESEARCH_IMPORT_MODE}",
+        f"concept_id: {yaml_scalar(concept.get('id') or name)}",
+        f"concept_type: {yaml_scalar(concept_type)}",
+        f"title: {yaml_scalar(name)}",
+        f"aliases: {yaml_list(aliases)}",
+        f"paper_count: {len(papers)}",
+        "---",
+        "",
+        f"# {name}",
+        "",
+        f"- Type: `{concept_type}`",
+        f"- Papers: {len(papers)}",
+        "",
+        "## Scope",
+        "",
+        description,
+        "",
+        "## Papers",
+        "",
+    ]
+    for record in sorted(papers, key=research_record_priority)[:max_papers]:
+        year = record_year(record)
+        suffix = f" ({year})" if year else ""
+        lines.append(f"- {wikilink(paper_note_name(record), paper_title(record))}{suffix} · {record.get('tier', '')} · score {record.get('score', 0)}")
+    if len(papers) > max_papers:
+        lines.append(f"- ... {len(papers) - max_papers} more papers omitted from this concept note.")
+    return "\n".join(lines)
+
+
+def render_research_index(records: list[dict[str, Any]], concept_papers: dict[str, list[dict[str, Any]]], taxonomy_path: Path | None) -> str:
+    source_counts = Counter()
+    for record in records:
+        source_counts.update(str(item) for item in coerce_list(record.get("source_types")) if str(item).strip())
+    lines = [
+        "---",
+        "type: research_graph_index",
+        "generated: true",
+        "source_tool: scholar-alert-reader",
+        f"obsidian_import: {RESEARCH_IMPORT_MODE}",
+        f"paper_count: {len(records)}",
+        "---",
+        "",
+        "# Research Knowledge Graph",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"- Papers: {len(records)}",
+        f"- Concepts: {len(concept_papers)}",
+        f"- Taxonomy: `{taxonomy_path}`" if taxonomy_path else "- Taxonomy: inline/default",
+        "",
+        "This graph is concept-first. Zotero subcollections are preserved as provenance in paper frontmatter, but they are not graph nodes.",
+        "",
+        "## Source Mix",
+        "",
+    ]
+    for source, count in source_counts.most_common():
+        lines.append(f"- {source}: {count}")
+    lines.extend(["", "## Concepts", ""])
+    for note_name, papers in sorted(concept_papers.items(), key=lambda item: (-len(item[1]), item[0].lower())):
+        lines.append(f"- {wikilink(note_name)} · {len(papers)}")
+    return "\n".join(lines)
+
+
+def export_research_graph(
+    records: list[dict[str, Any]],
+    export_dir: Path,
+    *,
+    taxonomy: dict[str, Any],
+    taxonomy_path: Path | None = None,
+    limit: int = 0,
+    min_concepts: int = 1,
+    max_papers_per_node: int = 80,
+    prune: bool = True,
+) -> ObsidianGraphExportResult:
+    export_dir = export_dir.expanduser()
+    export_dir.mkdir(parents=True, exist_ok=True)
+    if prune:
+        prune_previous_export(export_dir)
+    selected, paper_concepts = research_records(records, taxonomy, min_concepts=min_concepts)
+    if limit > 0:
+        selected = selected[:limit]
+    selected_ids = {paper_id(record) for record in selected}
+    paper_concepts = {pid: concepts for pid, concepts in paper_concepts.items() if pid in selected_ids}
+
+    concept_papers: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    concept_lookup: dict[str, dict[str, Any]] = {}
+    for record in selected:
+        for concept in paper_concepts.get(paper_id(record), []):
+            note_name = concept_note_name(concept)
+            concept_papers[note_name].append(record)
+            concept_lookup[note_name] = concept
+
+    generated_files: list[Path] = []
+    for record in selected:
+        path = export_dir / "01_Papers" / f"{paper_note_name(record)}.md"
+        write_note(path, render_research_paper_note(record, paper_concepts.get(paper_id(record), [])), generated_files, export_dir)
+
+    for note_name, papers in concept_papers.items():
+        path = export_dir / "02_Concepts" / f"{note_name}.md"
+        write_note(
+            path,
+            render_research_concept_note(concept_lookup[note_name], papers, max_papers_per_node),
+            generated_files,
+            export_dir,
+        )
+
+    index_path = export_dir / "00_Index" / "Research Knowledge Graph.md"
+    write_note(index_path, render_research_index(selected, concept_papers, taxonomy_path), generated_files, export_dir)
+    overlap_path = export_dir / "00_Index" / "Possible Scholar Zotero Overlaps.md"
+    overlap_candidates = possible_zotero_scholar_overlaps(selected)
+    write_note(overlap_path, render_overlap_report(overlap_candidates).replace(UNIVERSE_IMPORT_MODE, RESEARCH_IMPORT_MODE), generated_files, export_dir)
+
+    manifest = export_dir / GRAPH_MANIFEST
+    manifest.write_text(
+        json.dumps(
+            {
+                "marker": "scholar-alert-reader:obsidian-graph-generated",
+                "generated_at": datetime.now().isoformat(timespec="seconds"),
+                "files": [str(path) for path in generated_files],
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return ObsidianGraphExportResult(
+        export_dir=export_dir,
+        paper_notes=len(selected),
+        collection_notes=0,
+        topic_notes=0,
+        venue_notes=0,
+        author_notes=0,
+        possible_overlaps=len(overlap_candidates),
+        manifest=manifest,
+        index=index_path,
+        overlap_report=overlap_path,
+        graph_mode="research",
+        concept_notes=len(concept_papers),
+    )
+
+
 def export_obsidian_graph(
     records: list[dict[str, Any]],
     export_dir: Path,
     *,
+    graph_mode: str = "universe",
+    taxonomy: dict[str, Any] | None = None,
+    taxonomy_path: Path | None = None,
     limit: int = 0,
     include_authors: bool = False,
     author_limit: int = 300,
     max_papers_per_node: int = 80,
+    min_concepts: int = 1,
     prune: bool = True,
 ) -> ObsidianGraphExportResult:
+    graph_mode = (graph_mode or "universe").strip().lower()
+    if graph_mode == "research":
+        return export_research_graph(
+            records,
+            export_dir,
+            taxonomy=taxonomy or {},
+            taxonomy_path=taxonomy_path,
+            limit=limit,
+            min_concepts=min_concepts,
+            max_papers_per_node=max_papers_per_node,
+            prune=prune,
+        )
+    if graph_mode != "universe":
+        raise SystemExit("Unsupported graph mode. Use 'universe' or 'research'.")
+
     export_dir = export_dir.expanduser()
     export_dir.mkdir(parents=True, exist_ok=True)
     if prune:

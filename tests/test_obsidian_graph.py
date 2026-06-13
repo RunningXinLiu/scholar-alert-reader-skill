@@ -70,6 +70,63 @@ class ObsidianGraphTests(unittest.TestCase):
             self.assertTrue(user_file.exists())
             self.assertEqual(len(sorted((export_dir / "01_Papers").glob("Paper - *.md"))), 1)
 
+    def test_research_graph_uses_curated_concepts_not_collection_nodes(self) -> None:
+        records = [
+            {
+                "paper_id": "p1",
+                "title": "Surface wave tomography with neural operators",
+                "abstract": "A method for surface wave inversion with neural operators.",
+                "year": 2026,
+                "venue": "Geophysical Journal International",
+                "source_types": ["zotero"],
+                "zotero_collections": ["Papers/Natural_earthquake_papers/surfacewave details"],
+                "tags": ["tomography"],
+                "tier": "Must read",
+                "score": 17,
+            },
+            {
+                "paper_id": "p2",
+                "title": "Unrelated paper",
+                "abstract": "No graph concept appears here.",
+                "source_types": ["zotero"],
+                "zotero_collections": ["Papers/Newly downloaded"],
+                "tier": "Archive",
+                "score": 0,
+            },
+        ]
+        taxonomy = {
+            "concepts": [
+                {
+                    "id": "surface-wave-tomography",
+                    "name": "Surface Wave Tomography",
+                    "type": "method",
+                    "aliases": ["surface wave inversion"],
+                    "terms": ["surface wave tomography", "surface wave inversion"],
+                    "collections": ["surfacewave details"],
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            export_dir = Path(tmp) / "21_Research_Knowledge_Graph"
+            result = export_obsidian_graph(records, export_dir, graph_mode="research", taxonomy=taxonomy)
+
+            self.assertEqual(result.graph_mode, "research")
+            self.assertEqual(result.paper_notes, 1)
+            self.assertEqual(result.concept_notes, 1)
+            self.assertFalse((export_dir / "02_Collections").exists())
+            self.assertFalse((export_dir / "04_Venues").exists())
+
+            paper_text = next((export_dir / "01_Papers").glob("Paper - *.md")).read_text(encoding="utf-8")
+            self.assertIn("obsidian_import: research_knowledge_graph", paper_text)
+            self.assertIn("zotero_collections_raw:", paper_text)
+            self.assertIn("Papers/Natural_earthquake_papers/surfacewave details", paper_text)
+            self.assertIn("[[Concept - Surface Wave Tomography", paper_text)
+            self.assertNotIn("[[Collection -", paper_text)
+            self.assertNotIn("[[Venue -", paper_text)
+
+            index = (export_dir / "00_Index" / "Research Knowledge Graph.md").read_text(encoding="utf-8")
+            self.assertIn("[[Concept - Surface Wave Tomography", index)
+
 
 if __name__ == "__main__":
     unittest.main()

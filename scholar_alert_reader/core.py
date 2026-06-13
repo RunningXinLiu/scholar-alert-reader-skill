@@ -7716,25 +7716,33 @@ def zotero_collections_command(args: argparse.Namespace) -> None:
 
 
 def obsidian_graph_command(args: argparse.Namespace) -> None:
-    from .obsidian_graph import export_obsidian_graph
+    from .obsidian_graph import export_obsidian_graph, load_taxonomy
 
     kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
     universe_path = args.universe or (kb_dir / "paper_universe.jsonl")
     export_dir = args.vault_dir or (kb_dir / "obsidian_graph")
     records = paper_universe_records(universe_path)
+    taxonomy_path = args.taxonomy
+    taxonomy = load_taxonomy(taxonomy_path) if taxonomy_path else {}
     result = export_obsidian_graph(
         records,
         export_dir,
+        graph_mode=args.graph_mode,
+        taxonomy=taxonomy,
+        taxonomy_path=taxonomy_path,
         limit=args.limit,
         include_authors=args.include_authors,
         author_limit=args.author_limit,
         max_papers_per_node=args.max_papers_per_node,
+        min_concepts=args.min_concepts,
         prune=not args.no_prune,
     )
+    print(f"Graph mode: {result.graph_mode}")
     print(f"Obsidian graph export: {result.export_dir}")
     print(f"Paper notes: {result.paper_notes}")
     print(f"Collection notes: {result.collection_notes}")
     print(f"Topic notes: {result.topic_notes}")
+    print(f"Concept notes: {result.concept_notes}")
     print(f"Venue notes: {result.venue_notes}")
     print(f"Author notes: {result.author_notes}")
     print(f"Possible overlap candidates: {result.possible_overlaps}")
@@ -11111,7 +11119,15 @@ def build_parser() -> argparse.ArgumentParser:
     obsidian_graph.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
     obsidian_graph.add_argument("--universe", type=Path, help="Paper universe JSONL. Defaults to kb-dir/paper_universe.jsonl")
     obsidian_graph.add_argument("--vault-dir", type=Path, help="Dedicated Obsidian graph folder. Defaults to kb-dir/obsidian_graph")
+    obsidian_graph.add_argument(
+        "--graph-mode",
+        choices=["universe", "research"],
+        default="universe",
+        help="`universe` exports paper/collection/topic/venue nodes; `research` exports curated concept nodes from --taxonomy.",
+    )
+    obsidian_graph.add_argument("--taxonomy", type=Path, help="Knowledge graph taxonomy JSON for research mode")
     obsidian_graph.add_argument("--limit", type=int, default=0, help="Limit paper notes; 0 exports all records")
+    obsidian_graph.add_argument("--min-concepts", type=int, default=1, help="Research mode: minimum matched concepts required for a paper")
     obsidian_graph.add_argument("--include-authors", action="store_true", help="Also generate author nodes. Disabled by default to keep the graph readable")
     obsidian_graph.add_argument("--author-limit", type=int, default=300, help="Maximum author nodes when --include-authors is set")
     obsidian_graph.add_argument("--max-papers-per-node", type=int, default=80, help="Maximum linked papers listed inside each collection/topic/venue/author note")
