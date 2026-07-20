@@ -1138,6 +1138,19 @@ Boundary guidance:
 - Generated clean notes avoid automatic `[[wikilinks]]`; they use tags and normal Markdown links.
 - Dashboard/index/search files remain useful for this tool, but should not dominate your personal knowledge graph by default.
 
+Review fuzzy Scholar Alert / Zotero duplicates before any merge:
+
+```bash
+python3 scripts/scholar_reader.py duplicate-report \
+  --kb-dir knowledge_base \
+  --title-threshold 0.72 \
+  --year-tolerance 2
+```
+
+This reads `knowledge_base/paper_universe.jsonl` and writes a local Markdown report plus `knowledge_base/graph/fuzzy_duplicate_candidates.jsonl`. Candidates are blocked and ranked using fuzzy title similarity, compatible publication years, first-author surnames, and matching DOIs when present. Records already carrying both source types are excluded from the cross-source review.
+
+The JSONL file is an explicit review worksheet: set `review_status` to `reviewed`, choose `review_decision` from `same-work`, `distinct-works`, or `unsure`, and optionally add `review_notes`. Regenerating the report preserves decisions for stable candidate IDs. The command never merges or modifies `paper_universe.jsonl`; applying a merge remains a separate, deliberate future operation.
+
 Private Obsidian paper-universe graph:
 
 Use this only when you intentionally want a private Obsidian knowledge graph from `paper_universe.jsonl`. It writes generated wikilink notes into a dedicated vault folder, separate from the clean reading inbox and separate from anything you publish to GitHub.

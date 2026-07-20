@@ -7552,6 +7552,67 @@ def write_paper_universe_records(path: Path, records: list[dict[str, Any]]) -> N
     )
 
 
+def duplicate_report_command(args: argparse.Namespace) -> None:
+    from .duplicates import (
+        carry_forward_reviews,
+        find_duplicate_candidates,
+        render_duplicate_report,
+        source_pair_counts,
+        write_duplicate_candidates,
+    )
+
+    if not 0.0 <= args.title_threshold <= 1.0:
+        raise SystemExit("--title-threshold must be between 0 and 1")
+    if args.year_tolerance < 0:
+        raise SystemExit("--year-tolerance must be non-negative")
+    if args.limit < 0:
+        raise SystemExit("--limit must be non-negative")
+
+    kb_dir = args.kb_dir or default_kb_dir(args.profile, Path("out"))
+    universe_path = args.universe or (kb_dir / "paper_universe.jsonl")
+    graph_dir = kb_dir / "graph"
+    report_path = args.output or (graph_dir / "fuzzy_duplicate_report.md")
+    worksheet_path = args.json_output or (graph_dir / "fuzzy_duplicate_candidates.jsonl")
+    records = paper_universe_records(universe_path)
+    candidates = carry_forward_reviews(
+        worksheet_path,
+        find_duplicate_candidates(
+            records,
+            left_source=args.left_source,
+            right_source=args.right_source,
+            title_threshold=args.title_threshold,
+            year_tolerance=args.year_tolerance,
+            limit=args.limit,
+        ),
+    )
+    left_count, right_count = source_pair_counts(records, args.left_source, args.right_source)
+    report = render_duplicate_report(
+        candidates,
+        universe_path=universe_path,
+        total_records=len(records),
+        left_source=args.left_source,
+        right_source=args.right_source,
+        left_records=left_count,
+        right_records=right_count,
+        title_threshold=args.title_threshold,
+        year_tolerance=args.year_tolerance,
+    )
+    write_report(report_path, report)
+    write_duplicate_candidates(worksheet_path, candidates)
+
+    confidence_counts = Counter(str(item.get("confidence", "low")) for item in candidates)
+    print(f"Universe records: {len(records)}")
+    print(f"Source pair: {args.left_source} ({left_count}) <-> {args.right_source} ({right_count})")
+    print(f"Duplicate candidates: {len(candidates)}")
+    print(
+        "Confidence: "
+        f"high {confidence_counts['high']} / medium {confidence_counts['medium']} / low {confidence_counts['low']}"
+    )
+    print("No paper-universe records were merged or modified.")
+    print(f"Review report: {report_path}")
+    print(f"Review worksheet: {worksheet_path}")
+
+
 def zotero_keys_for_universe_record(record: dict[str, Any]) -> set[str]:
     keys: set[str] = set()
     for value in [
@@ -11097,6 +11158,23 @@ def build_parser() -> argparse.ArgumentParser:
     zotero_sync.add_argument("--bibtex", type=Path, required=True, help="Better BibTeX/BibTeX export from Zotero")
     zotero_sync.add_argument("--report", type=Path, help="Markdown report path. Defaults to kb-dir/zotero/zotero_sync.md")
     zotero_sync.set_defaults(func=sync_zotero_command)
+
+    duplicate_report = sub.add_parser(
+        "duplicate-report",
+        aliases=["fuzzy-duplicates"],
+        help="Write a review-only fuzzy duplicate report for two paper-universe sources",
+    )
+    duplicate_report.add_argument("--profile", type=Path, help="Optional profile path used to infer the knowledge-base directory")
+    duplicate_report.add_argument("--kb-dir", type=Path, help="Knowledge-base directory. Defaults to profile parent/knowledge_base")
+    duplicate_report.add_argument("--universe", type=Path, help="Paper universe JSONL. Defaults to kb-dir/paper_universe.jsonl")
+    duplicate_report.add_argument("--left-source", default="scholar_alert", help="Left source type to review")
+    duplicate_report.add_argument("--right-source", default="zotero", help="Right source type to review")
+    duplicate_report.add_argument("--title-threshold", type=float, default=0.72, help="Minimum fuzzy title score from 0 to 1")
+    duplicate_report.add_argument("--year-tolerance", type=int, default=2, help="Maximum publication-year difference")
+    duplicate_report.add_argument("--limit", type=int, default=500, help="Maximum candidates after confidence sorting; 0 means no limit")
+    duplicate_report.add_argument("--output", type=Path, help="Markdown report. Defaults to kb-dir/graph/fuzzy_duplicate_report.md")
+    duplicate_report.add_argument("--json-output", type=Path, help="JSONL review worksheet. Defaults to kb-dir/graph/fuzzy_duplicate_candidates.jsonl")
+    duplicate_report.set_defaults(func=duplicate_report_command)
 
     zotero_collections = sub.add_parser(
         "zotero-collections",

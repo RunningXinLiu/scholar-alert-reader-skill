@@ -33,7 +33,8 @@ Core rule: reduce noise before summarizing. Extract, dedupe, score against the u
 13. Use `schedule` / `schedule_reader.sh` when the user wants local automation from saved `SCHEDULE_TIME` / `SCHEDULE_DAYS`: write first, install only on macOS after source-check passes.
 14. Use `reading-plan`, `evidence`, `explain-ranking`, `ranking-eval`, `embedding-check`, `semantic-rerank`, `deep-read`, `workup`, `fetch-pdf`, `full-text`, `review-workflow`, `review-pack`, `review-queue`, `ask`, and `advice` to turn the retained library into a personal literature copilot.
 15. Use `status`, `compare`, and `map` to track reading state, compare papers, and see the research landscape.
-16. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `privacy-check`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems or preparing public reports.
+16. Use `duplicate-report` to generate a review-only fuzzy Scholar Alert/Zotero candidate list from `paper_universe.jsonl`. Preserve human decisions across reruns and never infer permission to merge records.
+17. Use `capabilities` when the user asks what the tool can/cannot do, `zotero`, `obsidian`, or `export` for external-tool handoff, `guide` for product-oriented setup/status guidance, and `source-check`, `doctor`, `privacy-check`, `support-bundle`, plus `TROUBLESHOOTING.md` when diagnosing local setup problems or preparing public reports.
 
 Platform rule: Gmail API, exported mbox, BibTeX/RIS, structured webpage metadata, RSS/Atom, and arXiv work cross-platform; Mail.app and LaunchAgent automation are macOS-only. Do not imply Obsidian or Zotero are required.
 
@@ -83,6 +84,8 @@ Capability boundary: ranking and literature-copilot commands start from alert me
 - `knowledge_base/comparisons/*.md`: side-by-side paper comparisons.
 - `knowledge_base/research_map.md`: topic clusters and representative papers.
 - `knowledge_base/zotero/`: Zotero-ready BibTeX/RIS files.
+- `knowledge_base/graph/fuzzy_duplicate_report.md`: review-only cross-source duplicate candidates with title, year, author, and DOI evidence.
+- `knowledge_base/graph/fuzzy_duplicate_candidates.jsonl`: editable duplicate-review worksheet whose explicit human decisions are preserved across report regeneration.
 - `knowledge_base/obsidian/` or a chosen vault inbox folder: Obsidian-ready Markdown paper notes. Export defaults to `clean`, which writes only selected `Must read` / explicitly `interested` paper notes under `01_Papers/`. Use `--obsidian-mode full` only when you intentionally want generated dashboards, maps, reading status, answers, comparisons, deep reads, and generated indexes in that target folder.
 
 `zotero-sync` can read a Better BibTeX/BibTeX export back into `knowledge_base/library.json` so retained papers keep Zotero citation keys, item keys, and local PDF paths under `metadata.zotero`.
@@ -594,6 +597,17 @@ python3 scripts/scholar_reader.py zotero-sync \
   --kb-dir knowledge_base \
   --bibtex ~/Downloads/My_Library.bib
 ```
+
+Generate a review-only fuzzy duplicate worksheet for the unified paper universe:
+
+```bash
+python3 scripts/scholar_reader.py duplicate-report \
+  --kb-dir knowledge_base \
+  --title-threshold 0.72 \
+  --year-tolerance 2
+```
+
+The command compares source-exclusive Scholar Alert and Zotero records by default, writes Markdown and JSONL under `knowledge_base/graph/`, and never changes `paper_universe.jsonl`. Reviewers can set `review_status` to `reviewed`, choose `review_decision` from `same-work`, `distinct-works`, or `unsure`, and add notes; stable candidate decisions survive reruns.
 
 ```bash
 python3 scripts/scholar_reader.py obsidian \

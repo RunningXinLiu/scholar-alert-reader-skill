@@ -16,6 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .duplicates import find_duplicate_candidates
+
 
 UNIVERSE_IMPORT_MODE = "paper_universe_graph"
 RESEARCH_IMPORT_MODE = "research_knowledge_graph"
@@ -352,48 +354,18 @@ def render_node_note(
     return "\n".join(lines)
 
 
-def normalize_title(value: str) -> str:
-    return " ".join(re.findall(r"[a-z0-9]+", value.lower()))
-
-
-def title_similarity(a: str, b: str) -> float:
-    a_tokens = set(normalize_title(a).split())
-    b_tokens = set(normalize_title(b).split())
-    if not a_tokens or not b_tokens:
-        return 0.0
-    return len(a_tokens & b_tokens) / len(a_tokens | b_tokens)
-
-
 def possible_zotero_scholar_overlaps(records: list[dict[str, Any]], threshold: float = 0.82, limit: int = 120) -> list[dict[str, Any]]:
-    scholar = [record for record in records if "scholar_alert" in set(coerce_list(record.get("source_types"))) and "zotero" not in set(coerce_list(record.get("source_types")))]
-    zotero = [record for record in records if "zotero" in set(coerce_list(record.get("source_types"))) and "scholar_alert" not in set(coerce_list(record.get("source_types")))]
-    by_first_token: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for record in zotero:
-        tokens = normalize_title(paper_title(record)).split()
-        if tokens:
-            by_first_token[tokens[0]].append(record)
-    candidates: list[dict[str, Any]] = []
-    for record in scholar:
-        tokens = normalize_title(paper_title(record)).split()
-        if not tokens:
-            continue
-        for other in by_first_token.get(tokens[0], []):
-            score = title_similarity(paper_title(record), paper_title(other))
-            if score < threshold:
-                continue
-            year_a = record_year(record)
-            year_b = record_year(other)
-            if year_a and year_b and abs(int(year_a) - int(year_b)) > 2:
-                continue
-            candidates.append(
-                {
-                    "score": round(score, 3),
-                    "scholar": record,
-                    "zotero": other,
-                }
-            )
-    candidates.sort(key=lambda item: (-float(item["score"]), paper_title(item["scholar"]).lower()))
-    return candidates[:limit]
+    candidates = find_duplicate_candidates(records, title_threshold=threshold, year_tolerance=2, limit=limit)
+    return [
+        {
+            "score": item["evidence"]["score"],
+            "confidence": item["confidence"],
+            "evidence": item["evidence"],
+            "scholar": item["left"],
+            "zotero": item["right"],
+        }
+        for item in candidates
+    ]
 
 
 def render_overlap_report(candidates: list[dict[str, Any]]) -> str:
@@ -413,12 +385,20 @@ def render_overlap_report(candidates: list[dict[str, Any]]) -> str:
     if not candidates:
         lines.append("- No high-confidence title overlaps found.")
         return "\n".join(lines)
-    lines.extend(["| Similarity | Scholar Alert paper | Zotero paper |", "|---:|---|---|"])
+    lines.extend(["| Similarity | Confidence | Scholar Alert paper | Zotero paper | Evidence |", "|---:|---|---|---|---|"])
     for item in candidates:
         scholar = item["scholar"]
         zotero = item["zotero"]
+        evidence = item.get("evidence", {})
+        details: list[str] = []
+        if evidence.get("first_author_match") is True:
+            details.append("first author matches")
+        if evidence.get("year_match") is True:
+            details.append("year compatible")
+        if evidence.get("doi_match"):
+            details.append("DOI matches")
         lines.append(
-            f"| {item['score']:.3f} | {wikilink(paper_note_name(scholar), paper_title(scholar))} | {wikilink(paper_note_name(zotero), paper_title(zotero))} |"
+            f"| {item['score']:.3f} | {item.get('confidence', 'review')} | {wikilink(paper_note_name(scholar), paper_title(scholar))} | {wikilink(paper_note_name(zotero), paper_title(zotero))} | {', '.join(details) or 'title only'} |"
         )
     return "\n".join(lines)
 
